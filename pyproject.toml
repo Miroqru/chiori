@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pykb5-ds"
+version = "0.1.0"
+description = "Nulti-functional discord bot for PytKB5 server"
+authors = ["Milinuri Nirvalen <pentergust@mail.ru>"]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+disnake = "^2.9.1"
+loguru = "^0.7.2"
+aiosqlite = "^0.20.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.3.4"
+isort = "^5.13.2"
+icecream = "^2.1.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
