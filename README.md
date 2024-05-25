@@ -1,3 +1,6 @@
-# pytkb5-ds
+# Chiori Cord
 
-Multi-functional Discord bot for PytKB-5 server.
+> Возрождение проекта Chiori.
+> На этот раз для **Discord** серверов.
+
+Многофункциональный дискорд бот для вашего сервера.
