@@ -1,13 +1,18 @@
-import disnake
-from disnake import Intents
-from disnake.ext.commands import Bot
+import re
+from pathlib import Path
+import logging
+
+import discord
+from discord import Intents
+from discord.ext import commands
 
 from loguru import logger
 
 from pytkb5 import config
 
 
-bot = Bot(command_prefix="!",
+bot = commands.Bot(
+    command_prefix=commands.when_mentioned_or("c!"),
     intents=Intents.all(),
 )
 
@@ -16,13 +21,10 @@ bot = Bot(command_prefix="!",
 async def on_ready():
     logger.success("Bot started!")
 
-
-@bot.command(description="Responds pong!")
-async def ping(
-    inter: disnake.ApplicationCommandInteraction
-) -> None:
-    await inter.send("pong!")
-
+@bot.command(description="Responds with 'World'")
+async def hello(ctx: commands.Context):
+    await ctx.send("Hello!")
 
 async def start_bot():
+    logging.basicConfig(level=logging.INFO)
     await bot.start(config.BOT_TOKEN)
