@@ -12,10 +12,9 @@ from chioricord import config
 from g4f.client import Client
 import g4f.Provider.Aichatos
 
-
-
+PREFIX = "c!"
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or("c!"),
+    command_prefix=commands.when_mentioned_or(PREFIX),
     intents=Intents.all(),
 )
 gpt_client = Client()
@@ -24,6 +23,15 @@ gpt_client = Client()
 @bot.event
 async def on_ready():
     logger.success("Bot started!")
+
+    logger.info("Set bot rich presence")
+    await bot.change_presence(
+        activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name="c!help to get help"
+        )
+    )
+
 
 @bot.command(description="Responds with 'World'")
 async def hello(ctx: commands.Context):
