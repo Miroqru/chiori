@@ -12,9 +12,9 @@ from chioricord import config
 from g4f.client import Client
 import g4f.Provider.Aichatos
 
-PREFIX = "c!"
+
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or(PREFIX),
+    command_prefix=commands.when_mentioned_or(config.BOT_PREFIX),
     intents=Intents.all(),
 )
 gpt_client = Client()
@@ -28,7 +28,7 @@ async def on_ready():
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
-            name="c!help to get help"
+            name=f"{config.BOT_PREFIX}help to get help"
         )
     )
 
