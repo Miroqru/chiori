@@ -1,13 +1,13 @@
 """Простой модуль для работы с цветовой палитрой.
 
 Author: Milinuri Nirvalen
-Version: v0.1 (1)
+Version: v0.2 (3)
 """
 
+import colorsys
 import re
 from random import randint
 from typing import NamedTuple
-from icecream import ic
 
 
 hexcolor_patter = re.compile(r'#[0-9a-f]{6}')
@@ -83,4 +83,17 @@ class Color(NamedTuple):
         :return: Цветовой hex-код.
         :rtype: str
         """
-        return f"#{hex(self.red)[2:]}{hex(self.green)[2:]}{hex(self.blue)[2:]}"
+        return f"#{hex(self.red)[2:]:0>2}{hex(self.green)[2:]:0>2}{hex(self.blue)[2:]:0>2}"
+
+    def to_hsv(self) -> tuple[int, int, int]:
+        """Преобразует RGB цвет в HSV."""
+        hsv = colorsys.rgb_to_hsv(
+            self.red/255,
+            self.green/255,
+            self.blue/255,
+        )
+        return (
+            round(hsv[0] * 360),
+            round(hsv[1] * 100),
+            round(hsv[2] * 100),
+        )
