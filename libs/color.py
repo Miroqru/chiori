@@ -1,7 +1,7 @@
 """Простой модуль для работы с цветовой палитрой.
 
 Author: Milinuri Nirvalen
-Version: v0.2 (7)
+Version: v0.2.1 (8)
 """
 
 import colorsys
@@ -9,13 +9,13 @@ import re
 from random import randint
 from typing import NamedTuple
 
-
 hexcolor_pattern = re.compile(r'#[0-9a-f]{6}')
 rgb_pattern = re.compile(r"rgb\((\d{0,3}),\s?(\d{0,3}),\s?(\d{0,3})\)")
 hsv_pattern = re.compile(r"hsv\((\d{0,3}),\s?(\d{0,3}),\s?(\d{0,3})\)")
 
 class ColorParseError(Exception):
     """Используется, когда не удалось получить цветовой код из строки."""
+
     pass
 
 
@@ -99,7 +99,7 @@ class Color(NamedTuple):
     blue: int
 
     @classmethod
-    def random(clt) -> "Color":
+    def random(cls) -> "Color":
         """Возвращает случайный цвет."""
         return Color(
             red = randint(1, 255),
@@ -173,7 +173,7 @@ class Color(NamedTuple):
 
 
     @classmethod
-    def parse_color(self, text: str) -> "Color":
+    def parse_color(cls, text: str) -> "Color":
         """Пытается получить цветовой код из строки.
 
         Просматривает строку на наличие RGB, hex, HSV кодов цвета.
@@ -221,7 +221,10 @@ class Color(NamedTuple):
         :return: Цветовой hex-код.
         :rtype: str
         """
-        return f"#{hex(self.red)[2:]:0>2}{hex(self.green)[2:]:0>2}{hex(self.blue)[2:]:0>2}"
+        r = hex(self.red)[2:]
+        g = hex(self.green)[2:]
+        b = hex(self.blue)[2:]
+        return f"#{r:0>2}{g:0>2}{b:0>2}"
 
     def to_hsv(self) -> tuple[int, int, int]:
         """Преобразует RGB цвет в HSV."""
@@ -235,13 +238,3 @@ class Color(NamedTuple):
             round(hsv[1] * 100),
             round(hsv[2] * 100),
         )
-
-if __name__ == "__main__":
-    c1 = Color.parse_color("#cc00cc")
-    ic(c1, c1.to_hsv(), c1.to_hex_code())
-
-    c2 = Color.parse_color("rgb(12, 0, 204)")
-    ic(c2, c2.to_hsv(), c2.to_hex_code())
-
-    c3 = Color.parse_color("hsv(300, 100, 80)")
-    ic(c3, c3.to_hsv(), c3.to_hex_code())
