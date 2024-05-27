@@ -7,7 +7,7 @@
 - color [hex]: получить информацию о цвете
 
 Author: Milinuri Nirvalen
-Verion: v0.1
+Verion: v0.2 (2)
 """
 
 import discord.colour
@@ -22,14 +22,16 @@ class ColorCog(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def color(self, ctx: commands.Context, color_code: str | None):
+    async def color(self, ctx: commands.Context, *, color_code: str | None):
         if color_code is None:
             color = Color.random()
         else:
             try:
-                color = Color.from_hex(color_code)
+                color = Color.parse_color(color_code)
             except ColorParseError as e:
-                return await ctx.send("Пример цветового кода: #ffccff")
+                return await ctx.send(
+                    "Пример цветового кода: #ffccff; rgb(12, 13, 14)"
+                )
 
         embed = discord.Embed(
             title="Информация о цвете",
@@ -48,8 +50,17 @@ class ColorCog(commands.Cog):
             inline=True
         )
 
+        hsv = color.to_hsv()
+        embed.add_field(
+            name="hsv",
+            value=f"{hsv[0]}, {hsv[1]}, {hsv[2]}",
+            inline=True
+        )
+
+
         embed.set_footer(text="Вы просто лапочка")
         await ctx.send(embed=embed)
+
 
 async def setup(bot: Bot):
     await bot.add_cog(ColorCog(bot))
