@@ -1,15 +1,20 @@
+"""Ядро бота ChioriCord.
+
+Используется для загрузки и запуска плагинов.
+
+Author: Mulinuri Nirvalen
+"""
+
+import logging
 import re
 from pathlib import Path
-import logging
 
 import discord
 from discord import Intents
 from discord.ext import commands
-
 from loguru import logger
 
 from chioricord import config
-
 
 # Глобальные переменные
 # =====================
@@ -26,6 +31,7 @@ COGS_PATH = Path("cogs/")
 
 @bot.event
 async def on_ready():
+    """Определяет поведение бота после запуска."""
     logger.success("Bot started!")
 
     logger.info("Set bot rich presence")
@@ -42,6 +48,7 @@ async def on_ready():
 
 @bot.command(description="Responds with 'World'")
 async def hello(ctx: commands.Context):
+    """Простая команда для ответа на сообщение."""
     await ctx.send("World!")
 
 
@@ -49,6 +56,12 @@ async def hello(ctx: commands.Context):
 # ===========
 
 async def start_bot():
+    """Функция для запуска бота.
+
+    Устанавливает логгирование.
+    Подгружает все плагины.
+    Запускаеет самого бота.
+    """
     logging.basicConfig(level=logging.INFO)
 
     # Простой загрузчик расширений
