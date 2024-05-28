@@ -3,6 +3,7 @@
 Используется для загрузки и запуска плагинов.
 
 Author: Mulinuri Nirvalen
+Verion: v0.3 (8)
 """
 
 import logging
@@ -41,6 +42,28 @@ async def on_ready():
             name=f"{config.BOT_PREFIX}help to get help"
         )
     )
+
+@bot.event
+async def on_command_error(
+    ctx: commands.Context,
+    error: commands.errors.CommandError
+):
+    """Обработка исключений при выполении команд."""
+    logger.error("Error while process command: {}, {}", ctx, error)
+
+    if isinstance(error, commands.errors.CommandNotFound):
+        await ctx.send(embed=discord.Embed(
+            title="❌ **Ошибка**",
+            description=f"**{ctx.author}**, Я не знаю такой команды.",
+            color=0xff2b20
+        ))
+
+    if isinstance(error, commands.errors.MissingPermissions):
+        await ctx.send(embed=discord.Embed(
+            title="❌ **Ошибка**",
+            description=f"**{ctx.author}**, у вас недостаточно прав для использования данной команды.",
+            color=0xff2b20
+        ))
 
 
 # Обработка команд
