@@ -41,19 +41,6 @@ async def event_handler(event: hikari.GuildMessageCreateEvent) -> None:
 # =================
 
 # @bot.event
-# async def on_ready():
-#     """Определяет поведение бота после запуска."""
-#     logger.success("Bot started!")
-
-#     logger.info("Set bot rich presence")
-#     await bot.change_presence(
-#         activity=discord.Activity(
-#             type=discord.ActivityType.watching,
-#             name=f"{config.BOT_PREFIX}help to get help"
-#         )
-#     )
-
-# @bot.event
 # async def on_command_error(
 #     ctx: commands.Context,
 #     error: commands.errors.CommandError
@@ -130,4 +117,13 @@ def start_bot():
     #         logger.info("Loaded cog: {}", p)
 
     # await bot.start(config.BOT_TOKEN)
-    bot.run()
+
+    # Устанавливаем активность бота
+    # "prefix для получение справки"
+    activity = hikari.presences.Activity(
+        name=f"для справки {config.BOT_PREFIX}help",
+        type=hikari.presences.ActivityType.PLAYING
+    )
+
+    # Запускаем бота
+    bot.run(activity=activity)
