@@ -6,6 +6,7 @@ Author: Mulinuri Nirvalen
 Verion: v0.3 (8)
 """
 
+import sys
 import logging
 import re
 from pathlib import Path
@@ -19,6 +20,16 @@ from chioricord import config
 # Глобальные переменные
 # =====================
 
+# Настраиваем формат отображения логов loguru
+# Обратите внимание что в проекте помимо loguru используется logging
+LOG_FORMAT = (
+    "<lvl>{level.icon}</>"
+    "<light-black>{time:YYYY-MM-DD HH:mm:ss.SSS}</>"
+    "{file}:{function}"
+    "<lvl>{message}</>"
+)
+
+# Директория откудла будут грузиться все расширения
 EXT_PATH = Path("exstensions/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
 dp = arc.GatewayClient(bot)
@@ -94,10 +105,15 @@ def start_bot():
     Подгружает все плагины.
     Запускаеет самого бота.
     """
-    logging.basicConfig(level=logging.INFO)
+    # Настройка логгеров
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        format=LOG_FORMAT
+    )
 
     # Простой загрузчик расширений
-    logger.info("Load plugins from {}", EXT_PATH)
+    _logger.info("Load plugins from {}", EXT_PATH)
     dp.load_extensions_from(EXT_PATH)
 
     # Устанавливаем активность бота
