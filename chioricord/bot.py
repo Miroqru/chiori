@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import hikari
+import arc
 from loguru import logger
 
 from chioricord import config
@@ -20,21 +21,19 @@ from chioricord import config
 
 COGS_PATH = Path("cogs/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
+dp = arc.GatewayClient(bot)
 
 
-@bot.listen()
-async def event_handler(event: hikari.GuildMessageCreateEvent) -> None:
-    """Обрабатываем входящие события..."""
-    logger.debug(event)
+@dp.include
+@arc.slash_command("nya", description="Скажи ня")
+async def nya_handler(
+    ctx: arc.GatewayContext,
+    member: arc.Option[hikari.Member, arc.MemberParams("Кого нужно някнуть")]
+) -> None:
+    """Первая няшная команда для бота.
 
-    # Отсеиваем сообщения от ботов / хуков
-    if not event.is_human:
-        return
-
-    me = bot.get_me()
-    if me.id in event.message.user_mentions_ids:
-        await event.message.respond("Кусь!")
-
+    Позвоялет някнуть участника, думаю это достаточно мило."""
+    await ctx.respond(f"Ня, {member.mention}")
 
 
 # Обработка событий
