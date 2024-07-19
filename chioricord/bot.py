@@ -19,21 +19,9 @@ from chioricord import config
 # Глобальные переменные
 # =====================
 
-COGS_PATH = Path("cogs/")
+EXT_PATH = Path("exstensions/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
 dp = arc.GatewayClient(bot)
-
-
-@dp.include
-@arc.slash_command("nya", description="Скажи ня")
-async def nya_handler(
-    ctx: arc.GatewayContext,
-    member: arc.Option[hikari.Member, arc.MemberParams("Кого нужно някнуть")]
-) -> None:
-    """Первая няшная команда для бота.
-
-    Позвоялет някнуть участника, думаю это достаточно мило."""
-    await ctx.respond(f"Ня, {member.mention}")
 
 
 # Обработка событий
@@ -109,13 +97,8 @@ def start_bot():
     logging.basicConfig(level=logging.INFO)
 
     # Простой загрузчик расширений
-    # logger.info("Load cogs from {}", COGS_PATH)
-    # for p in COGS_PATH.iterdir():
-    #     if re.match(r"^[^_].*\.py$", p.name):
-    #         await bot.load_extension(str(p).replace("/", ".")[:-3])
-    #         logger.info("Loaded cog: {}", p)
-
-    # await bot.start(config.BOT_TOKEN)
+    logger.info("Load plugins from {}", EXT_PATH)
+    dp.load_extensions_from(EXT_PATH)
 
     # Устанавливаем активность бота
     # "prefix для получение справки"
