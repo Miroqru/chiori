@@ -87,6 +87,7 @@ files = [
 
 [package.dependencies]
 aiosignal = ">=1.1.2"
+async-timeout = {version = ">=4.0,<5.0", markers = "python_version < \"3.11\""}
 attrs = ">=17.3.0"
 frozenlist = ">=1.1.1"
 multidict = ">=4.5,<7.0"
@@ -128,6 +129,20 @@ dev = ["attribution (==1.7.0)", "black (==24.2.0)", "coverage[toml] (==7.4.1)", 
 docs = ["sphinx (==7.2.6)", "sphinx-mdinclude (==0.5.3)"]
 
 [[package]]
+name = "alluka"
+version = "0.3.1"
+description = "A type based dependency injection framework for Python 3.9+."
+optional = false
+python-versions = "<3.13,>=3.9.0"
+files = [
+    {file = "alluka-0.3.1-py3-none-any.whl", hash = "sha256:b7100a9dcced87fb3bf0bc8755b3b35fe3308b9275cb6c03db9cb09ae12db6db"},
+    {file = "alluka-0.3.1.tar.gz", hash = "sha256:40563bbc7d55a366901b3939d047d1e08195219e4c62b7a1b63be0f20e394ff2"},
+]
+
+[package.dependencies]
+typing-extensions = ">=4.5,<5"
+
+[[package]]
 name = "asttokens"
 version = "2.4.1"
 description = "Annotate AST trees with source code positions"
@@ -144,6 +159,17 @@ six = ">=1.12.0"
 [package.extras]
 astroid = ["astroid (>=1,<2)", "astroid (>=2,<4)"]
 test = ["astroid (>=1,<2)", "astroid (>=2,<4)", "pytest"]
+
+[[package]]
+name = "async-timeout"
+version = "4.0.3"
+description = "Timeout context manager for asyncio programs"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "async-timeout-4.0.3.tar.gz", hash = "sha256:4640d96be84d82d02ed59ea2b7105a0f7b33abe8703703cd0ab0bf87c427522f"},
+    {file = "async_timeout-4.0.3-py3-none-any.whl", hash = "sha256:7405140ff1230c310e51dc27b3145b9092d659ce68ff733fb0cefe3ee42be028"},
+]
 
 [[package]]
 name = "attrs"
@@ -378,6 +404,23 @@ files = [
 ]
 
 [[package]]
+name = "colorlog"
+version = "6.8.2"
+description = "Add colours to the output of Python's logging module."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "colorlog-6.8.2-py3-none-any.whl", hash = "sha256:4dcbb62368e2800cb3c5abd348da7e53f6c362dda502ec27c560b2e58a66bd33"},
+    {file = "colorlog-6.8.2.tar.gz", hash = "sha256:3e3e079a41feb5a1b64f978b5ea4f46040a94f11f0e8bbb8261e3dbbeca64d44"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "sys_platform == \"win32\""}
+
+[package.extras]
+development = ["black", "flake8", "mypy", "pytest", "types-colorama"]
+
+[[package]]
 name = "discord-py"
 version = "2.4.0"
 description = "A Python wrapper for the Discord API"
@@ -524,6 +567,71 @@ local = ["gpt4all"]
 openai = ["pycryptodome"]
 webdriver = ["platformdirs", "selenium-wire", "setuptools", "undetected-chromedriver (>=3.5.5)"]
 webview = ["cryptography", "platformdirs", "plyer", "webview"]
+
+[[package]]
+name = "hikari"
+version = "2.0.0.dev126"
+description = "A sane Discord API for Python 3 built on asyncio and good intentions"
+optional = false
+python-versions = "<3.13,>=3.8.0"
+files = [
+    {file = "hikari-2.0.0.dev126-py3-none-any.whl", hash = "sha256:cdbe0916dcfdc8e2dee16f89731a20f66e27e01914a549e06b06c74261141d31"},
+    {file = "hikari-2.0.0.dev126.tar.gz", hash = "sha256:1ace1bc6d3a634a97d6d6aa3a8bc56f1cf3ad02caae4a9860699247b52e650a5"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.9,<4.0"
+attrs = ">=23.2,<24.0"
+colorlog = ">=6.8,<7.0"
+multidict = ">=6.0,<7.0"
+
+[package.extras]
+server = ["pynacl (>=1.5,<2.0)"]
+speedups = ["aiohttp[speedups] (>=3.9,<4.0)", "ciso8601 (>=2.3,<3.0)", "orjson (>=3.10,<4.0)"]
+
+[[package]]
+name = "hikari-arc"
+version = "1.3.4"
+description = "A command handler for hikari with a focus on type-safety and correctness."
+optional = false
+python-versions = "<3.13,>=3.10.0"
+files = [
+    {file = "hikari_arc-1.3.4-py3-none-any.whl", hash = "sha256:a8dd024005da950d59781b05ec248cbe70bab4524be1adab40b60ec1db592759"},
+    {file = "hikari_arc-1.3.4.tar.gz", hash = "sha256:332217527aa085f2d605b2a5b8aa3abbaa34f182f3397d67821459eedf91e8fe"},
+]
+
+[package.dependencies]
+alluka = ">=0.3.0,<0.4"
+attrs = ">=23.1"
+colorama = {version = "*", markers = "sys_platform == \"win32\""}
+hikari = ">=2.0.0.dev122"
+
+[package.extras]
+cron = ["croniter (==2.0.5)", "types-croniter (==2.0.0.20240423)"]
+dev = ["nox (==2024.4.15)", "pyright (==1.1.365)", "pytest (==8.2.1)", "pytest-asyncio (==0.23.7)", "ruff (==0.4.6)", "slotscheck (==0.19.0)", "typing-extensions (==4.12.0)"]
+docs = ["black (>=24.4.2,<24.5.0)", "griffe-inherited-docstrings (>=1.0.0,<1.1.0)", "mkdocs (>=1.6.0,<1.7.0)", "mkdocs-glightbox (>=0.4.0,<0.5.0)", "mkdocs-material[imaging] (>=9.5.25,<9.6.0)", "mkdocstrings-python (>=1.10.3,<1.11.0)"]
+rest = ["hikari[server] (>=2.0.0.dev122)"]
+
+[[package]]
+name = "hikari-miru"
+version = "4.1.1"
+description = "An alternative component handler for hikari, inspired by discord.py's views."
+optional = false
+python-versions = ">=3.10.0,<3.13"
+files = [
+    {file = "hikari-miru-4.1.1.tar.gz", hash = "sha256:cd88b24beaac7392e0499aecca28000a7f969c0727b65c972c31c9fc31b5bacf"},
+    {file = "hikari_miru-4.1.1-py3-none-any.whl", hash = "sha256:85366ec18ce08868f9f805e255be6c1803bb835e32ea5909e795fee8dff502e4"},
+]
+
+[package.dependencies]
+alluka = ">=0.1.4"
+attrs = ">=23.1"
+colorama = {version = "*", markers = "sys_platform == \"win32\""}
+hikari = ">=2.0.0.dev122"
+
+[package.extras]
+dev = ["hikari-arc (==1.2.1)", "hikari-tanjun (==2.17.2)", "nox (==2024.3.2)", "pyright (==1.1.353)", "pytest (==8.1.1)", "pytest-asyncio (==0.23.5.post1)", "ruff (==0.3.2)", "slotscheck (==0.17.3)", "typing-extensions (==4.10.0)"]
+docs = ["black (>=24.2.0,<24.3.0)", "griffe-inherited-docstrings (>=1.0.0,<1.1.0)", "mkdocs (>=1.5.3,<1.6.0)", "mkdocs-glightbox (>=0.3.7,<0.4.0)", "mkdocs-material[imaging] (>=9.5.13,<9.6.0)", "mkdocstrings-python (>=1.8.0,<1.9.0)"]
 
 [[package]]
 name = "icecream"
@@ -969,5 +1077,5 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.11"
-content-hash = "4a6d7d1ae1dd6624c1268c2d65da26d3f7bbb3e81ed9548e809ea8c7fd213afd"
+python-versions = ">=3.10,<3.13"
+content-hash = "1eb55a4e81224a0adda945e31b8b7e51af77b84271a7578f7724882b66a48dd2"
