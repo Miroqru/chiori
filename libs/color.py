@@ -1,7 +1,35 @@
 """Простой модуль для работы с цветовой палитрой.
 
+Пославляет класс для предствления цвета.
+Позвоялет полуцчать цветовой код из строки.
+А также переводить цвета из различных форматов.
+
+Содержит
+--------
+
+- Паттерны для поиска цветового кода в строке.
+- Исключение при неправильном получении цвета.
+- Класс для работы с цветом.
+
+пример использования:
+
+.. code-block:: python
+
+    # Некоторый цветовой код формата #RRGGBB
+    text_color = "#00ffcc"
+
+    # Получаем класс цвета и преобразуем его в HSV
+    color = Color.from_hex(text_color) # Color(0, 204, 255)
+    hsv = color.to_hsv()
+
+.. warning:: Неэффективное хранение памяти.
+
+    Обратите внимание что для хранения цвета используется три числа.
+    Можно считать это растачительным использованием памяти.
+    Помните про это, если будете использовать бибилотеку.
+
 Author: Milinuri Nirvalen
-Version: v0.2.1 (8)
+Version: v0.2.2 (9)
 """
 
 import colorsys
@@ -9,15 +37,25 @@ import re
 from random import randint
 from typing import NamedTuple
 
+# паттерны для поиска цвета
+# =========================
+
 hexcolor_pattern = re.compile(r'#[0-9a-f]{6}')
 rgb_pattern = re.compile(r"rgb\((\d{0,3}),\s?(\d{0,3}),\s?(\d{0,3})\)")
 hsv_pattern = re.compile(r"hsv\((\d{0,3}),\s?(\d{0,3}),\s?(\d{0,3})\)")
 
+
+# Исключения
+# ==========
+
 class ColorParseError(Exception):
-    """Используется, когда не удалось получить цветовой код из строки."""
+    """При ошибке парсинга цветового кода из передеанной строки."""
 
     pass
 
+
+# Различные цветовые парсеры
+# ==========================
 
 def parse_color_hex(text: str) -> str | None:
     """Получает цветовой код из строки.
@@ -92,29 +130,44 @@ def parse_color_hsv(text: str) -> tuple[int, int, int] | None:
 
 
 class Color(NamedTuple):
-    """Представляет собой цвет в цветовом пространстве RGB."""
+    """Представляет собой цвет в цветовом пространстве RGB.
+
+    Для корректной работы диапазон хранимых чисел долженн быть от 0 до
+    255.
+    """
 
     red: int
     green: int
     blue: int
 
+
+    # Методы для получения цвета
+    # ==========================
+
     @classmethod
     def random(cls) -> "Color":
-        """Возвращает случайный цвет."""
+        """Возвращает некоторый случайный цвет."""
         return Color(
-            red = randint(1, 255),
-            green = randint(1, 255),
-            blue = randint(1, 255),
+            red = randint(0, 255),
+            green = randint(0, 255),
+            blue = randint(0, 255),
         )
 
     @classmethod
     def from_hex(cls, text: str) -> "Color":
         """Получает цвето из hex кода.
 
+        .. code-block:: text
+
+            #ffccff
+             | |  - Blue (00 - ff)
+             | - Green (00 - ff)
+             - Red (00 - ff)
+
         - #ffccff -> Color(255, 204, 255).
         - dlsdas -> ColorParseEroor()
 
-        если не удалось получить цвет, выбрасывает исключение.
+        Если не удалось получить цвет, выбрасывает исключение.
 
         :param text: Цветовой код из которого нужно получить цвет.
         :type text: str
@@ -135,11 +188,18 @@ class Color(NamedTuple):
     def from_rgb(cls, text: str) -> "Color":
         """Получает цвето из rgb строки текста.
 
+        .. code-block:: text
+
+            rgb(204, 0, 255)
+                |    |  - Blue (0 - 255)
+                |    - Green (0 - 255)
+                - Red (0 - 255)
+
         - rgb(255, 255, 255) -> #FFFFFF
         - ssas -> ColorParseEroor()
         - aa rgb(204,0,204) -> #cc00cc
 
-        если не удалось получить цвет, выбрасывает исключение.
+        Если не удалось извлечь цвет, выбрасывает исключение.
 
         :param text: Строка из которого нужно получить цвет.
         :type text: str
@@ -171,6 +231,9 @@ class Color(NamedTuple):
             raise ColorParseError(f"No math HSV color from: {text}")
         return Color(red = hsv[0], green = hsv[1], blue = hsv[2])
 
+
+    # Пытаемся угадать цвет из строки
+    # ===============================
 
     @classmethod
     def parse_color(cls, text: str) -> "Color":
@@ -212,6 +275,8 @@ class Color(NamedTuple):
         raise ColorParseError(f"No match color code in text: {text}")
 
 
+    # цветовые конвенторы
+    # ===================
 
     def to_hex_code(self) -> str:
         """преобразует цвет в hex код.
