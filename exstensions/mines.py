@@ -1,11 +1,18 @@
 """Игра Сапёр.
 
+Данная игра в представлении не нуждается.
+У вас есть поле 5 на 5 клеток, на некоотрых из них есть бомбы.
+Как только вы открываете пустое поле, на нём показывается число бомб
+поблизости.
+Для прохождения игры вам необхоидмо открыть все пустые клетки, не
+задев при этом ни одной бомбы.
+
 Предоставляет
 -------------
 
 - /mines - Начать игру
 
-Version: v0.2 (7)
+Version: v0.3 (12)
 Author: Milinuri Nirvalen
 """
 
@@ -14,8 +21,6 @@ import random
 import arc
 import hikari
 import miru
-
-from icecream import ic
 
 
 plugin = arc.GatewayPlugin("mines")
@@ -50,12 +55,7 @@ class EmptyButton(miru.Button):
 
 
     async def callback(self, ctx: miru.ViewContext) -> None:
-        self.disabled = True
-        nerby_bombs = self.view.count_bombs(self.index)
-        if nerby_bombs > 0:
-            self.style = hikari.ButtonStyle.PRIMARY
-        self.label = str(nerby_bombs)
-        self.view.cels_left -= 1
+        self.view.recursive_open(self)
 
         if self.view.cels_left == 0:
             self.view.stop()
@@ -74,6 +74,13 @@ class EmptyButton(miru.Button):
                 embed=get_game_status(self.view),
                 components=self.view
             )
+
+    def set_open(self, nerby_bombs: int):
+        self.disabled = True
+        if nerby_bombs > 0:
+            self.style = hikari.ButtonStyle.PRIMARY
+        self.label = str(nerby_bombs)
+
 
 class BombButton(miru.Button):
     def __init__(self, index: int) -> None:
@@ -123,19 +130,20 @@ class MineView(miru.View):
         self.total_bombs = 0
 
         for x in range(25):
-            if random.randint(1, 6) == 6:
+            if random.randint(1, 5) == 5:
                 button = BombButton(x)
                 self.total_bombs += 1
             else:
-                button = EmptyButton(x)
+              button = EmptyButton(x)
 
             self.mines.append(button)
             self.add_item(button)
             self.cels_left = 25 - self.total_bombs
 
-    def count_bombs(self, index: int):
+    def get_neibhoors(self, index: int) -> list[miru.Button]:
         pos_y, pos_x = divmod(index, 5)
         bomb_counter = 0
+        buttons = []
 
         for y_shift in range(-1, 2):
             if pos_y+y_shift < 0 or pos_y+y_shift > 4:
@@ -145,10 +153,36 @@ class MineView(miru.View):
                 if pos_x+x_shift < 0 or pos_x+x_shift > 4:
                     continue
 
-                t_index = (pos_y+y_shift)*5 + (pos_x+x_shift)
-                if isinstance(self.mines[t_index], BombButton):
-                    bomb_counter += 1
+                if x_shift == 0 and y_shift == 0:
+                    continue
+
+                pos = (pos_y+y_shift)*5 + (pos_x+x_shift)
+                button = self.mines[pos]
+                if not button.disabled:
+                    buttons.append(button)
+        return buttons
+
+    def count_bombs(self, buttons: list[miru.Button]) -> int:
+        bomb_counter = 0
+        for button in buttons:
+            if isinstance(button, BombButton):
+                bomb_counter += 1
         return bomb_counter
+
+    def recursive_open(self, index: miru.Button) -> None:
+        targets = [index]
+
+        for target in targets:
+            if target.disabled:
+                continue
+
+            neibhoors = self.get_neibhoors(target.index)
+            nerby_bombs = self.count_bombs(neibhoors)
+            target.set_open(nerby_bombs)
+            self.cels_left -= 1
+
+            if nerby_bombs == 0:
+                targets.extend(neibhoors)
 
     def open_bomds(self):
         for x in self.mines:
