@@ -9,7 +9,10 @@ Verion: v0.3 (8)
 import sys
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
+import traceback
+from zoneinfo import ZoneInfo
 
 import hikari
 import arc
@@ -23,9 +26,9 @@ from chioricord import config
 # Настраиваем формат отображения логов loguru
 # Обратите внимание что в проекте помимо loguru используется logging
 LOG_FORMAT = (
-    "<lvl>{level.icon}</>"
-    "<light-black>{time:YYYY-MM-DD HH:mm:ss.SSS}</>"
-    "{file}:{function}"
+    "<lvl>{level.icon}</> "
+    "<light-black>{time:YYYY-MM-DD HH:mm:ss.SSS}</> "
+    "{file}:{function} "
     "<lvl>{message}</>"
 )
 
@@ -37,6 +40,23 @@ dp = arc.GatewayClient(bot)
 
 # Обработка событий
 # =================
+
+@dp.set_error_handler
+async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
+    """Отлавливаем исключение если что-то в клиенте пошло не по плану.
+    """
+    embed = hikari.Embed(
+        title="Что-то пошло не так!",
+        description="Во время выполнения команды возникло исключение",
+        color=hikari.colors.Color(0xff00bb),
+        timestamp=datetime.now(tz=ZoneInfo("Europe/Samara"))
+    )
+    await ctx.respond(embed=embed)
+
+    # Ну и отправляем в логи, чтобы было с чем работать
+    logger.error(ctx)
+    logger.exception(exc)
+
 
 # @bot.event
 # async def on_command_error(
@@ -113,7 +133,7 @@ def start_bot():
     )
 
     # Простой загрузчик расширений
-    _logger.info("Load plugins from {}", EXT_PATH)
+    logger.info("Load plugins from {}", EXT_PATH)
     dp.load_extensions_from(EXT_PATH)
 
     # Устанавливаем активность бота
