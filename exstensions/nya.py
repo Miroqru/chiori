@@ -8,17 +8,15 @@
 
 - /nya <member> - Някнуть участника
 
-Version: v0.2
+Version: v0.3
 Author: Milinuri Nirvalen
 """
 
-import hikari
 import arc
-
-from loguru import logger
-
+import hikari
 
 plugin = arc.GatewayPlugin("Nya")
+
 
 # определение команд
 # ==================
@@ -33,7 +31,7 @@ async def nya_handler(
 ) -> None:
     """Первая няшная команда для бота.
 
-    Позвоялет някнуть участника, пожалуй это достаточно мило.
+    Позволяет някнуть участника, пожалуй это достаточно мило.
     Впрочем более эта команда ничего не делает.
     """
     if user is not None:
@@ -48,9 +46,7 @@ async def nya_handler(
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     client.add_plugin(plugin)
-    logger.info("Load plugin {}", plugin.name)
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
     client.remove_plugin(plugin)
-    logger.info("Unload plugin {}", plugin.name)

@@ -4,11 +4,9 @@ Author: Milinuri
 Version: v0.1 (2)
 """
 
-from discord.ext import commands
-
-from g4f.client import Client
 import g4f.Provider.Aichatos
-
+from discord.ext import commands
+from g4f.client import Client
 
 gpt_client = Client()
 
