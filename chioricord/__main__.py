@@ -1,12 +1,10 @@
 """Скрипт для запуска бота.
 
-Для запуска бота используйте следующую команду.
+Для запуска бота используйте следующую команду:
 
 .. code-block:: shell
 
     python -m chioricord
-
-Author: Milinri Nirvalen
 """
 
 from chioricord.bot import start_bot

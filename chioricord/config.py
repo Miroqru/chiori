@@ -1,6 +1,10 @@
-"""Класс хранит корневые настройки бота.
+"""Хранилище коренных настроек.
 
-Author: Milinuri Nirvalen
+Содержит в себе настройки, необходимые про запуске ядра.
+Такие как токен discord бота и его владелец.
+
+Для хранения настроек каждого плагина используется расширенное
+хранилище.
 """
 
 from os import getenv
@@ -8,16 +12,27 @@ from os import getenv
 from dotenv import load_dotenv
 from loguru import logger
 
+# Подгружаем настройки из рабочего окружения
+# ==========================================
+
 load_dotenv()
+
+# Токен от Discord бота
+# Обязателен для запуска бота, посколькуо благодвря токену дискорд понимает
+# что к нему хочет обратиться нужный бот.
 BOT_TOKEN = getenv("BOT_TOKEN")
 
+# Выжаём исключение, если не получается щапустить бота ввиду отсутствия токена.
 if BOT_TOKEN is None:
     raise TypeError("You need to set discord bot token")
 
-BOT_PREFIX = getenv("BOT_PREFIX", "c!")
+
+# Владалец бота исползуется для настройки ядра.
+# На владельца не накладываются ограничения бота.
+# Указывать владельца бота не обязательно, но желательно.
 BOT_OWNER = getenv("BOT_OWNER")
 
+# Предупреждаем, если нет пользовтеля, кто мог бы настраивать ядро
 if BOT_OWNER is None:
     logger.warning("Bot owner id is empty.")
     logger.warning("No one will be able to control the bot system")
-

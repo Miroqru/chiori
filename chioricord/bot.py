@@ -1,21 +1,17 @@
 """Ядро бота ChioriCord.
 
-Используется для загрузки и запуска плагинов.
-
-Author: Mulinuri Nirvalen
-Verion: v0.3 (8)
+Главный файл ядра.
+настраивает все компоненты для бота.
+Динамически подгружает плагины.
 """
 
 import sys
-import logging
-import re
 from datetime import datetime
 from pathlib import Path
-import traceback
 from zoneinfo import ZoneInfo
 
-import hikari
 import arc
+import hikari
 from loguru import logger
 
 from chioricord import config
@@ -43,7 +39,12 @@ dp = arc.GatewayClient(bot)
 
 @dp.set_error_handler
 async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
-    """Отлавливаем исключение если что-то в клиенте пошло не по плану.
+    """Отлавливаем исключение если что-то  пошло не по плану.
+
+    К примеру это могут быть ошибки внутри обработчиков.
+    Неправильно переданные команды.
+    Если обработчики сами не реализуют обработчики ошибок, то все
+    исключения будут попадать сюда.
     """
     embed = hikari.Embed(
         title="Что-то пошло не так!",
@@ -57,28 +58,15 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     logger.error(ctx)
     logger.exception(exc)
 
-
-# @bot.event
-# async def on_command_error(
-#     ctx: commands.Context,
-#     error: commands.errors.CommandError
-# ):
-#     """Обработка исключений при выполении команд."""
-#     logger.error("Error while process command: {}, {}", ctx, error)
-
-#     if isinstance(error, commands.errors.CommandNotFound):
-#         await ctx.send(embed=discord.Embed(
-#             title="❌ **Ошибка**",
-#             description=f"**{ctx.author}**, Я не знаю такой команды.",
-#             color=0xff2b20
-#         ))
-
-#     if isinstance(error, commands.errors.MissingPermissions):
-#         await ctx.send(embed=discord.Embed(
-#             title="❌ **Ошибка**",
-#             description=f"**{ctx.author}**, у вас недостаточно прав для использования данной команды.",
-#             color=0xff2b20
-#         ))
+# if isinstance(error, commands.errors.MissingPermissions):
+#     await ctx.send(embed=discord.Embed(
+#         title="❌ **Ошибка**",
+#         description=(
+#             f"**{ctx.author}**, у вас недостаточно прав для использования"
+#             "данной команды."
+#          ),
+#         color=0xff2b20
+#     ))
 
 
 # Обработка команд
