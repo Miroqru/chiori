@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import arc
 import hikari
+import miru
 from loguru import logger
 
 from chioricord import config
@@ -32,6 +33,7 @@ LOG_FORMAT = (
 EXT_PATH = Path("exstensions/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
 dp = arc.GatewayClient(bot)
+miru_client = miru.Client.from_arc(dp)
 
 
 # Обработка событий
@@ -127,7 +129,7 @@ def start_bot():
     # Устанавливаем активность бота
     # "prefix для получение справки"
     activity = hikari.presences.Activity(
-        name=f"для справки {config.BOT_PREFIX}help",
+        name=f"для справки /help",
         type=hikari.presences.ActivityType.PLAYING
     )
 
