@@ -5,7 +5,7 @@
 
 - /mines - Начать игру
 
-Version: v0.1 (1)
+Version: v0.2 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -84,7 +84,7 @@ class BombButton(miru.Button):
         self.index = index
 
     async def callback(self, ctx: miru.ViewContext) -> None:
-        self.label = "💣"
+        self.view.open_bomds()
         self.style = hikari.ButtonStyle.DANGER
         self.view.stop()
 
@@ -96,6 +96,14 @@ class BombButton(miru.Button):
                     "Может стоит попробовать ещё раз?"
                 ),
                 colour=hikari.colors.Color(0xffbe6f)
+            ).add_field(
+                name="Всего бомб",
+                value=str(self.view.total_bombs),
+                inline=True
+            ).add_field(
+                name="Осталось клеток",
+                value=str(self.view.cels_left),
+                inline=True
             ),
             components=self.view
         )
@@ -141,6 +149,11 @@ class MineView(miru.View):
                 if isinstance(self.mines[t_index], BombButton):
                     bomb_counter += 1
         return bomb_counter
+
+    def open_bomds(self):
+        for x in self.mines:
+            if isinstance(x, BombButton):
+                x.label = "💣"
 
 
 # определение команд
