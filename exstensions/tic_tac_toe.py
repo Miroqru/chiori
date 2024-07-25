@@ -90,7 +90,7 @@ class GameButton(miru.Button):
 
         if self.view.cell_left == 0:
             await ctx.edit_response(
-                "На этом игра окончена в ничью.",
+                self.view.end_game_no_winner(),
                 components=self.view
             )
             self.view.stop()
@@ -99,7 +99,7 @@ class GameButton(miru.Button):
         winner = self.view.is_game_over(self.index)
         if winner is not None:
             await ctx.edit_response(
-                f"На этом игра окончена. Победил {winner.mention}",
+                self.view.end_game_message(winner),
                 components=self.view
             )
             self.view.stop()
@@ -107,6 +107,7 @@ class GameButton(miru.Button):
 
         self.view.next_player()
         await ctx.edit_response(
+            self.view.get_game_status(),
             components=self.view
         )
 
@@ -304,11 +305,80 @@ class TicTacToeView(miru.View):
             self._next_close = self._prepare_close
 
         self._open_log.append(index)
-        ic(self._open_log, self._next_close, self._prepare_close)
         if len(self._open_log) > 5:
             i = self._open_log.pop(0)
             self._board[i].before_close()
             self._prepare_close = i
+
+
+    # Вспомогательные методы для сборки сообщений
+    # ===========================================
+
+    def get_players(self) -> str:
+        if len(self._players) < 2:
+            res = "Нажмите на поле, чтобы присоедениться к игре"
+        else:
+            res = ""
+        for user in self._players:
+            res += f"\n- {user.mention}"
+        return res
+
+    def get_game_status(self) -> hikari.Embed:
+        return hikari.Embed(
+            title=f"{_TTT_SIM[self._cur]} Крестики-нолики",
+            description=(
+                "Перед вами игровое поле.\n"
+                "Вы сошлись здесь в дуэли, чтобы доказать свою силу.\n"
+                "Мешать вам будет только ограниченное поле, да ваш противник."
+            ),
+            colour=hikari.colors.Color(0x00b0f4)
+        ).add_field(
+            name="Режим игры",
+            value="Бесконечный" if self.endless else "Обычный.",
+            inline=True
+        ).add_field(
+            name="Игроки", value=self.get_players(), inline=True
+        ).add_field(
+            name="Правила игры",
+            value=(
+            "- Нажмите на свободно поле, чтобы отметить его своим знаком.\n"
+            "- Для победы соберите 3 знака  по диагонали/вертикали/горизонтали.\n"
+            "- **Бесконечный режим**: Со временем клетки будут освобождаться."
+            )
+        )
+
+    def end_game_no_winner(self) -> hikari.Embed:
+        return hikari.Embed(
+            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
+            description=(
+                "Это была долгая битва.\n"
+                "Однако поле закончилось.\n"
+                "Теперь не получится выяснить кто выиграл."
+            ),
+            colour=hikari.colors.Color(0xffbe6f)
+        ).add_field(
+            name="Режим игры", value="Обычный", inline=True
+        ).add_field(
+            name="Игроки", value=self.get_players(), inline=True
+        )
+
+    def end_game_message(self, winner: hikari.User) -> hikari.Embed:
+        return hikari.Embed(
+            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
+            description=(
+                "Это была долгая битва.\n"
+                "И толко один мог выйти из неё победителем.\n\n"
+                f"**Выйграл**: {winner.mention}"
+            ),
+            colour=hikari.colors.Color(0x8ff0a4)
+
+        ).add_field(
+            name="Режим игры",
+            value="Бесконечный" if self.endless else "Обычный.",
+            inline=True
+        ).add_field(
+            name="Игроки", value=self.get_players(), inline=True
+        )
 
 
 # определение команд
@@ -330,7 +400,7 @@ async def nya_handler(
     не мог помешать их игре.
     """
     view = TicTacToeView(endless=endless)
-    await ctx.respond("ttt", components=view)
+    await ctx.respond(view.get_game_status(), components=view)
     client.start_view(view)
 
 
