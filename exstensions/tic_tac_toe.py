@@ -88,6 +88,9 @@ class GameButton(miru.Button):
 
         self.set_open(ctx)
 
+        # Сначала идёт проверка выйгрышных комбинаций
+        # А уже после проверка на отсутствие слотов
+        # Дабы решить проблему когла вы выйгрываете последним ходом
         winner = self.view.is_game_over(self.index)
         if winner is not None:
             await ctx.edit_response(
@@ -315,15 +318,38 @@ class TicTacToeView(miru.View):
     # ===========================================
 
     def get_players(self) -> str:
+        """Возвращает строковый список игроков.
+
+        Исползуется чтобы отобразить список всех кто играет в игру.
+        Это лучше, чем гадать, где в данный момент играет.
+        Если игроков недостаточно, выводит сообщение как можно
+        присоедениться к игре.
+
+        :return: Строка со списком всех игроков.
+        :rtupe: str
+        """
         if len(self._players) < 2:
             res = "Нажмите на поле, чтобы присоедениться к игре"
         else:
             res = ""
-        for user in self._players:
-            res += f"\n- {user.mention}"
+        for i, user in enumerate(self._players):
+            res += f"\n{_TTT_SIM[i]} {user.mention}"
         return res
 
     def get_game_status(self) -> hikari.Embed:
+        """Возаращет сообщение со статусом игры.
+
+        данное сообщение будет обновляться при каждом нажатии кнопки.
+        Возаращет название, описание, кто сейчас ходит, режим игры,
+        правила, а также спиос игроков.
+
+        Словом, вся необходимая информация о текущем ходе игры.
+        Когда игра будет закончена с некоторым результатом, данное
+        сообщение будет заменено другим.
+
+        :return: Сообщение с текушим статусом игры.
+        :rtype: hikari.Embed
+        """
         return hikari.Embed(
             title=f"{_TTT_SIM[self._cur]} Крестики-нолики",
             description=(
@@ -348,6 +374,17 @@ class TicTacToeView(miru.View):
         )
 
     def end_game_no_winner(self) -> hikari.Embed:
+        """Сообщение при ничьей.
+
+        Используется по окончанию игры в ничейную пользу.
+        Данный исход возмозможен при стандартном режиме игры, когда
+        не остаётся свободных клеток.
+
+        Отображает количество описание, режим игры и игроков.
+
+        :return: Сообщение с результатами игры.
+        :rtype: hikari.Embed
+        """
         return hikari.Embed(
             title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
             description=(
@@ -363,6 +400,16 @@ class TicTacToeView(miru.View):
         )
 
     def end_game_message(self, winner: hikari.User) -> hikari.Embed:
+        """Сообщение при победе одного из игроков.
+
+        Отобраажется сразу как только кто-то из игроков обержал победу.
+        Отобаражет описание, победителя, режим, список игроков.
+
+        :param winner: Победитель игры.
+        :typw winner: hikari.User
+        :return: Сообщение с результатами игры.
+        :rtype: hikari.Embed
+        """
         return hikari.Embed(
             title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
             description=(
