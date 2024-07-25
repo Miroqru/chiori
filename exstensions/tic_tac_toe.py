@@ -17,7 +17,7 @@
 
 - /ttt - Игра крестики-нолики.
 
-Version: v0.3 (13)
+Version: v0.4 (17)
 Author: Milinuri Nirvalen
 """
 
@@ -88,18 +88,18 @@ class GameButton(miru.Button):
 
         self.set_open(ctx)
 
-        if self.view.cell_left == 0:
+        winner = self.view.is_game_over(self.index)
+        if winner is not None:
             await ctx.edit_response(
-                self.view.end_game_no_winner(),
+                self.view.end_game_message(winner),
                 components=self.view
             )
             self.view.stop()
             return
 
-        winner = self.view.is_game_over(self.index)
-        if winner is not None:
+        if self.view.cell_left == 0:
             await ctx.edit_response(
-                self.view.end_game_message(winner),
+                self.view.end_game_no_winner(),
                 components=self.view
             )
             self.view.stop()
