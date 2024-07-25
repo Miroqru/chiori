@@ -17,7 +17,7 @@
 
 - /ttt - Игра крестики-нолики.
 
-Version: v0.4 (17)
+Version: v0.5 (18)
 Author: Milinuri Nirvalen
 """
 
@@ -84,7 +84,11 @@ class GameButton(miru.Button):
         :type ctx: miru.ViewContext
         """
         if not self.view.validate_player(ctx):
-            return await ctx.respond("АААААААААААААААААААААААААа, ты кто?")
+            # Удаляем сообщение через 10 секунд, чтобы не засорять чат
+            return await ctx.respond(
+                self.view.no_valid_player_message(),
+                delete_after=10
+            )
 
         self.set_open(ctx)
 
@@ -425,6 +429,43 @@ class TicTacToeView(miru.View):
             inline=True
         ).add_field(
             name="Игроки", value=self.get_players(), inline=True
+        )
+
+    def get_current_player(self) -> str:
+        """Получает информацию о текущем игроке.
+
+        Символ игрока, а также его упоминание.
+
+        :return: Информация о текущем игроке.
+        :rtype: str
+        """
+        res = _TTT_SIM[self._cur]
+        if len(self._players) < 2:
+            return res + " игрока"
+        else:
+            return f"{res} {self._players[self._cur].mention}"
+
+    def no_valid_player_message(self) -> hikari.Embed:
+        """Сообщение если кто-то посторонний нажал на кнопку.
+
+        Это может быть как просто сторонний пользователь, так и игрок,
+        до которого ещё не дошла очередь.
+        В таком случае будет отправлено сообщение с ошибкой.
+        Данное сообщение будет удалено через некоотрое время, чтобы
+        не засорять чат.
+
+        :return: Сообщение о не валидном игроке.
+        :rtype: hikari.Embed
+        """
+        return hikari.Embed(
+            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ась?",
+            description=(
+                "Возможно вы не участник данной игры.\n"
+                "ну или возможно сейчас не ваш ход.\n\n"
+                "Так или иначе сейчас ход:"
+                f"{self.get_current_player()}"
+            ),
+            colour=hikari.colors.Color(0xdc8add)
         )
 
 
