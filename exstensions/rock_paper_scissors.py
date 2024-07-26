@@ -5,7 +5,7 @@
 
 - /rps  - Игра Камень Ножницы бумага
 
-Version: v0.3 (8)
+Version: v0.3.1 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -338,7 +338,7 @@ class RockPaperScissorsView(miru.View):
             title=f"{self._players[0].choice} Камень ножницы бумага / Ничья",
             description=(
                 "Игроки выбрали одинаковые элементы, игра окончилась ничьей\n"
-                f"{self._players[0]} x {self._players[1]}",
+                f"{self._players[0]} x {self._players[1]}"
             ),
             color=hikari.colors.Color(0xffbe6f)
         )
