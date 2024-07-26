@@ -17,7 +17,7 @@
 
 - /ttt - Игра крестики-нолики.
 
-Version: v0.5 (18)
+Version: v0.5.1 (19)
 Author: Milinuri Nirvalen
 """
 
@@ -415,11 +415,11 @@ class TicTacToeView(miru.View):
         :rtype: hikari.Embed
         """
         return hikari.Embed(
-            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
+            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Игра завершена",
             description=(
                 "Это была долгая битва.\n"
                 "И толко один мог выйти из неё победителем.\n\n"
-                f"**Выйграл**: {winner.mention}"
+                f"**Победитель**: {winner.mention}"
             ),
             colour=hikari.colors.Color(0x8ff0a4)
 
