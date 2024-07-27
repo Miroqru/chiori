@@ -6,7 +6,7 @@
 
 Пока что в инвентаре не будет каких-либо ограничений на предметы.
 
-Version: 0.2 (5)
+Version: 0.4 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -16,7 +16,8 @@ from typing import NamedTuple, Iterable
 
 import aiosqlite
 
-
+# Исключения в процессе работы с инвентарём
+# =========================================
 
 class ItemIndexError(Exception):
     """При неполадках в базе данных.
@@ -27,6 +28,9 @@ class ItemIndexError(Exception):
     """
     pass
 
+
+# Вспомогательные классы для хранения данных
+# ==========================================
 
 class Item(NamedTuple):
     item_id: int
@@ -50,12 +54,18 @@ class InventoryItem(NamedTuple):
     amount: int
 
 
+# Индекс предметов
+# ================
+
 class ItemIndex:
     def __init__(self, index_path: Path):
         self.index_path = index_path
         self._index = None
         self._db: aiosqlite.Connection = None
 
+
+    # Работа с базой данных
+    # =====================
 
     async def connect(self) -> None:
         self._db = await aiosqlite.connect(self.index_path)
@@ -107,8 +117,8 @@ class ItemIndex:
         return None if row is None else Item.from_row(row)
 
 
-    # Методы для работы с индексом
-    # ============================
+    # Методы для работы с индексом предметов
+    # ======================================
 
     async def add(self, item: Item) -> bool:
         await self._db.execute(
@@ -121,6 +131,9 @@ class ItemIndex:
             "DELETE FROM 'index' WHERE id=?", (item_id,)
         )
 
+
+# классы для работы с инвентарём пользователя
+# ===========================================
 
 class Inventory:
     def __init__(self, inventory_path: Path, index: ItemIndex):
@@ -155,7 +168,7 @@ class Inventory:
         await self._db.commit()
 
 
-    # Методы получения данных из инвенторя
+    # Методы получения данных из инвентаря
     # ====================================
 
     async def get_items(self, user_id: int) -> list[InventoryItem]:
@@ -186,8 +199,8 @@ class Inventory:
         return InventoryItem(index_item, int(row[1]))
 
 
-    # Методы для работы с инвентарём
-    # ==============================
+    # Примитивные методы
+    # ==================
 
     async def add(self, user_id: int, item_id: int, amount: int) -> None:
         await self._db.execute(
@@ -206,6 +219,9 @@ class Inventory:
             "DELETE FROM inventory WHERE user_id=?", (user_id,)
         )
 
+
+    # Более высокоуровневые методы
+    # ============================
 
     async def give(self, user_id: int, item_id: int, amount: int) -> None:
         in_inventory = await self.get(user_id, item_id)
@@ -234,8 +250,45 @@ class Inventory:
             return InventoryItem(in_inventory.index, amount)
 
 
+    # Работа с несколькими инвентарями
+    # ================================
+
     async def move(self, item_id: int, amount: int, from_user: int, to_user: int) -> bool:
-        take_item = self.take(from_user, item_id, amount)
+        take_item = await self.take(from_user, item_id, amount)
         if take_item is None:
             return False
-        self.give(to_user, item_id, amount)
+        await self.give(to_user, item_id, amount)
+
+
+class UserInventory:
+
+    def __init__(self, user_id: int, inventory: Inventory):
+        self.user_id = user_id
+        self.inventory = inventory
+
+
+    # Получение данных из инвентаря
+    # =============================
+
+    async def get_items(self) -> list[InventoryItem]:
+        return await self.inventory.get_items(self.user_id)
+
+    async def get(self, item_id: int) -> InventoryItem | None:
+        return await self.inventory.get(self.user_id, item_id)
+
+
+    # Работа с инвентарём пользователя
+    # ================================
+
+    async def give(self, item_id: int, amount: int) -> None:
+        await self.inventory.give(self.user_id, item_id, amount)
+
+    async def take(self, item_id: int, amount: int) -> InventoryItem | None:
+        return await self.inventory.take(self.user_id, item_id, amount)
+
+
+    # Работа с несколькими инвентарями
+    # ================================
+
+    async def move(self, to_user: int, item_id: int, amount: int) -> bool:
+        return await self.inventory.move(item_id, amount, self.user_id, to_user)
