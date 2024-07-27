@@ -6,7 +6,7 @@
 
 Пока что в инвентаре не будет каких-либо ограничений на предметы.
 
-Version: 0.1 (1)
+Version: 0.2 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -15,6 +15,17 @@ from pathlib import Path
 from typing import NamedTuple, Iterable
 
 import aiosqlite
+
+
+
+class ItemIndexError(Exception):
+    """При неполадках в базе данных.
+
+    Возникает в редких случаях, когда что-то в базе данных работает
+    не так, как должно.
+    К примеру если указан неправильный ID в индекс предметов.
+    """
+    pass
 
 
 class Item(NamedTuple):
@@ -112,26 +123,119 @@ class ItemIndex:
 
 
 class Inventory:
-    def __init__(self, index: ItemIndex, user_id: int):
+    def __init__(self, inventory_path: Path, index: ItemIndex):
+        self.inventory_path = inventory_path
         self.index = index
-        self.user_id = user_id
+        self._db: aiosqlite.Connection | None = None
+
+
+    # Методы для работы с базой данных
+    # ================================
+
+    async def connect(self) -> None:
+        self._db = await aiosqlite.connect(self.inventory_path)
+
+    async def close(self) -> None:
+        if self._db is not None:
+            await self._db.close()
+            self._db = None
+
+    async def create_tanles(self) -> None:
+        await self._db.execute((
+            'CREATE TABLE IF NOT EXISTS "inventory" ('
+                '"user_id"	INTEGER,'
+                '"item_id"	INTEGER,'
+                '"amount"   INTEGER,'
+                'FOREIGN KEY("item_id") REFERENCES "index"("id")'
+                'ON UPDATE CASCADE'
+            ');'
+        ))
+
+    async def commit(self) -> None:
+        await self._db.commit()
 
 
     # Методы получения данных из инвенторя
     # ====================================
 
-    def get_items(self) -> list[InventoryItem]:
-        pass
+    async def get_items(self, user_id: int) -> list[InventoryItem]:
+        res = []
+        cur = await self._db.execute(
+            "SELECT item_id, amount FROM inventory WHERE user_id=?",
+            (user_id,)
+        )
+        for row in await cur.fetchall():
+            res.append(InventoryItem(
+                await self.index.get(int(row[0])),
+                int(row[1])
+            ))
+        return res
 
-    def get(self, item_id) -> InventoryItem | None:
-        pass
+    async def get(self, user_id: int, item_id: int) -> InventoryItem | None:
+        cur = await self._db.execute(
+            "SELECT item_id, amount FROM inventory WHERE user_id=? AND item_id=?",
+            (user_id, item_id)
+        )
+        row = await cur.fetchone()
+        if row is None:
+            return None
+
+        index_item = await self.index.get(int(row[0]))
+        if index_item is None:
+            raise ItemIndexError(f"{row[0]} not found in Index DB.")
+        return InventoryItem(index_item, int(row[1]))
 
 
     # Методы для работы с инвентарём
     # ==============================
 
-    def give(self, item: Item, amount: int) -> bool:
-        pass
+    async def add(self, user_id: int, item_id: int, amount: int) -> None:
+        await self._db.execute(
+            "INSERT INTO inventory VALUES(?, ?, ?)",
+            (user_id, item_id, amount)
+        )
 
-    def take(self, item_id, amount: int) -> InventoryItem | None:
-        pass
+    async def remove(self, user_id: int, item_id: int) -> None:
+        await self._db.execute(
+            "DELETE FROM inventory WHERE user_id=? AND item_id=?",
+            (user_id, item_id)
+        )
+
+    async def clear(self, user_id: int) -> None:
+        await self._db.execute(
+            "DELETE FROM inventory WHERE user_id=?", (user_id,)
+        )
+
+
+    async def give(self, user_id: int, item_id: int, amount: int) -> None:
+        in_inventory = await self.get(user_id, item_id)
+        if in_inventory is None:
+            await self.add(user_id, item_id, amount)
+        else:
+            await self._db.execute(
+                "UPDATE inventory SET amount=? WHERE user_id=? AND item_id=?",
+                (in_inventory.amount+amount, user_id, item_id)
+            )
+
+    async def take(self, user_id: int, item_id: int, amount: int) -> InventoryItem | None:
+        in_inventory = await self.get(user_id, item_id)
+        if in_inventory is None:
+            return None
+        elif amount > in_inventory.amount:
+            return None
+        elif amount == in_inventory.amount:
+            await self.remove(user_id, item_id)
+            return in_inventory
+        else:
+            await self._db.execute(
+                "UPDATE inventory SET amount=? WHERE user_id=? AND item_id=?",
+                (in_inventory.amount-amount, user_id, item_id)
+            )
+            return InventoryItem(in_inventory.index, amount)
+
+
+    async def move(self, item_id: int, amount: int, from_user: int, to_user: int) -> bool:
+        take_item = self.take(from_user, item_id, amount)
+        if take_item is None:
+            return False
+        self.give(to_user, item_id, amount)
