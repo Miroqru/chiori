@@ -3,17 +3,25 @@
 да, это маленькое расширение нужно чтобы някать ваших участников,
 не больше.
 
+.. tip:: Шаблонное расширение.
+
+    Вы Легко можете начать писать своё расширение для Чиори,
+    взяв за основу исходный код данного расширения.
+
 Предоставляет
 -------------
 
 - /nya <member> - Някнуть участника
 
-Version: v0.3
+Version: v0.4 (5)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
+
+# Глобальные переменные
+# =====================
 
 plugin = arc.GatewayPlugin("Nya")
 
@@ -45,8 +53,10 @@ async def nya_handler(
 
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
+    """Действия при загрузке плагина."""
     client.add_plugin(plugin)
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
+    """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
