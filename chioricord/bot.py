@@ -9,6 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+import traceback
 
 import arc
 import hikari
@@ -31,6 +32,7 @@ LOG_FORMAT = (
 
 # Директория откудла будут грузиться все расширения
 EXT_PATH = Path("exstensions/")
+BOT_DATA_PATH = Path("bot_data/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
 dp = arc.GatewayClient(bot)
 miru_client = miru.Client.from_arc(dp)
@@ -57,8 +59,10 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     await ctx.respond(embed=embed)
 
     # Ну и отправляем в логи, чтобы было с чем работать
-    logger.error(ctx)
+    logger.error(str(ctx))
     logger.exception(exc)
+    traceback.print_exception(exc)
+
 
 # if isinstance(error, commands.errors.MissingPermissions):
 #     await ctx.send(embed=discord.Embed(
@@ -121,6 +125,10 @@ def start_bot():
         sys.stdout,
         format=LOG_FORMAT
     )
+
+    logger.info("Check data folder {}", BOT_DATA_PATH)
+    BOT_DATA_PATH.mkdir(exist_ok=True)
+
 
     # Простой загрузчик расширений
     logger.info("Load plugins from {}", EXT_PATH)
