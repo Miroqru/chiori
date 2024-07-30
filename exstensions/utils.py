@@ -5,7 +5,7 @@
 Предоставляет
 -------------
 
-- /avatar <user> - Получает аватар участника
+- /avatar [user] - Получает аватар участника
 
 Version: v0.1
 Author: Milinuri Nirvalen
