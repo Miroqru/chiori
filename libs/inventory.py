@@ -6,9 +6,11 @@
 
 Пока что в инвентаре не будет каких-либо ограничений на предметы.
 
-Version: 0.4 (10)
+Version: 0.5 (11)
 Author: Milinuri Nirvalen
 """
+
+from random import choice
 
 import json
 from pathlib import Path
@@ -110,12 +112,19 @@ class ItemIndex:
 
     async def get(self, item_id: int) -> Item | None:
         cur = await self._db.execute(
-            "SELECT * FROM 'index' WHERE id=?",
-            (item_id,)
+            "SELECT * FROM 'index' WHERE id=?", (item_id,)
         )
         row = await cur.fetchone()
         return None if row is None else Item.from_row(row)
 
+    async def get_random(self, rare: int) -> Item | None:
+        cur: aiosqlite.Cursor = await self._db.execute(
+            "SELECT * FROM 'index' WHERE rare=?", (rare,)
+        )
+        items = await cur.fetchall()
+        if len(items) == 0:
+            return None
+        return Item.from_row(choice(items))
 
     # Методы для работы с индексом предметов
     # ======================================
