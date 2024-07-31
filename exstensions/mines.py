@@ -13,7 +13,7 @@
 
 - /mines - Начать игру Сапёп
 
-Version: v0.3 (15)
+Version: v0.4 (19)
 Author: Milinuri Nirvalen
 """
 
@@ -27,7 +27,8 @@ import miru
 # =====================
 
 plugin = arc.GatewayPlugin("mines")
-
+_MIN_BOMBS = 3
+_MAX_BOMBS = 10
 
 # Классы предствления минного поля
 # ================================
@@ -47,17 +48,15 @@ class EmptyButton(miru.Button):
 
     Как только вы откроете последную пустую клетку, игра завершится
     победой для вас.
-
-    :param index: Номер позиции кнопки (0-24).
-    :type index: int
     """
 
-    def __init__(self, index: int) -> None:
+    def __init__(self) -> None:
         super().__init__(
             label="?",
             style=hikari.ButtonStyle.SECONDARY
         )
-        self.index = index
+        # Получает свой индекс после генерации игрового поля
+        self.index: int | None = None
 
 
     async def callback(self, ctx: miru.ViewContext) -> None:
@@ -119,17 +118,15 @@ class BombButton(miru.Button):
     Было ли это случайностью или намеренно неизвестно.
     Оно никак не выделяется по сравению с обычным.
     И лишь ближайшие пустые клетки могут вам подсказать где бомба.
-
-    :param index: Порядковые номер поля (0 - 24).
-    :type index: int
     """
 
-    def __init__(self, index: int) -> None:
+    def __init__(self) -> None:
         super().__init__(
             label="?",
             style=hikari.ButtonStyle.SECONDARY
         )
-        self.index = index
+        # Получает свой индекс после генерации игрового поля
+        self.index: int | None = None
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Действие при нажатии на кнопку.
@@ -176,11 +173,11 @@ class MineView(miru.View):
     ближайших бомб по координатам клетки.
     """
 
-    def __init__(self):
+    def __init__(self, total_bombs: int | None = None):
         super().__init__()
 
-        self.mines = []
-        self.total_bombs = 0
+        self.total_bombs = total_bombs or random.randint(_MIN_BOMBS, _MAX_BOMBS)
+        self.board = []
         self.cels_left = 0
         self.start_game()
 
@@ -189,19 +186,20 @@ class MineView(miru.View):
 
         Очищает данные старой игры и генерирует новое минное поле.
         """
-        self.mines.clear()
-        self.total_bombs = 0
+        self.board.clear()
+        self.cels_left = 25 - self.total_bombs
 
-        for x in range(25):
-            if random.randint(1, 5) == 5:
-                button = BombButton(x)
-                self.total_bombs += 1
-            else:
-              button = EmptyButton(x)
+        # Генерация игрового поля
+        for x in range(self.total_bombs):
+            self.board.append(BombButton())
+        for x in range(self.cels_left):
+            self.board.append(EmptyButton())
+        random.shuffle(self.board)
 
-            self.mines.append(button)
+        # Добавляем кнопки к view
+        for i, button in enumerate(self.board):
+            self.board[i].index = i
             self.add_item(button)
-            self.cels_left = 25 - self.total_bombs
 
 
     def get_neibhoors(self, index: int) -> list[miru.Button]:
@@ -234,7 +232,7 @@ class MineView(miru.View):
                     continue
 
                 pos = (pos_y+y_shift)*5 + (pos_x+x_shift)
-                button = self.mines[pos]
+                button = self.board[pos]
                 if not button.disabled:
                     buttons.append(button)
         return buttons
@@ -289,7 +287,7 @@ class MineView(miru.View):
 
     def open_bomds(self) -> None:
         """Показывает все клетки, где были замечены бомбы."""
-        for x in self.mines:
+        for x in self.board:
             if isinstance(x, BombButton):
                 x.label = "💣"
 
@@ -297,7 +295,7 @@ class MineView(miru.View):
     # Методы генерации сообщений
     # ==========================
 
-    def get_game_status(self) -> hikari.Embed:
+    def game_status(self) -> hikari.Embed:
         """Сообщение со статусом игры.
 
         Используется чтобы отобразить текущий прогресс активной игры.
@@ -338,15 +336,39 @@ class MineView(miru.View):
 @arc.slash_command("mines", description="Начать игру сапёр.")
 async def mines_handler(
     ctx: arc.GatewayContext,
-    client: miru.Client = arc.inject()
+    client: miru.Client = arc.inject(),
+    bombs: arc.Option[
+        int | None, arc.IntParams("Количество бомб в игре (3-10)")
+    ] = None
 ) -> None:
     """Запускаем игру сапёр.
 
     Генерируем новое игровое поле, а также отображаем текущий
     статус игры.
     """
+    if bombs is not None:
+        if bombs < _MIN_BOMBS:
+            return await ctx.respond(embed=hikari.Embed(
+                title="💣 Маловато бомб",
+                description=(
+                    f"В игре должны быть как минимум {_MIN_BOMBS} бомбы.\n"
+                    "Иначе игра теряет всякий интерес."
+                ),
+                color=hikari.colors.Color(0xff00aa)
+            ))
+        elif bombs > _MAX_BOMBS:
+            return await ctx.respond(embed=hikari.Embed(
+                title="💣 Многовато бомб",
+                description=(
+                    f"В игре должны быть максимум {_MAX_BOMBS} бомбы.\n"
+                    "Иначе играть буедт не так весело, вы согласны?"
+                ),
+                color=hikari.colors.Color(0xff00aa)
+            ))
+
+
     view = MineView()
-    await ctx.respond(embed=viewю.game_status(), components=view)
+    await ctx.respond(embed=view.game_status(), components=view)
     client.start_view(view)
 
 
