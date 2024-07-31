@@ -10,45 +10,44 @@
     <img alt="license" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fcodeberg.org%2FSalormoon%2Fchioricord%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=tool.poetry.license&label=license&color=red">
     <img alt="Gitea Last Commit" src="https://img.shields.io/gitea/last-commit/Salormoon/chioricord?gitea_url=https%3A%2F%2Fcodeberg.org">
     <img alt="version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fcodeberg.org%2FSalormoon%2Fchioricord%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=tool.poetry.version&prefix=v&label=version&color=green">
-    <img alt="Python version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fcodeberg.org%2FSalormoon%2Fchioricord%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=tool.poetry.dependencies.python&label=license&color=blue">
+    <img alt="Python version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fcodeberg.org%2FSalormoon%2Fchioricord%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=tool.poetry.dependencies.python&label=python&color=blue">
     <img alt="Discord" src="https://img.shields.io/discord/1105813801997189160?logo=discord&label=Discord&color=%230066ff">
 </p>
 
-Многофункциональный дискорд бот с модульной структурой для **вашего** сервера.
+Многофункциональный модульный дискорд бот для **вашего** лампового сервера.
 
 **Что умеет этот бот**:
 
-- Игра **Сапёр**, **Крестики-нолики**.
-- Подбросить кубики.
-- Общение с **GPT**.
-- Получить информацию о цвете.
-- Разные маленькие команды.
+- Множество мини-игр: **Сапёр**, крестики-нолики, найди пару и другие.
+- Маленькие утилиты: Подбросить кубик, информация о цвете, аватар пользователя.
+- Систмные команды, по типу `/help`, чтобы подробнее узнать о боте.
+- Коллекция библиотек для создания более масштабных игра. (*в процессе*).
 - *Тут могут быть ваши функции.*
 
 
 ## Установка
 
-1. Клонируйте репозиторий.
+1. Клонируем репозиторий со всеми компонентами.
 
 ```sh
 git clone https://codeberg.org/Salormoon/chioricord
 ```
 
-2. Установите зависимости через [poetry](https://python-poetry.org):
+2. Устанавливаем зависимости через [poetry](https://python-poetry.org):
 
 ```sh
 poetry install
 ```
 
-3. **Настройте бота для работы.**
-  Для этого скопируйте файл `env.dist` в `.env`.
-  После подставьте ваш токен от discord бота.
+3. **Настраиваем бота для работы.**
+  Для этого скопируем файл `env.dist` в `.env`.
+  После подставим токен вашего *Discord* бота.
 
 ```toml
 BOT_TOKEN = "ODY4MDk..."
 ```
 
-Теперь всё готово чтобы запустить этого бота чезе `poetry`:
+Теперь всё готово чтобы запустить Чиори чезе `poetry`:
 
 ```sh
 poetry run python -m chioricord
@@ -56,9 +55,12 @@ poetry run python -m chioricord
 
 ## Структура проекта
 
-Бот разработан с использованием модельной структуры.
+Бот разработан с использованием модульной структуры.
 Чтобы вам самостоятельно регулировать функционал бота, достаточно перемещать
 файлы в `exstensions/`.
+
+К примеру если вам не нужен какой-то плагин, просто переместите его в другую
+директорию.
 
 ```
 ├── assets      - Некоторые медиафайлы репозитория (документация?)
@@ -70,7 +72,7 @@ poetry run python -m chioricord
 ## Настройки бота
 
 На данный момент все настройки бота хранятся в одном `.env` файле.
-Это так называемый корневой файл настроек, который загружается вместе с ботом.
+Это так называемый *корневой файл настроек*, который загружается вместе с ботом.
 Тут указаны все необходимые для работы ядра параметры.
 
 
