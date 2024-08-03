@@ -31,6 +31,138 @@ BAD_TRANSACTION = hikari.Embed(
 # определение команд
 # ==================
 
+coin_group = plugin.include_slash_group(
+    name="coins",
+    description="управляйте финансами ваших пользователей",
+    default_permissions=hikari.Permissions.ADMINISTRATOR
+)
+
+@coin_group.include
+@arc.slash_subcommand("reset", description="Сбрасывает баланс пользователя.")
+async def coin_reset_handler(
+    ctx: arc.GatewayContext,
+    user: arc.Option[
+        hikari.User | None, arc.UserParams("У кого сбросить баланс (себе)")
+    ] = None
+) -> None:
+    if user is None:
+        user = ctx.user
+
+    await COINS_DB.delete(user_id=user.id)
+    await COINS_DB.commit()
+    embed = hikari.Embed(
+        title="Успешная транзакция",
+        description=f"{user.mention} остался без монеток",
+        color=hikari.colors.Color(0x00ffcc)
+    )
+    await ctx.respond(embed=embed)
+
+@coin_group.include
+@arc.slash_subcommand("give", description="Выдать монетки игроку.")
+async def coin_give_handler(
+    ctx: arc.GatewayContext,
+    amount: arc.Option[int, arc.IntParams("Сколько дать")],
+    user: arc.Option[
+        hikari.User | None, arc.UserParams("Кому дать монетки (себе)")
+    ] = None
+) -> None:
+    if user is None:
+        user = ctx.user
+
+    await COINS_DB.give(user_id=user.id, amount=amount)
+    await COINS_DB.commit()
+    embed = hikari.Embed(
+        title="Успешная транзакция",
+        description=f"Вы выдали {user.mention} {amount} монеток",
+        color=hikari.colors.Color(0x00ffcc)
+    )
+    await ctx.respond(embed=embed)
+
+@coin_group.include
+@arc.slash_subcommand("take", description="Забрать монетки у игрока.")
+async def coin_take_handler(
+    ctx: arc.GatewayContext,
+    amount: arc.Option[int, arc.IntParams("Сколько взять")],
+    user: arc.Option[
+        hikari.User | None, arc.UserParams("У кого забрать (себе)")
+    ] = None
+) -> None:
+    if user is None:
+        user = ctx.user
+
+    status = await COINS_DB.take(user_id=user.id, amount=amount)
+    if status:
+        await COINS_DB.commit()
+        embed = hikari.Embed(
+            title="Успешная транзакция",
+            description=f"Вы взяли у {user.mention} {amount} монеток",
+            color=hikari.colors.Color(0x00ffcc)
+        )
+        await ctx.respond(embed=embed)
+    else:
+        await ctx.respond(embed=BAD_TRANSACTION)
+
+
+deposite_group = plugin.include_slash_group(
+    name="deposite",
+    description="Управляйте вашими накоплениями"
+)
+
+@deposite_group.include
+@arc.slash_subcommand("put", description="Положить монеты на депозит.")
+async def deposite_put_handler(
+    ctx: arc.GatewayContext,
+    amount: arc.Option[int, arc.IntParams("Сколько положить")],
+) -> None:
+    status = await COINS_DB.to_deposite(user_id=ctx.user.id, amount=amount)
+    if status:
+        await COINS_DB.commit()
+        embed = hikari.Embed(
+            title="Успешная транзакция",
+            description=f"Вы положили на депозит {amount} монеток",
+            color=hikari.colors.Color(0x00ffcc)
+        )
+        await ctx.respond(embed=embed)
+    else:
+        await ctx.respond(embed=BAD_TRANSACTION)
+
+@deposite_group.include
+@arc.slash_subcommand("take", description="Взять монеты с депозита.")
+async def deposite_take_handler(
+    ctx: arc.GatewayContext,
+    amount: arc.Option[int, arc.IntParams("Сколько взять")],
+) -> None:
+    status = await COINS_DB.from_deposite(user_id=ctx.user.id, amount=amount)
+    if status:
+        await COINS_DB.commit()
+        embed = hikari.Embed(
+            title="Успешная транзакция",
+            description=f"Вы взяли с депозита {amount} монеток",
+            color=hikari.colors.Color(0x00ffcc)
+        )
+        await ctx.respond(embed=embed)
+    else:
+        await ctx.respond(embed=BAD_TRANSACTION)
+
+@deposite_group.include
+@arc.slash_subcommand("info", description="Что такое депозит.")
+async def deposite_info_handler(ctx: arc.GatewayContext) -> None:
+    user_info = await COINS_DB.get_or_create(ctx.user.id)
+    embed = hikari.Embed(
+        title="Депозит",
+        description=(
+            "Итак, здесь вы можете хранить свою монетки.\n"
+            "Тут они будут надёжно лежать и ждать вас.\n"
+            "А ещё приятный бонус - со времнем их станет только больше."
+        ),
+        color=hikari.colors.Color(0x00ffcc)
+    ).add_field(
+        name="Сейчас лежит",
+        value=str(user_info.deposite)
+    )
+    await ctx.respond(embed=embed)
+
+
 @plugin.include
 @arc.slash_command("pay", description="Оплатить услуги участнику.")
 async def pay_handler(
