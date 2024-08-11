@@ -7,7 +7,7 @@
 
 - /gc - Отправиться на свалку.
 
-Version: v0.0.1
+Version: v0.0.2 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -18,8 +18,7 @@ import arc
 import hikari
 import miru
 
-from libs.inventory import Inventory, ItemIndex, Item, InventoryItem
-
+from libs.inventory import Inventory, InventoryItem, ItemIndex
 
 plugin = arc.GatewayPlugin("Gc")
 
@@ -34,6 +33,8 @@ class RareInfo(NamedTuple):
     def __str__(self) -> str:
         return self.icon
 
+DEFAULT_RARE = RareInfo(0, "🟤", 100, 7)
+
 _RARES = [
     # RareInfo(3, "🔵", 10),
     # RareInfo(2, "🟢", 20),
@@ -46,6 +47,7 @@ def get_random_rare() -> RareInfo:
     for rare in _RARES:
         if randnum < rare.chance:
             return rare
+    return DEFAULT_RARE
 
 
 class GameButton(miru.Button):
@@ -58,12 +60,19 @@ class GameButton(miru.Button):
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         if not self.view.validate_player(ctx.user):
-            return await ctx.respond(
+            await ctx.respond(
                 "Не трогайте меня пожалуйста ...",
                 delete_after=10
             )
+            return None
 
         rare = await self.view.get_item(self.index)
+        if rare is None:
+            await ctx.edit_response(
+                embed=self.view.stop_game(),
+                components=None
+            )
+            return None
         self.set_open(rare)
 
         game_over = await self.view.is_game_over()
@@ -117,10 +126,13 @@ class GCView(miru.View):
     def validate_player(self, user: hikari.User) -> bool:
         return user == self._user
 
-    async def get_item(self, index: int) -> RareInfo:
+    async def get_item(self, index: int) -> RareInfo | None:
         self._energy -= 1
         rare = self._board[index]
         item = await self._index.get_random(rare.tier)
+        if item is None:
+            return None
+
         self._gived_items.append(
             InventoryItem(index=item, amount=randint(1, rare.max_amount))
         )
@@ -155,7 +167,7 @@ class GCView(miru.View):
                 "непереработанного мусора.\n"
                 "Самое время посомреть что вы успели набрать."
             ),
-            color=hikari.colors.Color(0x8ff0a4)
+            color=hikari.Color(0x8ff0a4)
         ).add_field(
             name="Находки",
             value=self.gived_items_status()
@@ -171,7 +183,7 @@ class GCView(miru.View):
                 "Перед вами большой простор где искать что-нибудь ценное.\n"
                 "Нажмите на пустое поле, чтобы узнать что там находится."
             ),
-            color=hikari.colors.Color(0x00ccff)
+            color=hikari.Color(0x00ccff)
         ).add_field(
             name="Находки",
             value=self.gived_items_status()
@@ -179,6 +191,15 @@ class GCView(miru.View):
             name="Энергия",
             value=f"{self._energy} / {self._max_energy}"
         )
+
+    def stop_game(self) -> hikari.Embed:
+        self.stop()
+        return hikari.Embed(
+            title="🗑️ Поход / Возникла проблема",
+            description="При получении предмета возникла ошибка.",
+            color=hikari.Color(0xff00aa)
+        )
+
 
 
 
