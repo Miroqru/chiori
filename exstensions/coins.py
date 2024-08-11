@@ -1,6 +1,5 @@
 """монетки.
 
-
 Version: v0.1 (1)
 Author: Milinuri Nirvalen
 """
@@ -9,12 +8,11 @@ from pathlib import Path
 
 import arc
 import hikari
-
 from loguru import logger
 
 from libs import coinengine
 
-
+from icecream import ic
 
 # Глобальные переменные
 # =====================
@@ -102,6 +100,7 @@ async def coin_take_handler(
     else:
         await ctx.respond(embed=BAD_TRANSACTION)
 
+# ----------------------------------------------------------------------
 
 deposite_group = plugin.include_slash_group(
     name="deposite",
@@ -162,6 +161,7 @@ async def deposite_info_handler(ctx: arc.GatewayContext) -> None:
     )
     await ctx.respond(embed=embed)
 
+# ----------------------------------------------------------------------
 
 @plugin.include
 @arc.slash_command("pay", description="Оплатить услуги участнику.")
@@ -212,6 +212,74 @@ async def balance_handler(
         name="На руках", value=user_coins.amount, inline=True
     ).add_field(
         name="Депозит", value=user_coins.deposite, inline=True
+    )
+    await ctx.respond(embed=embed)
+
+# ----------------------------------------------------------------------
+
+cointop_group = plugin.include_slash_group(
+    name="cointop",
+    description="Таблица лидеров самых богатых участников"
+)
+
+def get_leaders_list(
+    ctx: arc.GatewayContext,
+    leaders: list[coinengine.CoinsData]
+) -> str:
+    res = ""
+    for i, coindata in enumerate(leaders):
+        member = ctx.get_guild().get_member(coindata.user_id)
+        if member is not None:
+            username = member.nickname
+        else:
+            username = coindata.user_id
+
+        res += (
+            f"\n{i+1}. {username}: {coindata.amount}"
+            f" ({coindata.deposite})"
+        )
+    return res
+
+@cointop_group.include
+@arc.slash_subcommand(name="all", description="Самые богатые участники сервера")
+async def cointop_all_handler(
+    ctx: arc.GatewayContext,
+):
+    leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.ALL)
+    embed = hikari.Embed(
+        title="Таблица лидеров / общее",
+        description=get_leaders_list(ctx, leaders),
+        color=hikari.Color(0xffcc66)
+    )
+    await ctx.respond(embed=embed)
+
+@cointop_group.include
+@arc.slash_subcommand(
+    name="amount", description="Самые богатые участники (монетки на руках)"
+)
+async def cointop_all_handler(
+    ctx: arc.GatewayContext,
+):
+    leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.AMOUNT)
+    embed = hikari.Embed(
+        title="Таблица лидеров / на руках",
+        description=get_leaders_list(ctx, leaders),
+        color=hikari.Color(0xff9966)
+    )
+    await ctx.respond(embed=embed)
+
+@cointop_group.include
+@arc.slash_subcommand(
+    name="deposite", description="Самые богатые участники (банк)"
+)
+async def cointop_all_handler(
+    ctx: arc.GatewayContext,
+):
+    leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.DEPOSITE)
+    embed = hikari.Embed(
+        title="Таблица лидеров / в банке",
+        description=get_leaders_list(ctx, leaders),
+        color=hikari.Color(0x66ccff)
     )
     await ctx.respond(embed=embed)
 
