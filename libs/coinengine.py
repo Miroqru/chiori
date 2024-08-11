@@ -1,6 +1,7 @@
-from typing import NamedTuple
+from enum import Enum
 
 from pathlib import Path
+from typing import NamedTuple, Self
 
 import aiosqlite
 
@@ -15,8 +16,14 @@ class CoinsData(NamedTuple):
         return self.amount + self.deposite
 
     @classmethod
-    def from_row(cls, row: aiosqlite.Row) -> "CoinData":
+    def from_row(cls, row: aiosqlite.Row) -> Self:
         return CoinsData(int(row[0]), int(row[1]), int(row[2]))
+
+
+class OrderBy(Enum):
+    AMOUNT = "amount"
+    DEPOSITE = "deposite"
+    ALL = "amount+deposite"
 
 
 # Будет капать на баланс каждый день
@@ -26,6 +33,7 @@ DEPOSITE_PERCENT = 0.05
 class CoinDB:
     def __init__(self, db_path: Path):
         self.db_path = db_path
+        self._db: aiosqlite.Connection | None = None
 
     # Методы для работы с файлом базы данных
     # ======================================
@@ -54,6 +62,15 @@ class CoinDB:
 
     # методы получения данных из базы
     # ===============================
+
+    async def get_leaderboard(self, order_by: OrderBy) -> list[CoinsData]:
+        cur: aiosqlite.Cursor = await self._db.execute(
+            f"SELECT * FROM coins ORDER BY {order_by.value} DESC",
+        )
+        res = []
+        for row in await cur.fetchall():
+            res.append(CoinsData.from_row(row))
+        return res
 
     async def get(self, user_id: int) -> CoinsData | None:
         cur: aiosqlite.Cursor = await self._db.execute(
