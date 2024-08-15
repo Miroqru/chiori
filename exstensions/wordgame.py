@@ -13,11 +13,25 @@ from loguru import logger
 
 plugin = arc.GatewayPlugin("Wordgame")
 
+_GAME_RULES = (
+    "- Новое слово начинается с последней буквы предыдущео.\n"
+    "- Только существительные именительного падежа.\n"
+    "- Слова должны быть в единственном числе."
+)
+
+
 def get_word(raw_word: str) -> str | None:
     match_word = re.match(r"[а-я]{2,}", raw_word.lower())
     if match_word is None:
         return None
     return match_word.group()
+
+def get_last_letter(word: str) -> str:
+    if word[-1] in ("ь", "ъ", "ы"):
+        return word[-2]
+    else:
+        return word[-1]
+
 
 
 class WordGame:
@@ -30,15 +44,24 @@ class WordGame:
         self.last_word = last_word
         self.storage = None
 
+    def validate_word(self, ctx: arc.GatewayContext, word: str) -> str | None:
+        word = get_word(word)
+        if word is None:
+            return None
+
+        if self.last_user is not None:
+            if ctx.user.id == self.last_user:
+                return None
+
+            last_letter = get_last_letter(self.last_word)
+            if last_letter != word[0]:
+                return None
+        return word
+
     async def next_word(self, ctx: arc.GatewayContext, word: str) -> bool:
-        new_word = get_word(word)
+        new_word = self.validate_word(ctx, word)
         if new_word is None:
-            embed = hikari.Embed(
-                title=f"Точно {word}?",
-                description="Слово должно состоять как минимум из 2-х букв",
-                color=hikari.Color(0xff0099)
-            )
-            await ctx.respond(embed=embed)
+            await ctx.respond(embed=self.error_message(word), delete_after=10)
             return False
 
         if self.last_word is None:
@@ -52,6 +75,19 @@ class WordGame:
         await ctx.respond(embed=embed)
         return True
 
+    def error_message(self, word: str) -> hikari.Embed:
+        return hikari.Embed(
+            title=f"Точно {word}?",
+            description=(
+                "Вероятно вы где-то ошиблись, а может сейчас не ваш ход?\n"
+                f"Последнее слово: {self.last_word}"
+            ),
+            color=hikari.Color(0xff0099)
+        ).add_field(
+            name="Правила игры",
+            value=_GAME_RULES
+        )
+
     def new_game_message(self) -> hikari.Embed:
         return hikari.Embed(
             title="Игра в слова / Начало",
@@ -62,10 +98,7 @@ class WordGame:
             color=hikari.Color(0x66ccff)
         ).add_field(
             name="Правила игры",
-            value=(
-                "- Новое слово начинается с последней буквы предыдущео.\n"
-                "- Только существительные именительного падежа."
-            )
+            value=_GAME_RULES
         )
 
     def next_word_message(self, next_word: str) -> hikari.Embed:
@@ -74,6 +107,7 @@ class WordGame:
             description=f"{self.last_word} -> **{next_word}**",
             color=hikari.Color(0x66ffcc)
         )
+
 
 class GameStorage:
     def __init__(self, storage_file: Path):
