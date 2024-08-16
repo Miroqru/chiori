@@ -14,7 +14,7 @@
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.4 (13)
+Version: v0.4.1 (14)
 Author: Milinuri Nirvalen
 """
 
@@ -38,7 +38,8 @@ plugin = arc.GatewayPlugin("Wordgame")
 _GAME_RULES = (
     "- Новое слово начинается с последней буквы предыдущео.\n"
     "- Только существительные именительного падежа.\n"
-    "- Слова должны быть в единственном числе именительного падежа."
+    "- Слова должны быть в единственном числе именительного падежа.\n"
+    "- Слова не должны повторояться."
 )
 
 # Описывает сколько должно пройти времени с последнго обновления
@@ -125,6 +126,9 @@ class WordGame:
             return None
 
         if self.last_user is not None:
+            if word == self.last_word:
+                return None
+
             if ctx.user.id == self.last_user:
                 return None
 
