@@ -14,10 +14,12 @@
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.3 (9)
+Version: v0.3 +1 (10)
 Author: Milinuri Nirvalen
 """
 
+from time import time
+from typing import NamedTuple
 from pathlib import Path
 import re
 import json
@@ -90,7 +92,7 @@ class WordGame:
     def __init__(
         self,
         last_user_id: int | None = None,
-        last_word: str | None = None
+        last_word: str | None = None,
     ):
         self.last_user = last_user_id
         self.last_word = last_word
@@ -227,6 +229,18 @@ class WordGame:
         )
 
 
+class GameData(NamedTuple):
+    """Описывает даныне игры в хранилище.
+
+    :param game: Экземпляр активной игры.
+    :type game: Wordgame
+    :param last_update: Время последнего сохраенрия игры.
+    :type last_update: int
+    """
+
+    game: WordGame
+    last_update: int
+
 class GameStorage:
     """Хранилище сессия игры.
 
@@ -240,7 +254,7 @@ class GameStorage:
     """
     def __init__(self, storage_file: Path):
         self.storage_file = storage_file
-        self._games: dict[int, WordGame] = {}
+        self._games: dict[int, GameData] = {}
 
 
     # Работаем с диском
@@ -266,7 +280,10 @@ class GameStorage:
                 json_games: dict[str, list[str, int]] = json.loads(f.read())
             games = {}
             for k, v in json_games.items():
-                games[k] = WordGame(v[0], v[1])
+                games[k] = GameData(
+                    game=WordGame(v[0], v[1]),
+                    last_update=x[2]
+                )
             self._games = games
             logger.info("Word games loaded from file")
         except Exception as e:
@@ -288,9 +305,13 @@ class GameStorage:
         try:
             dump_games = {}
             for k, v in self._games.items():
-                dump_games[k] = [v.last_user, v.last_word]
+                dump_games[k] = [
+                    v.game.last_user,
+                    v.game.last_word,
+                    v.last_update
+                ]
             with open(self.storage_file, "w") as f:
-                f.write(json.dumps(dump_games))
+                f.write(json.dumps(dump_games, ensure_ascii=False))
             logger.info("Word games saved in file")
             self._games = {}
         except Exception as e:
@@ -311,7 +332,7 @@ class GameStorage:
         :rtype: WordGame
         """
         if guild_id in self._games:
-            return self._games[guild_id]
+            return self._games[guild_id].game
         return WordGame()
 
     def set(self, guild_id: int, game: WordGame):
@@ -324,7 +345,7 @@ class GameStorage:
         :param game: Экземпляр текушей игры в слова.
         :type game: WordGame
         """
-        self._games[guild_id] = game
+        self._games[guild_id] = GameData(game, int(time()))
 
 # Создаём одно глобальное хранилище для всего плагина
 GSTORAGE = GameStorage(Path("bot_data/word_game.json"))
