@@ -85,6 +85,20 @@ def get_last_letter(word: str) -> str:
 # Глвынй игровой класс
 # ====================
 
+class Word(NamedTuple):
+    """Одно слово для цепочки слов.
+
+    помимо самого слова, азпоминается пользователь, который его скзаал.
+
+    :param text: Текст слова для запоминания.
+    :type text: str
+    :param user_id: Кто добавил это слово в цепочку.
+    :type user_id: int
+    """
+    text: str
+    user_id: int
+
+
 class WordGame:
     """Представление игры в слова.
 
@@ -101,9 +115,27 @@ class WordGame:
         self,
         last_user_id: int | None = None,
         last_word: str | None = None,
+        wordchain: list[Word] | None = None
     ):
         self.last_user = last_user_id
         self.last_word = last_word
+        self.wordchain = wordchain or []
+
+    def search_word(self, word: str) -> Word | None:
+        """Производит поиск слова в цепочке слов.
+
+        Это используется чтобы предотвратить повтор слов.
+        Если слово не было найдено в цепочке, то возвращет None.
+
+        :param word: Слово для поиска в цеопчке слов.
+        :type word: str
+        :return: Слово в цеочке, если было найдено, иначе None.
+        :rtype: Word | None
+        """
+        for word_link in self.wordchain:
+            if word == word_link.text:
+                return word_link
+        return None
 
     def validate_word(self, ctx: arc.GatewayContext, word: str) -> str | None:
         """Проверяет строку на корректность чтобы его добавить.
@@ -130,6 +162,10 @@ class WordGame:
                 return None
 
             if ctx.user.id == self.last_user:
+                return None
+
+            word_link = self.search_word(word)
+            if word_link is not None:
                 return None
 
             last_letter = get_last_letter(self.last_word)
@@ -164,6 +200,7 @@ class WordGame:
             self.last_word = new_word
             embed = self.new_game_message()
         else:
+            self.wordchain.append(Word(self.last_word, self.last_user))
             embed = self.next_word_message(new_word)
             self.last_word = new_word
 
@@ -273,6 +310,18 @@ class GameStorage:
     # Работаем с диском
     # =================
 
+    def load_worldchain(self, json_list: list[str, int]) -> list[Word]:
+        wordchain = []
+        for word in json_list:
+            wordchain.append(Word(word[0], word[1]))
+        return wordchain
+
+    def dump_wordchain(self, wordchain: list[Word]) -> list[str, int]:
+        json_list = []
+        for word in wordchain:
+            json_list.append(word.text, word.user_id)
+        return json_list
+
     def connect(self):
         """Подключает хранилище.
 
@@ -284,7 +333,12 @@ class GameStorage:
 
             {
                 // server id: [user_id: int, last_word: str]
-                "1232313" [3123123, "слово"]
+                "1232313": [
+                    3123123, // id последнего кто отправил слово
+                    "слово", // текст последнего слова
+                    [ ... ], // вся последующая цепочка слов
+                    17934133, // UNIXtime последнего обнолвения
+                ]
             }
         """
 
@@ -294,8 +348,8 @@ class GameStorage:
             games = {}
             for k, v in json_games.items():
                 games[k] = GameData(
-                    game=WordGame(v[0], v[1]),
-                    last_update=x[2]
+                    game=WordGame(v[0], v[1], self.load_worldchain(v[2])),
+                    last_update=v[3]
                 )
             self._games = games
             logger.info("Word games loaded from file")
@@ -312,15 +366,22 @@ class GameStorage:
 
             {
                 // server id: [user_id: int, last_word: str]
-                "1232313" [3123123, "слово"]
+                "1232313": [
+                    3123123, // id последнего кто отправил слово
+                    "слово", // текст последнего слова
+                    [ ... ], // вся последующая цепочка слов
+                    17934133, // UNIXtime последнего обнолвения
+                ]
             }
         """
         try:
             dump_games = {}
             for k, v in self._games.items():
+                # Да-да, это просто прекраный способ описать данные
                 dump_games[k] = [
                     v.game.last_user,
                     v.game.last_word,
+                    self.dump_wordchain(v.game.wordchain),
                     v.last_update
                 ]
             with open(self.storage_file, "w") as f:
