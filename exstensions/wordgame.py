@@ -14,7 +14,7 @@
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.3 +1 (10)
+Version: v0.3 +2 (12)
 Author: Milinuri Nirvalen
 """
 
@@ -40,6 +40,13 @@ _GAME_RULES = (
     "- Только существительные именительного падежа.\n"
     "- Слова должны быть в единственном числе именительного падежа."
 )
+
+# Описывает сколько должно пройти времени с последнго обновления
+# чтобы после началась новая игра
+# Используется чтобы не затягивать игры слишком надолго
+#
+# По умолчанию занчение утсановлено в 12 чаов
+_START_NEW_GAME_AFTER = 43200
 
 
 # Вспомогательные компоненты
@@ -199,11 +206,13 @@ class WordGame:
         :return: Сообщение о начале новой игры.
         :rtype: hikari.Embed
         """
+        last_letter = f"`{get_last_letter(self.last_word)}`"
         return hikari.Embed(
             title="Игра в слова / Начало",
             description=(
                 f"Вы начинаете новую игру со слова **{self.last_word}**\n"
-                f"Следующий игров говорит слово на букву {self.last_word[-1]}"
+                f"Следующий игрок говорит слово на букву {last_letter}.\n"
+                f"Игра начнётся с начала после 12 часов молчания."
             ),
             color=hikari.Color(0x66ccff)
         ).add_field(
@@ -332,6 +341,12 @@ class GameStorage:
         :rtype: WordGame
         """
         if guild_id in self._games:
+            game_data = self._games[guild_id]
+            # Вероятно будет несколько затратноузнавать время
+            if game_data.last_update > 0 and (
+                int(time())-game_data.last_update > _START_NEW_GAME_AFTER
+            ):
+                return WordGame()
             return self._games[guild_id].game
         return WordGame()
 
@@ -356,7 +371,7 @@ GSTORAGE = GameStorage(Path("bot_data/word_game.json"))
 
 @plugin.include
 @arc.slash_command("word", description="Сказать слово для игры в слова.")
-async def nya_handler(
+async def word_handler(
     ctx: arc.GatewayContext,
     word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")]
 ) -> None:
@@ -374,6 +389,8 @@ async def nya_handler(
     status = await game.next_word(ctx, word)
     if status:
         GSTORAGE.set(str(ctx.guild_id), game)
+
+
 
 
 # Загрузчики и выгрузчики плагина
