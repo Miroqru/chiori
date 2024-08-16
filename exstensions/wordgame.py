@@ -14,7 +14,7 @@
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.3 +2 (12)
+Version: v0.4 (13)
 Author: Milinuri Nirvalen
 """
 
@@ -390,6 +390,29 @@ async def word_handler(
     if status:
         GSTORAGE.set(str(ctx.guild_id), game)
 
+
+@plugin.include
+@arc.slash_command(
+    "mewword",
+    description="Начинает новую игру в слова.",
+    # обычно прпва удалять сообщения есть у помошников и выше
+    default_permissions=hikari.Permissions.MANAGE_MESSAGES
+)
+async def word_handler(
+    ctx: arc.GatewayContext,
+    word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")]
+) -> None:
+    """Принудительно начинает новую игру в слова.
+
+    Можно использовать, чотбы очистить результаты игры.
+    """
+    if ctx.guild_id is None:
+        return await ctx.respond("Вы не можете играть в одиночку.")
+
+    game = WordGame()
+    status = await game.next_word(ctx, word)
+    if status:
+        GSTORAGE.set(str(ctx.guild_id), game)
 
 
 
