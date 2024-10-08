@@ -3,11 +3,11 @@
 Предоставляет
 -------------
 
-- /plugins - Список плагинов
-- /help - Список всех активных команд бота
-- /help [plugin] - Список команд для конкретного плагина
+- /plugins - Список плагинов.
+- /help - Список всех активных команд бота.
+- /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.1 (5)
+Version: v0.2 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -28,18 +28,20 @@ plugin = arc.GatewayPlugin("Pluginlist")
 async def plugin_handler(
     ctx: arc.GatewayContext,
 ) -> None:
-    """Список всех загруженных плагинов бота."""
+    """Список всех загруженных плагинов Чиори.
+
+    Вклчюает в себя перечисление всех навзний плагинов.
+    """
     plugins = ctx.client.plugins
 
     embed = hikari.Embed(
-        title=f"Список плагинов ({len(plugins)})",
-        description=", ".join(plugins.keys()),
+        title=f"📦 Загруженные плагины ({len(plugins)})",
+        description=", ".join(sorted(plugins.keys())),
         color=hikari.colors.Color(0x00ffcc)
+    ).add_field(
+        name="Подсказка",
+        value="`/help [plugin]`: Список команд указанного плагина."
     )
-    # .add_field(
-    #     name="Подсказка",
-    #     value="Введите `/plugins [plugin_name]` для подробной информации."
-    # )
 
     await ctx.respond(embed=embed)
 
@@ -58,15 +60,28 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
     :return: Сообщение со списком всех команд бота.
     :rtype: hikari.Embed
     """
-    res = ", ".join([
-        command.name
-        for command in ctx.client.walk_commands(hikari.CommandType.SLASH)
-    ])
+    res = ''
+    other_comands = '\n'
+    cmd_count = 0
+    for pn, plugin in ctx.client.plugins.items():
+        pl_comands_count = 0
+        pl_comands_str = ''
+
+        for cmd in plugin.walk_commands(hikari.CommandType.SLASH):
+            pl_comands_count += 1
+            pl_comands_str += f" /{cmd.name}"
+
+        if pl_comands_count < 3:
+            other_comands += pl_comands_str
+        else:
+            res += f"\n**{pn}**: {pl_comands_str}"
+        cmd_count ++ pl_comands_count
+    res += other_comands
 
     return hikari.Embed(
-        title="🌟 Список команд",
+        title=f"🌟 Доступные команды ({cmd_count})",
         description=res,
-        color=hikari.colors.Color(0xaa00ff)
+        color=hikari.colors.Color(0x8866cc)
     ).add_field(
         name="Подсказка",
         value="Используйте `/help [plugin]` для подробностей"
@@ -89,16 +104,21 @@ def get_plugin_commands(ctx: arc.GatewayContext, plugin_name: str) -> hikari.Emb
     plugin = ctx.client.plugins.get(plugin_name)
     if plugin is None:
         return hikari.Embed(
-            title="Плагин не найден",
-            description=f"Я не смогла найти плагин `{plugin_name}`",
-            color=hikari.colors.Color(0xff00aa)
+            title="👀 Упсь",
+            description=f"Я не смогла найти `{plugin_name}` плагин.",
+            color=hikari.colors.Color(0x9966ff)
+        ).add_field(
+            name="Подсказка",
+            value="`/plugins`: Все загруженные плагины Чиори"
         )
     res = ""
+    cmd_count = 0
     for command in plugin.walk_commands(hikari.CommandType.SLASH):
+        cmd_count += 1
         res += f"\n- `{command.name}`: {command.description}"
 
     return hikari.Embed(
-        title=f"Команда плагина {plugin_name}:",
+        title=f"✨ Команда {plugin_name} ({cmd_count}):",
         description=res,
         color=hikari.colors.Color(0xaa00ff)
     )
