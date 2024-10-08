@@ -7,7 +7,7 @@
 - /help - Список всех активных команд бота.
 - /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.2 (6)
+Version: v0.3 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -18,6 +18,12 @@ import hikari
 # =====================
 
 plugin = arc.GatewayPlugin("Pluginlist")
+
+# настройки отображения индекса пакетов
+# index_url: Ссылка до раздела документации Chioricord
+# icon_url: Ссылка на иконку индекса пакетов
+index_url = "https://45.89.190.183/chio/commands/"
+icon_url = "https://45.89.190.183/chio/images/chio.png"
 
 
 # определение команд
@@ -41,6 +47,10 @@ async def plugin_handler(
     ).add_field(
         name="Подсказка",
         value="`/help [plugin]`: Список команд указанного плагина."
+    ).set_author(
+        name="Индекс плагинов",
+        url=index_url,
+        icon=icon_url
     )
 
     await ctx.respond(embed=embed)
@@ -85,6 +95,10 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
     ).add_field(
         name="Подсказка",
         value="Используйте `/help [plugin]` для подробностей"
+    ).set_author(
+        name="Индекс плагинов",
+        url=index_url,
+        icon=icon_url
     )
 
 def get_plugin_commands(ctx: arc.GatewayContext, plugin_name: str) -> hikari.Embed:
@@ -121,6 +135,10 @@ def get_plugin_commands(ctx: arc.GatewayContext, plugin_name: str) -> hikari.Emb
         title=f"✨ Команда {plugin_name} ({cmd_count}):",
         description=res,
         color=hikari.colors.Color(0xaa00ff)
+    ).set_author(
+        name="Индекс плагинов",
+        url=index_url,
+        icon=icon_url
     )
 
 
