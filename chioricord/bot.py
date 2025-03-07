@@ -6,10 +6,10 @@
 """
 
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
-import traceback
 
 import arc
 import hikari
@@ -30,8 +30,8 @@ LOG_FORMAT = (
     "<lvl>{message}</>"
 )
 
-# Директория откудла будут грузиться все расширения
-EXT_PATH = Path("exstensions/")
+# Директория откуда будут грузиться все расширения
+EXT_PATH = Path("extensions/")
 BOT_DATA_PATH = Path("bot_data/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN)
 dp = arc.GatewayClient(bot)
@@ -40,6 +40,7 @@ miru_client = miru.Client.from_arc(dp)
 
 # Обработка событий
 # =================
+
 
 @dp.set_error_handler
 async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
@@ -53,8 +54,8 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     embed = hikari.Embed(
         title="Что-то пошло не так!",
         description="Во время выполнения команды возникло исключение",
-        color=hikari.colors.Color(0xff00bb),
-        timestamp=datetime.now(tz=ZoneInfo("Europe/Samara"))
+        color=hikari.colors.Color(0xFF00BB),
+        timestamp=datetime.now(tz=ZoneInfo("Europe/Samara")),
     )
     await ctx.respond(embed=embed)
 
@@ -112,23 +113,20 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
 # Запуск бота
 # ===========
 
-def start_bot():
+
+def start_bot() -> None:
     """Функция для запуска бота.
 
-    Устанавливает логгирование.
+    Устанавливает запись логов.
     Подгружает все плагины.
-    Запускаеет самого бота.
+    Запускает самого бота.
     """
-    # Настройка логгеров
+    # Настройка журнала
     logger.remove()
-    logger.add(
-        sys.stdout,
-        format=LOG_FORMAT
-    )
+    logger.add(sys.stdout, format=LOG_FORMAT)
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)
-
 
     # Простой загрузчик расширений
     logger.info("Load plugins from {}", EXT_PATH)
@@ -137,8 +135,7 @@ def start_bot():
     # Устанавливаем активность бота
     # "prefix для получение справки"
     activity = hikari.presences.Activity(
-        name=f"для справки /help",
-        type=hikari.presences.ActivityType.PLAYING
+        name="для справки /help", type=hikari.presences.ActivityType.PLAYING
     )
 
     # Запускаем бота

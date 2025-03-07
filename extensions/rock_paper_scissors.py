@@ -9,8 +9,8 @@ Version: v0.3.1 (9)
 Author: Milinuri Nirvalen
 """
 
-from typing import NamedTuple
 from enum import IntEnum
+from typing import NamedTuple
 
 import arc
 import hikari

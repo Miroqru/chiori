@@ -124,7 +124,7 @@ def translate_to_text(rune_text: str) -> str:
         if rune_buffer == "":
             rune_buffer += s
             continue
-        
+
         complex_rune = get_text(rune_buffer+s)
         simple_rune = get_text(rune_buffer)
         if complex_rune is not None:

@@ -11,15 +11,14 @@ Version: v0.1
 Author: Milinuri Nirvalen
 """
 
-from typing import NamedTuple
 from pathlib import Path
+from typing import NamedTuple
 
 import arc
 import hikari
+from loguru import logger
 
 from libs import inventory
-
-from loguru import logger
 
 # Глобальные переменные
 # =====================
