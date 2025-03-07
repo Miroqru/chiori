@@ -1,67 +1,65 @@
 """Игра в слова.
 
-Суть игры досаточно простая.
+Суть игры достаточно простая.
 Первый участник называет слово.
-Следующие участник наызвает слово на последную букву предыдущего.
+Следующие участник называет слово на последнюю букву предыдущего.
 
 Правила игры:
 - Новое слово начинается с последней буквы предыдущего.
 - Использовать только существительные единственного числа.
-- Слова должны быть в единственном числе иминимальеного падежа.
+- Слова должны быть в единственном числе именительного падежа.
 
 Предоставляет
 -------------
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.4.1 (14)
+Version: v0.4.2 (16)
 Author: Milinuri Nirvalen
 """
 
+import json
+import re
+from pathlib import Path
 from time import time
 from typing import NamedTuple
-from pathlib import Path
-import re
-import json
 
-import hikari
 import arc
-import miru
-
+import hikari
 from loguru import logger
 
-
-plugin = arc.GatewayPlugin("Wordgame")
+plugin = arc.GatewayPlugin("word_game")
 
 # Общие правила используются при начале гры и если отправлено
 # неправильное слово.
 _GAME_RULES = (
-    "- Новое слово начинается с последней буквы предыдущео.\n"
+    "- Новое слово начинается с последней буквы предыдущего.\n"
     "- Только существительные именительного падежа.\n"
     "- Слова должны быть в единственном числе именительного падежа.\n"
-    "- Слова не должны повторояться."
+    "- Слова не должны повторяться."
 )
 
-# Описывает сколько должно пройти времени с последнго обновления
+# Описывает сколько должно пройти времени с последнего обновления
 # чтобы после началась новая игра
 # Используется чтобы не затягивать игры слишком надолго
 #
-# По умолчанию занчение утсановлено в 12 чаов
+# По умолчанию значение установлено в 12 часов
 _START_NEW_GAME_AFTER = 43200
 
 
 # Вспомогательные компоненты
 # ==========================
 
+
 def get_word(raw_word: str) -> str | None:
     """Получает слово из строки текста.
 
     Для поиска слова используется регулярное выражение.
-    Извелкает слова более двух симовлов русского языка.
+    Извлекает слова более двух символов русского языка.
     При нахождении иного символа, поиск слова заканчивается.
     Если не удалось найти слово из строки, то возвращает None.
 
-    :param raw_word: Строка с текстом, откуда нужно извлесь слово.
+    :param raw_word: Строка с текстом, откуда нужно взялось слово.
     :type raw_word: str
     :return: Полученное слово или None, если не удалось извлечь.
     :rtype: str | None
@@ -70,6 +68,7 @@ def get_word(raw_word: str) -> str | None:
     if match_word is None:
         return None
     return match_word.group()
+
 
 def get_last_letter(word: str) -> str:
     """Получает последний символ.
@@ -82,19 +81,21 @@ def get_last_letter(word: str) -> str:
         return word[-1]
 
 
-# Глвынй игровой класс
+# Главный игровой класс
 # ====================
+
 
 class Word(NamedTuple):
     """Одно слово для цепочки слов.
 
-    помимо самого слова, азпоминается пользователь, который его скзаал.
+    помимо самого слова, запоминается пользователь, который его сказал.
 
     :param text: Текст слова для запоминания.
     :type text: str
     :param user_id: Кто добавил это слово в цепочку.
     :type user_id: int
     """
+
     text: str
     user_id: int
 
@@ -102,10 +103,10 @@ class Word(NamedTuple):
 class WordGame:
     """Представление игры в слова.
 
-    Позводяет пользователям взаимодействаоть с текущей игрой.
+    Позволяет пользователям взаимодействовать с текущей игрой.
     Например добавлять новое слово в цепочку.
 
-    :param last_user_id: ID последнего пользователя, кто скзаал слово.
+    :param last_user_id: ID последнего пользователя, кто сказал слово.
     :type last_user_id: int | None
     :param last_word: Последнее слово в цепочке.
     :type last_word: str | None
@@ -115,8 +116,8 @@ class WordGame:
         self,
         last_user_id: int | None = None,
         last_word: str | None = None,
-        wordchain: list[Word] | None = None
-    ):
+        wordchain: list[Word] | None = None,
+    ) -> None:
         self.last_user = last_user_id
         self.last_word = last_word
         self.wordchain = wordchain or []
@@ -125,11 +126,11 @@ class WordGame:
         """Производит поиск слова в цепочке слов.
 
         Это используется чтобы предотвратить повтор слов.
-        Если слово не было найдено в цепочке, то возвращет None.
+        Если слово не было найдено в цепочке, то возвращает None.
 
-        :param word: Слово для поиска в цеопчке слов.
+        :param word: Слово для поиска в цепочке слов.
         :type word: str
-        :return: Слово в цеочке, если было найдено, иначе None.
+        :return: Слово в цепочке, если было найдено, иначе None.
         :rtype: Word | None
         """
         for word_link in self.wordchain:
@@ -141,7 +142,7 @@ class WordGame:
         """Проверяет строку на корректность чтобы его добавить.
 
         Пробует извлечь слово из строки.
-        После проверяет, не совпадают ли пользователи, кто полседний
+        После проверяет, не совпадают ли пользователи, кто последний
         раз отправлял слово в цепочку.
         Также проверяет, чтобы первая буква нового слова совпадала с
         последней буквой предыдущего слова.
@@ -174,21 +175,21 @@ class WordGame:
         return word
 
     async def next_word(self, ctx: arc.GatewayContext, word: str) -> bool:
-        """Доабвлеяет новое слво в цеопчку.
+        """Добавляет новое слово в цепочку.
 
-        Внутри проводит проверку что слово может быть доабвлено в цепь.
-        Если нельзя доавбить новое слово, то отправляет сообщение с
-        ошибкой и возвращает Fasle.
-        Если доавбенное слово было первым в цепочке, то отправляет
+        Внутри проводит проверку что слово может быть добавлено в цепь.
+        Если нельзя добавить новое слово, то отправляет сообщение с
+        ошибкой и возвращает False.
+        Если добавленное слово было первым в цепочке, то отправляет
         сообщение об успешном начале новой игры.
-        Иначе же просто отпарвялет сообщение что доабвлено новое слово.
-        При успешном добавлении нового слова в цеопчку возвращет True.
+        Иначе же просто отправляет сообщение что добавлено новое слово.
+        При успешном добавлении нового слова в цепочку возвращает True.
 
         :param ctx: Контекст команды, кто добавил новое слово и когда.
         :type ctx: arc.GatewayContext
         :param word: Слово, которое пользователь собирается добавить.
         :type word: str
-        :return: Статус довбления нового слова.
+        :return: Статус добавление нового слова.
         :rtype: bool
         """
         new_word = self.validate_word(ctx, word)
@@ -208,7 +209,6 @@ class WordGame:
         await ctx.respond(embed=embed)
         return True
 
-
     # Методы для получения сообщения
     # ==============================
 
@@ -216,14 +216,14 @@ class WordGame:
         """Сообщение о неправильном слове.
 
         Если введённое пользователем содержит ошибку, из-за чего
-        оно не может быть доабвлено в цепочку слов.
+        оно не может быть добавлено в цепочку слов.
         Также сообщает правила игры, чтобы пользователь понимал
-        примеруню причну, почему его слово не было добавлено в
+        примерную причину, почему его слово не было добавлено в
         цепочку слов.
 
         :param word: Оригинальное слово, которое не добавлено.
         :type word: str
-        :return: Сообщенеи об ошибке добавления нового слова.
+        :return: Сообщение об ошибке добавления нового слова.
         :rtype: hikari.Embed
         """
         return hikari.Embed(
@@ -232,14 +232,11 @@ class WordGame:
                 "Вероятно вы где-то ошиблись, а может сейчас не ваш ход?\n"
                 f"Последнее слово: {self.last_word}"
             ),
-            color=hikari.Color(0xff0099)
-        ).add_field(
-            name="Правила игры",
-            value=_GAME_RULES
-        )
+            color=hikari.Color(0xFF0099),
+        ).add_field(name="Правила игры", value=_GAME_RULES)
 
     def new_game_message(self) -> hikari.Embed:
-        """Сообщенеи на случай начала новой игры.
+        """сообщение на случай начала новой игры.
 
         Сообщает всем, что началась новая игра.
         Сообщает первое слово, а также правила игры.
@@ -255,79 +252,77 @@ class WordGame:
                 f"Следующий игрок говорит слово на букву {last_letter}.\n"
                 f"Игра начнётся с начала после 12 часов молчания."
             ),
-            color=hikari.Color(0x66ccff)
-        ).add_field(
-            name="Правила игры",
-            value=_GAME_RULES
-        )
+            color=hikari.Color(0x66CCFF),
+        ).add_field(name="Правила игры", value=_GAME_RULES)
 
     def next_word_message(self, next_word: str) -> hikari.Embed:
-        """Сообщенеи о добавлении нового слова.
+        """Сообщение о добавлении нового слова.
 
-        Отпрвялется, когда пользователь успешно добавляет слово в
+        Отправляется, когда пользователь успешно добавляет слово в
         цепочку слов.
 
         :param next_word: Новое слово в цепочке.
         :type next_word: str
-        :return: Экземпляр сообщения, которыое будет отпрвелно.
+        :return: Экземпляр сообщения, которое будет отправлено.
         :rtype: hikari.Embed
         """
         return hikari.Embed(
             title="Игра в слова",
             description=f"{self.last_word} -> **{next_word}**",
-            color=hikari.Color(0x66ffcc)
+            color=hikari.Color(0x66FFCC),
         )
 
 
 class GameData(NamedTuple):
-    """Описывает даныне игры в хранилище.
+    """Описывает данные игры в хранилище.
 
     :param game: Экземпляр активной игры.
     :type game: Wordgame
-    :param last_update: Время последнего сохраенрия игры.
+    :param last_update: Время последнего сохранения игры.
     :type last_update: int
     """
 
     game: WordGame
     last_update: int
 
+
 class GameStorage:
     """Хранилище сессия игры.
 
     Сохраняет данные игры в формате ключ как сервер id и значение как
     экземпляр игры.
-    Позвоялет сохранять данные игры в оперативную память.
+    Позволяет сохранять данные игры в оперативную память.
     А также загружать и выгружать их из файла в формате json.
 
     :param path: Путь к файлу куда сохранять данные.
     :type path: Path
     """
-    def __init__(self, storage_file: Path):
+
+    def __init__(self, storage_file: Path) -> None:
         self.storage_file = storage_file
         self._games: dict[int, GameData] = {}
-
 
     # Работаем с диском
     # =================
 
-    def load_worldchain(self, json_list: list[str, int]) -> list[Word]:
+    def _load_worldchain(self, json_list: list[str, int]) -> list[Word]:
         wordchain = []
         for word in json_list:
             wordchain.append(Word(word[0], word[1]))
         return wordchain
 
-    def dump_wordchain(self, wordchain: list[Word]) -> list[str, int]:
+    def _dump_wordchain(self, wordchain: list[Word]) -> list[str, int]:
         json_list = []
         for word in wordchain:
             json_list.append(word.text, word.user_id)
         return json_list
 
-    def connect(self):
+    def connect(self) -> None:
         """Подключает хранилище.
 
-        Загружает данные из файла и преобразует в словарь эземпляров
+        Загружает данные из файла и преобразует в словарь экземпляров
         WordGame.
-        Жанные хранятся в формате json.
+        Данные хранятся в формате json.
 
         .. code-block:: json
 
@@ -337,19 +332,18 @@ class GameStorage:
                     3123123, // id последнего кто отправил слово
                     "слово", // текст последнего слова
                     [ ... ], // вся последующая цепочка слов
-                    17934133, // UNIXtime последнего обнолвения
+                    17934133, // UNIXtime последнего обновления
                 ]
             }
         """
-
         try:
             with open(self.storage_file) as f:
                 json_games: dict[str, list[str, int]] = json.loads(f.read())
             games = {}
             for k, v in json_games.items():
                 games[k] = GameData(
-                    game=WordGame(v[0], v[1], self.load_worldchain(v[2])),
-                    last_update=v[3]
+                    game=WordGame(v[0], v[1], self._load_worldchain(v[2])),
+                    last_update=v[3],
                 )
             self._games = games
             logger.info("Word games loaded from file")
@@ -357,9 +351,9 @@ class GameStorage:
             logger.error(e)
 
     def close(self) -> None:
-        """Закрывает соединение с хранилишем.
+        """Закрывает соединение с хранилищем.
 
-        Записывает локальные данные из оперативнйо памяти на диск.
+        Записывает локальные данные из оперативной памяти на диск.
         Для записи данных используется формат json.
 
         .. code-block:: json
@@ -370,19 +364,19 @@ class GameStorage:
                     3123123, // id последнего кто отправил слово
                     "слово", // текст последнего слова
                     [ ... ], // вся последующая цепочка слов
-                    17934133, // UNIXtime последнего обнолвения
+                    17934133, // UNIXtime последнего обновления
                 ]
             }
         """
         try:
             dump_games = {}
             for k, v in self._games.items():
-                # Да-да, это просто прекраный способ описать данные
+                # Да-да, это просто прекрасный способ описать данные
                 dump_games[k] = [
                     v.game.last_user,
                     v.game.last_word,
-                    self.dump_wordchain(v.game.wordchain),
-                    v.last_update
+                    self._dump_wordchain(v.game.wordchain),
+                    v.last_update,
                 ]
             with open(self.storage_file, "w") as f:
                 f.write(json.dumps(dump_games, ensure_ascii=False))
@@ -391,12 +385,11 @@ class GameStorage:
         except Exception as e:
             logger.error(e)
 
-
-    # Работаем с оперативной памятиью
-    # ===============================
+    # Работаем с оперативной памятью
+    # ==============================
 
     def get(self, guild_id: int) -> WordGame:
-        """Получает жкземпляр игры по id сервера.
+        """Получает экземпляр игры по id сервера.
 
         Если не удалось найти игру,
 
@@ -409,23 +402,24 @@ class GameStorage:
             game_data = self._games[guild_id]
             # Вероятно будет несколько затратноузнавать время
             if game_data.last_update > 0 and (
-                int(time())-game_data.last_update > _START_NEW_GAME_AFTER
+                int(time()) - game_data.last_update > _START_NEW_GAME_AFTER
             ):
                 return WordGame()
             return self._games[guild_id].game
         return WordGame()
 
-    def set(self, guild_id: int, game: WordGame):
+    def set(self, guild_id: int, game: WordGame) -> None:
         """Записывает экземпляр игры в хранилище.
 
-        Используется чтобы осхранить результаты игры.
+        Используется чтобы сохранить результаты игры.
 
         :param guild_id: id дискорд сервера как ключ для словаря.
         :type guild_id: int
-        :param game: Экземпляр текушей игры в слова.
+        :param game: Экземпляр текущей игры в слова.
         :type game: WordGame
         """
         self._games[guild_id] = GameData(game, int(time()))
+
 
 # Создаём одно глобальное хранилище для всего плагина
 GSTORAGE = GameStorage(Path("bot_data/word_game.json"))
@@ -434,16 +428,17 @@ GSTORAGE = GameStorage(Path("bot_data/word_game.json"))
 # определение команд
 # ==================
 
+
 @plugin.include
 @arc.slash_command("word", description="Сказать слово для игры в слова.")
 async def word_handler(
     ctx: arc.GatewayContext,
-    word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")]
+    word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")],
 ) -> None:
     """Добавляет новое слово для игры в слова.
 
-    Если это вервое слово на сервере, то начинается игра.
-    Все последющие слова будут доабвелны в цепочку.
+    Если это верное слово на сервере, то начинается игра.
+    Все последующие слова будут добавлены в цепочку.
     После каждого удачного слова в цепочке происходит сохранение в
     оперативную память.
     """
@@ -460,16 +455,16 @@ async def word_handler(
 @arc.slash_command(
     "mewword",
     description="Начинает новую игру в слова.",
-    # обычно прпва удалять сообщения есть у помошников и выше
-    default_permissions=hikari.Permissions.MANAGE_MESSAGES
+    # обычно права удалять сообщения есть у помощника и выше
+    default_permissions=hikari.Permissions.MANAGE_MESSAGES,
 )
-async def word_handler(
+async def new_word_game(
     ctx: arc.GatewayContext,
-    word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")]
+    word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")],
 ) -> None:
     """Принудительно начинает новую игру в слова.
 
-    Можно использовать, чотбы очистить результаты игры.
+    Можно использовать, чтобы очистить результаты игры.
     """
     if ctx.guild_id is None:
         return await ctx.respond("Вы не можете играть в одиночку.")
@@ -480,20 +475,19 @@ async def word_handler(
         GSTORAGE.set(str(ctx.guild_id), game)
 
 
-
 # Загрузчики и выгрузчики плагина
 # ===============================
 
 
 @plugin.listen(arc.events.StartedEvent)
-async def connect(event: arc.events.StartedEvent):
+async def connect(event: arc.events.StartedEvent) -> None:
     """Подключаемся к базам данных при запуске бота."""
     logger.info("Connect to wordgames storage")
     GSTORAGE.connect()
 
 
 @plugin.listen(arc.events.StoppingEvent)
-async def disconnect(event: arc.events.StoppingEvent):
+async def disconnect(event: arc.events.StoppingEvent) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to wordgames storage")
     GSTORAGE.close()
@@ -503,6 +497,7 @@ async def disconnect(event: arc.events.StoppingEvent):
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
