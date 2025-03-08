@@ -24,6 +24,7 @@ hikari-miru = "^4.2.0"
 
 
 # Dev Dependencies -----------------------------------------------------
+openai = "^1.65.4"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.9.9"
