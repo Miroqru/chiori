@@ -5,11 +5,11 @@
 депозитом, так и просматривать таблицу лидеров самых богах участников
 сервера.
 
-.. note:: Обязательное ресширение.
+.. note:: Обязательное расширение.
 
-    Если вы хотиет использовать экономическую систему, то данное
-    расширение является обязательным, посколькуо предоставляет доступ
-    к базе данных монетахранилища.
+    Если вы хотите использовать экономическую систему, то данное
+    расширение является обязательным, поскольку предоставляет доступ
+    к базе данных монетное хранилище.
 
     В ином случае вам самостоятельно придётся её подключать.
 
@@ -20,16 +20,16 @@
 - /coins reset [user] - Полностью сбросить монеты для пользователя.
 - /coins give <amount> [user] - Выдать монеты участнику.
 - /coins take <amount> [user] - Забрать монеты участника.
-- /deposite - Управляйте вашими накоплениями.
-- /deposite put <anount> - Положить монеты в банк.
-- /deposite take <anount> - Взять монеты из банка.
-- /deposite info - Информация о накоплениях.
+- /deposit - Управляйте вашими накоплениями.
+- /deposit put <amount> - Положить монеты в банк.
+- /deposit take <amount> - Взять монеты из банка.
+- /deposit info - Информация о накоплениях.
 - /pay <user> <amount> - Оплатить услугу пользователю.
 - /balance [user] - Сколько монет у пользователя.
 - /cointop - Таблица лидеров самых богатых участников.
 - /cointop all - Общая таблица лидеров самых богатых участников.
 - /cointop amount - Самые богатые участники с монетками на руках.
-- /cointop deposite - Самые богатые участники с монетками в банке.
+- /cointop deposit - Самые богатые участники с монетками в банке.
 
 Version: v0.3 (9)
 Author: Milinuri Nirvalen
@@ -47,17 +47,17 @@ from libs import coinengine
 # =====================
 
 plugin = arc.GatewayPlugin("Coins")
-# Экземпляр базы данных монетохранилища
-# Получить доступ из других расширений можно через type edpendecies
+# Экземпляр базы данных монетное хранилище
+# Получить доступ из других расширений можно через type dependencies
 COINS_DB = coinengine.CoinDB(Path("bot_data/coins.db"))
 
 # Общее сообщение при неудачной транзакции
 # К примеру у вас может быть недостаточно средств или ещё какая-то
-# иная ошибка во время выполнения транзакции монетахранилища
+# иная ошибка во время выполнения транзакции монетное хранилище
 BAD_TRANSACTION = hikari.Embed(
     title="Ой, ошибочка",
-    description="Вероятно у вас недостаточно средств, для даннной транзакции.",
-    color=hikari.colors.Color(0xff00aa)
+    description="Вероятно у вас недостаточно средств, для данной транзакции.",
+    color=hikari.colors.Color(0xFF00AA),
 )
 
 
@@ -69,8 +69,9 @@ BAD_TRANSACTION = hikari.Embed(
 coin_group = plugin.include_slash_group(
     name="coins",
     description="управляйте финансами ваших пользователей",
-    default_permissions=hikari.Permissions.ADMINISTRATOR
+    default_permissions=hikari.Permissions.ADMINISTRATOR,
 )
+
 
 @coin_group.include
 @arc.slash_subcommand("reset", description="Сбросить баланс участника.")
@@ -78,13 +79,13 @@ async def coin_reset_handler(
     ctx: arc.GatewayContext,
     user: arc.Option[
         hikari.User | None, arc.UserParams("У кого сбросить баланс (себе)")
-    ] = None
+    ] = None,
 ) -> None:
     """Сбрасывает монеты для пользователя.
 
-    Осуществляет полный сброс всех средств пользовтеля.
-    Если не укзаано у кого производить сброс, то выберет автора
-    вызвывшего команду.
+    Осуществляет полный сброс всех средств пользователя.
+    Если не указано у кого производить сброс, то выберет автора
+    вызвавшего команду.
     Вероятно это может быть для чего-то использовано.
     """
     if user is None:
@@ -95,9 +96,10 @@ async def coin_reset_handler(
     embed = hikari.Embed(
         title="Успешный сброс",
         description=f"{user.mention} остался без монеток",
-        color=hikari.colors.Color(0x00ffcc)
+        color=hikari.colors.Color(0x00FFCC),
     )
     await ctx.respond(embed=embed)
+
 
 @coin_group.include
 @arc.slash_subcommand("give", description="Выдать монетки участнику.")
@@ -106,13 +108,13 @@ async def coin_give_handler(
     amount: arc.Option[int, arc.IntParams("Сколько дать")],
     user: arc.Option[
         hikari.User | None, arc.UserParams("Кому дать монетки (себе)")
-    ] = None
+    ] = None,
 ) -> None:
     """Выдает монеты для участника.
 
     Выбранное количество монет будет передано в руки участника.
-    Если не укзаать целевого участника, то им станет вызвавший команду.
-    Данная комнада может быть использована для запуска экономики.
+    Если не указать целевого участника, то им станет вызвавший команду.
+    Данная команда может быть использована для запуска экономики.
     """
     if user is None:
         user = ctx.user
@@ -122,9 +124,10 @@ async def coin_give_handler(
     embed = hikari.Embed(
         title="Успешная транзакция",
         description=f"Вы выдали {user.mention} {amount} монеток",
-        color=hikari.colors.Color(0x00ffcc)
+        color=hikari.colors.Color(0x00FFCC),
     )
     await ctx.respond(embed=embed)
+
 
 @coin_group.include
 @arc.slash_subcommand("take", description="Забрать монетки участника.")
@@ -133,14 +136,14 @@ async def coin_take_handler(
     amount: arc.Option[int, arc.IntParams("Сколько взять")],
     user: arc.Option[
         hikari.User | None, arc.UserParams("У кого забрать (себе)")
-    ] = None
+    ] = None,
 ) -> None:
     """Забирает монетки участника.
 
     Это касается только тех монет, которые есть на руках пользователя.
-    Если укзаано больше моент, чем имеется у пользователя на руках -
+    Если указано больше монет, чем имеется у пользователя на руках -
     баланс будет сброшен.
-    Если не укзаать участника, то целью станет вызвавший команду.
+    Если не указать участника, то целью станет вызвавший команду.
     Неплохой способ забирать монеты у нарушителей порядка.
     """
     if user is None:
@@ -152,22 +155,23 @@ async def coin_take_handler(
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы взяли у {user.mention} {amount} монеток",
-            color=hikari.colors.Color(0x00ffcc)
+            color=hikari.colors.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
         await ctx.respond(embed=BAD_TRANSACTION)
 
+
 # Управление накоплениями ------------------------------------------------------
 
-deposite_group = plugin.include_slash_group(
-    name="deposite",
-    description="Управляйте вашими накоплениями"
+deposit_group = plugin.include_slash_group(
+    name="deposit", description="Управляйте вашими накоплениями"
 )
 
-@deposite_group.include
+
+@deposit_group.include
 @arc.slash_subcommand("put", description="Положить монеты в банк.")
-async def deposite_put_handler(
+async def deposit_put_handler(
     ctx: arc.GatewayContext,
     amount: arc.Option[int, arc.IntParams("Сколько положить")],
 ) -> None:
@@ -175,52 +179,54 @@ async def deposite_put_handler(
 
     Это значит что вы не сможете ими воспользоваться.
     Однако это также значит, то они будут находиться в безопасности.
-    А также, как приятный бонус, со времменем монетки будут расти.
+    А также, как приятный бонус, со временем монетки будут расти.
 
-    Вы не сможете положить в банк больше, чем у вас есить на руках.
+    Вы не сможете положить в банк больше, чем у вас есть на руках.
     """
-    status = await COINS_DB.to_deposite(user_id=ctx.user.id, amount=amount)
+    status = await COINS_DB.to_deposit(user_id=ctx.user.id, amount=amount)
     if status:
         await COINS_DB.commit()
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы положили на депозит {amount} монеток",
-            color=hikari.colors.Color(0x00ffcc)
+            color=hikari.colors.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
         await ctx.respond(embed=BAD_TRANSACTION)
 
-@deposite_group.include
+
+@deposit_group.include
 @arc.slash_subcommand("take", description="Взять монеты из банка.")
-async def deposite_take_handler(
+async def deposit_take_handler(
     ctx: arc.GatewayContext,
     amount: arc.Option[int, arc.IntParams("Сколько взять")],
 ) -> None:
     """Берёт монетки из банка.
 
-    Держать монтеки у себя на руках не всегда безопасно.
+    Держать монеты у себя на руках не всегда безопасно.
     Однако монетами на депозите пользоваться нельзя.
-    Вы не сможете взять больше, чем у вас нахоидтся в банке.
+    Вы не сможете взять больше, чем у вас находятся в банке.
     """
-    status = await COINS_DB.from_deposite(user_id=ctx.user.id, amount=amount)
+    status = await COINS_DB.from_deposit(user_id=ctx.user.id, amount=amount)
     if status:
         await COINS_DB.commit()
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы взяли с депозита {amount} монеток",
-            color=hikari.colors.Color(0x00ffcc)
+            color=hikari.colors.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
         await ctx.respond(embed=BAD_TRANSACTION)
 
-@deposite_group.include
+
+@deposit_group.include
 @arc.slash_subcommand("info", description="Информация о накоплениях.")
-async def deposite_info_handler(ctx: arc.GatewayContext) -> None:
+async def deposit_info_handler(ctx: arc.GatewayContext) -> None:
     """Получает информацию о накоплениях.
 
-    Расскзаывает о том, почему выгодно оставлять монетки в банке.
+    Рассказывает о том, почему выгодно оставлять монетки в банке.
     А также показывает текущие накопления.
     """
     user_info = await COINS_DB.get_or_create(ctx.user.id)
@@ -231,43 +237,41 @@ async def deposite_info_handler(ctx: arc.GatewayContext) -> None:
             "Тут они будут надёжно лежать и ждать вас.\n"
             "А ещё приятный бонус - со временем они вырастут."
         ),
-        color=hikari.colors.Color(0x00ffcc)
-    ).add_field(
-        name="Сейчас лежит",
-        value=str(user_info.deposite)
-    )
+        color=hikari.colors.Color(0x00FFCC),
+    ).add_field(name="Сейчас лежит", value=str(user_info.deposit))
     await ctx.respond(embed=embed)
 
+
 # Основные команды -------------------------------------------------------------
+
 
 @plugin.include
 @arc.slash_command("pay", description="Оплатить услуги участнику.")
 async def pay_handler(
     ctx: arc.GatewayContext,
-    user: arc.Option[
-        hikari.User, arc.UserParams("Кому передать монетки")
-    ],
-    amount: arc.Option[int, arc.IntParams("Сколько передать")]
+    user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],
+    amount: arc.Option[int, arc.IntParams("Сколько передать")],
 ) -> None:
     """Оплатить услугу пользователю.
 
     Определённое число монеток будет передано от вас другому
-    пользовтелю.
-    Вы не сможете отдать болше, чем у вас есть монет на руках.
+    пользователю.
+    Вы не сможете отдать больше, чем у вас есть монет на руках.
     """
     status = await COINS_DB.move(amount, ctx.user.id, user.id)
     if status:
         await COINS_DB.commit()
         embed = hikari.Embed(
-            title="Успешная транзакчия",
+            title="Успешная транзакция",
             description=(
                 f"{ctx.user.mention} перевёл {user.mention} {amount} монеток"
             ),
-            color=hikari.colors.Color(0x00ffcc)
+            color=hikari.colors.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
         await ctx.respond(embed=BAD_TRANSACTION, delete_after=10)
+
 
 @plugin.include
 @arc.slash_command("balance", description="Сколько монеток у вас есть.")
@@ -275,7 +279,7 @@ async def balance_handler(
     ctx: arc.GatewayContext,
     user: arc.Option[
         hikari.User | None, arc.UserParams("Чьи монетки хотите посмотреть")
-    ] = None
+    ] = None,
 ) -> None:
     """Информация о балансе пользователя.
 
@@ -290,29 +294,28 @@ async def balance_handler(
 
     user_coins = await COINS_DB.get_or_create(user_id)
 
-    embed = hikari.Embed(
-        title="Баланс",
-        description="Это все монетки, что у вас есть.",
-        color=hikari.colors.Color(0xffcc00)
-    ).add_field(
-        name="Всего", value=user_coins.balance, inline=True
-    ).add_field(
-        name="На руках", value=user_coins.amount, inline=True
-    ).add_field(
-        name="Депозит", value=user_coins.deposite, inline=True
+    embed = (
+        hikari.Embed(
+            title="Баланс",
+            description="Это все монетки, что у вас есть.",
+            color=hikari.colors.Color(0xFFCC00),
+        )
+        .add_field(name="Всего", value=user_coins.balance, inline=True)
+        .add_field(name="На руках", value=user_coins.amount, inline=True)
+        .add_field(name="Депозит", value=user_coins.deposit, inline=True)
     )
     await ctx.respond(embed=embed)
+
 
 # Таблица лидеров --------------------------------------------------------------
 
 cointop_group = plugin.include_slash_group(
-    name="cointop",
-    description="Таблица лидеров самых богатых участников"
+    name="cointop", description="Таблица лидеров самых богатых участников"
 )
 
+
 def get_leaders_list(
-    ctx: arc.GatewayContext,
-    leaders: list[coinengine.CoinsData]
+    ctx: arc.GatewayContext, leaders: list[coinengine.CoinsData]
 ) -> str:
     """Собирает таблицу лидеров самых богатых участников сервера.
 
@@ -322,7 +325,7 @@ def get_leaders_list(
 
     Где сначала идёт порядковый номер, имя пользователя, сколько
     монет на руках и сколько монет в банке.
-    Если не удалось получить учатсника, вместе его имени будет его ID.
+    Если не удалось получить участника, вместе его имени будет его ID.
 
     :param ctx: Контекст вызванной команды: где, когда, кем.
     :type ctx: arc.GatewayContext
@@ -332,18 +335,16 @@ def get_leaders_list(
     :rtype: str
     """
     res = ""
-    for i, coindata in enumerate(leaders):
-        member = ctx.get_guild().get_member(coindata.user_id)
+    for i, user in enumerate(leaders):
+        member = ctx.get_guild().get_member(user.user_id)
         if member is not None:
             username = member.nickname
         else:
-            username = coindata.user_id
+            username = user.user_id
 
-        res += (
-            f"\n{i+1}. {username}: {coindata.amount}"
-            f" ({coindata.deposite})"
-        )
+        res += f"\n{i + 1}. {username}: {user.amount} ({user.deposit})"
     return res
+
 
 @cointop_group.include
 @arc.slash_subcommand(name="all", description="Самые богатые участники сервера")
@@ -355,9 +356,10 @@ async def cointop_all_handler(
     embed = hikari.Embed(
         title="Таблица лидеров / общее",
         description=get_leaders_list(ctx, leaders),
-        color=hikari.Color(0xffcc66)
+        color=hikari.Color(0xFFCC66),
     )
     await ctx.respond(embed=embed)
+
 
 @cointop_group.include
 @arc.slash_subcommand(
@@ -371,29 +373,31 @@ async def cointop_amount_handler(
     embed = hikari.Embed(
         title="Таблица лидеров / на руках",
         description=get_leaders_list(ctx, leaders),
-        color=hikari.Color(0xff9966)
+        color=hikari.Color(0xFF9966),
     )
     await ctx.respond(embed=embed)
 
+
 @cointop_group.include
 @arc.slash_subcommand(
-    name="deposite", description="Самые богатые участники (банк)"
+    name="deposit", description="Самые богатые участники (банк)"
 )
-async def cointop_deposite_handler(
+async def cointop_deposit_handler(
     ctx: arc.GatewayContext,
 ):
     """Таблица лидеров самых богатых участников с монетками в банке."""
-    leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.DEPOSITE)
+    leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.deposit)
     embed = hikari.Embed(
         title="Таблица лидеров / в банке",
         description=get_leaders_list(ctx, leaders),
-        color=hikari.Color(0x66ccff)
+        color=hikari.Color(0x66CCFF),
     )
     await ctx.respond(embed=embed)
 
 
 # Загрузчики и выгрузчики плагина
 # ===============================
+
 
 @plugin.listen(arc.events.StartedEvent)
 async def connect(event: arc.events.StartedEvent):
@@ -413,19 +417,21 @@ async def disconnect(event: arc.events.StoppingEvent):
 
 # ----------------------------------------------------------------------
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина.
 
-    Подключаем базу данных индекса предметов и инвенторя.
+    Подключаем базу данных монетного хранилища.
     """
     client.add_plugin(plugin)
     client.set_type_dependency(coinengine.CoinDB, COINS_DB)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
     """Действия при выгрузке плагина.
 
-    Завершаем подключение к базе данных предметов и инвенторя.
+    Завершаем подключение к базе данных предметов и инвентаря.
     """
     client.remove_plugin(plugin)
