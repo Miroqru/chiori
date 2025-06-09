@@ -52,7 +52,7 @@ class MessageStorage:
         self.history: dict[int, deque[dict]] = {}
         self.client = OpenAI(base_url=API_URL, api_key=OAI_KEY)
 
-    async def get_completion(self, messages: deque[dict]) -> str:
+    async def get_completion(self, messages: deque[dict]) -> str | None:
         """Делает запрос к AI модели."""
         return (
             self.client.chat.completions.create(
@@ -77,11 +77,15 @@ class MessageStorage:
             )
         self.history[user_id].append({"role": "user", "content": message})
 
-    async def generate_answer(self, user_id: int, message: str) -> str:
+    async def generate_answer(self, user_id: int, message: str) -> str | None:
         """Генерирует некоторый ответ от AI."""
         await self.add_to_history(user_id, message)
         completion = await self.get_completion(self.history[user_id])
-        self.history[user_id].append({"role": "assistant", "content": completion})
+        if completion is None:
+            return None
+        self.history[user_id].append(
+            {"role": "assistant", "content": completion}
+        )
         return completion
 
 
@@ -143,12 +147,16 @@ async def lingua_handler(
     """Отправляет сообщение в диалог с ботом или же выводит информацию."""
     if message is None:
         await ctx.respond(embed=get_info())
+        return
     else:
         resp = await ctx.respond("⏳ Генерация ответа...")
-        async with ctx.get_channel().trigger_typing():
-            answer = await STORAGE.generate_answer(ctx.user.id, message)
-            answer_gen = iter_message(answer)
-            await resp.edit(next(answer_gen))
+        answer = await STORAGE.generate_answer(ctx.user.id, message)
+        if answer is None:
+            await ctx.respond("⚠️ Ai на это ничего не ответила...")
+            return
+
+        answer_gen = iter_message(answer)
+        await resp.edit(next(answer_gen))
 
     # Отправляем все оставшиеся кусочки
     for message_chunk in answer_gen:
@@ -156,15 +164,20 @@ async def lingua_handler(
 
 
 @plugin.include
-@arc.slash_command("reset_dialog", description="Сбрасывает диалог с пользователем.")
+@arc.slash_command(
+    "reset_dialog", description="Сбрасывает диалог с пользователем."
+)
 async def reset_ai_dialog(
     ctx: arc.GatewayContext,
 ) -> None:
     """Очищает историю сообщений для пользователя."""
     if ctx.user.id not in STORAGE.history:
-        await ctx.response("⚠ У вас нет сохранённых сообщений.", ephemeral=True)
+        await ctx.respond(
+            "⚠ У вас нет сохранённых сообщений.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
     STORAGE.history.pop(ctx.user.id)
-    await ctx.response("✅ История очищена!", ephemeral=True)
+    await ctx.respond("✅ История очищена!", flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # Загрузчики и выгрузчики плагина
