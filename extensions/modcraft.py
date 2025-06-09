@@ -5,7 +5,7 @@
 Предоставляет
 -------------
 
-Version: v0.1 (1)
+Version: v0.2 (4)
 Author: Milinuri Nirvalen
 """
 
@@ -13,12 +13,14 @@ from datetime import UTC, datetime
 
 import arc
 import hikari
+from mcstatus import JavaServer
 
 # Глобальные переменные
 # =====================
 
 plugin = arc.GatewayPlugin("ModCraft")
 _RULE_TIMESTAMP = datetime(2024, 6, 6, 15, 49, tzinfo=UTC)
+_SERVER_IP = "polaris.minerent.net:25598"
 
 
 def _server_embed() -> hikari.Embed:
@@ -107,6 +109,89 @@ async def server_rules(
     Позволяет новым участникам ознакомиться с командами сервера.
     """
     await ctx.respond(_rules_embed())
+
+
+@cmd_group.include
+@arc.slash_subcommand("status", description="Статус Minecraft сервера.")
+async def server_status(
+    ctx: arc.GatewayContext,
+) -> None:
+    """Статус Minecraft сервера.
+
+    Получает основную информацию о сервере.
+    """
+    server = JavaServer.lookup(_SERVER_IP)
+    status = server.status()
+    ping = round(status.latency, 2)
+
+    emb = hikari.Embed(
+        title="🌟 Статус сервера",
+        description=f"{status.motd.to_plain()}",
+        color=0x3D994C,
+    )
+    emb.add_field("Ping", f"{ping} мс.", inline=True)
+    emb.add_field(
+        "Онлайн",
+        f"{status.players.online}/{status.players.online}",
+        inline=True,
+    )
+    emb.add_field(
+        "Версия",
+        f"{status.version.name} ({status.version.protocol})",
+        inline=True,
+    )
+    await ctx.respond(emb)
+
+
+@cmd_group.include
+@arc.slash_subcommand("mods", description="Какие моды установлены на сервере.")
+async def server_mods(
+    ctx: arc.GatewayContext,
+) -> None:
+    """Список модов на сервере.
+
+    Содержит название и версию мода.
+    """
+    server = JavaServer.lookup(_SERVER_IP)
+    status = server.status()
+
+    if status.forge_data is None or status.forge_data.mods is None:
+        emb = hikari.Embed(
+            title="📦 Список модов",
+            description=(
+                "А тут пусто и есть 2 варианта:\n"
+                "- Это ванильный сервер.\n"
+                "- На сервере не установлено ни одного мода."
+            ),
+            color=0x814634,
+        )
+    else:
+        mod_list = ""
+        for mod in sorted(status.forge_data.mods, key=lambda m: m.name):
+            mod_list += f"✨ {mod.name}: {mod.marker}\n"
+
+        emb = hikari.Embed(
+            title=f"📦 Список модов ({len(status.forge_data.mods)})",
+            description=mod_list,
+            color=0x3D994C,
+        )
+
+    await ctx.respond(emb)
+
+
+@cmd_group.include
+@arc.slash_subcommand("ping", description="Скорость ответа от сервера.")
+async def server_ping(
+    ctx: arc.GatewayContext,
+) -> None:
+    """Пинг Minecraft сервера.
+
+    Получает задержку сервера.
+    """
+    server = JavaServer.lookup(_SERVER_IP)
+    ping = round(server.ping(), 2)
+
+    await ctx.respond(f"⚡ Ping сервера: {ping} мс.")
 
 
 # Загрузчики и выгрузчики плагина
