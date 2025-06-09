@@ -7,7 +7,7 @@
 - /help - Список всех активных команд бота.
 - /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.3 (7)
+Version: v0.4 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -17,17 +17,20 @@ import hikari
 # Глобальные переменные
 # =====================
 
-plugin = arc.GatewayPlugin("Pluginlist")
+plugin = arc.GatewayPlugin("Plugin list")
 
 # настройки отображения индекса пакетов
 # index_url: Ссылка до раздела документации Chioricord
 # icon_url: Ссылка на иконку индекса пакетов
-index_url = "https://45.89.190.183/chio/commands/"
-icon_url = "https://45.89.190.183/chio/images/chio.png"
+index_url = "https://miroq.ru/chio/commands/"
+icon_url = "https://miroq.ru/chio/images/chio.png"
 
+
+_FOOTER_TEXT = "Chiori v0.4"
 
 # определение команд
 # ==================
+
 
 @plugin.include
 @arc.slash_command("plugins", description="Список активных плагинов.")
@@ -36,28 +39,26 @@ async def plugin_handler(
 ) -> None:
     """Список всех загруженных плагинов Чиори.
 
-    Вклчюает в себя перечисление всех навзний плагинов.
+    Включает в себя перечисление всех названий плагинов.
     """
     plugins = ctx.client.plugins
-
-    embed = hikari.Embed(
-        title=f"📦 Загруженные плагины ({len(plugins)})",
+    emb = hikari.Embed(
+        title=f"🎀 Расширения ({len(plugins)})",
         description=", ".join(sorted(plugins.keys())),
-        color=hikari.colors.Color(0x00ffcc)
-    ).add_field(
-        name="Подсказка",
-        value="`/help [plugin]`: Список команд указанного плагина."
-    ).set_author(
-        name="Индекс плагинов",
-        url=index_url,
-        icon=icon_url
+        color=0x00FFCC,
     )
-
-    await ctx.respond(embed=embed)
+    emb.add_field(
+        name="Подсказка",
+        value="`/help [plugin]`: Список команд указанного плагина.",
+    )
+    emb.set_author(name="Индекс плагинов", url=index_url, icon=icon_url)
+    emb.set_footer(_FOOTER_TEXT)
+    await ctx.respond(emb)
 
 
 # Информация о списке команд
 # ==========================
+
 
 def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
     """Получает все команды бота.
@@ -70,41 +71,45 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
     :return: Сообщение со списком всех команд бота.
     :rtype: hikari.Embed
     """
-    res = ''
-    other_comands = '\n'
+    res = ""
+    other_commands = "\n**Прочие**:"
     cmd_count = 0
     for pn, plugin in ctx.client.plugins.items():
-        pl_comands_count = 0
-        pl_comands_str = ''
+        pl_commands_count = 0
+        pl_commands_str = ""
 
         for cmd in plugin.walk_commands(hikari.CommandType.SLASH):
-            pl_comands_count += 1
-            pl_comands_str += f" /{cmd.name}"
+            pl_commands_count += 1
+            pl_commands_str += f" {cmd.display_name}"
 
-        if pl_comands_count < 3:
-            other_comands += pl_comands_str
+        if pl_commands_count < 3:
+            other_commands += pl_commands_str
         else:
-            res += f"\n**{pn}**: {pl_comands_str}"
-        cmd_count ++ pl_comands_count
-    res += other_comands
+            res += f"\n**{pn}**: {pl_commands_str}"
+        cmd_count += pl_commands_count
+    res += other_commands
 
-    return hikari.Embed(
-        title=f"🌟 Доступные команды ({cmd_count})",
-        description=res,
-        color=hikari.colors.Color(0x8866cc)
-    ).add_field(
-        name="Подсказка",
-        value="Используйте `/help [plugin]` для подробностей"
-    ).set_author(
-        name="Индекс плагинов",
-        url=index_url,
-        icon=icon_url
+    return (
+        hikari.Embed(
+            title=f"🌟 Доступные команды ({cmd_count})",
+            description=res,
+            color=hikari.colors.Color(0x8866CC),
+        )
+        .add_field(
+            name="Подсказка",
+            value="Используйте `/help [plugin]` для подробностей",
+        )
+        .set_author(name="Индекс плагинов", url=index_url, icon=icon_url)
+        .set_footer(_FOOTER_TEXT)
     )
 
-def get_plugin_commands(ctx: arc.GatewayContext, plugin_name: str) -> hikari.Embed:
+
+def get_plugin_commands(
+    ctx: arc.GatewayContext, plugin_name: str
+) -> hikari.Embed:
     """Получает список команд для конкретного плагина.
 
-    Если не удалось найти плагин по названиею, выдаст соответвубшее
+    Если не удалось найти плагин по названиям, выдаст соответствующие
     предупреждение.
     Будет предоставлен список команд с кратким их описанием.
 
@@ -118,27 +123,26 @@ def get_plugin_commands(ctx: arc.GatewayContext, plugin_name: str) -> hikari.Emb
     plugin = ctx.client.plugins.get(plugin_name)
     if plugin is None:
         return hikari.Embed(
-            title="👀 Упсь",
+            title="👀 У-упс-ь",
             description=f"Я не смогла найти `{plugin_name}` плагин.",
-            color=hikari.colors.Color(0x9966ff)
+            color=hikari.colors.Color(0x9966FF),
         ).add_field(
-            name="Подсказка",
-            value="`/plugins`: Все загруженные плагины Чиори"
+            name="Подсказка", value="`/plugins`: Все загруженные плагины Чиори"
         )
     res = ""
     cmd_count = 0
     for command in plugin.walk_commands(hikari.CommandType.SLASH):
         cmd_count += 1
-        res += f"\n- `{command.name}`: {command.description}"
+        res += f"\n- `{command.display_name}`: {command.description}"
 
-    return hikari.Embed(
-        title=f"✨ Команда {plugin_name} ({cmd_count}):",
-        description=res,
-        color=hikari.colors.Color(0xaa00ff)
-    ).set_author(
-        name="Индекс плагинов",
-        url=index_url,
-        icon=icon_url
+    return (
+        hikari.Embed(
+            title=f"✨ Команда {plugin_name} ({cmd_count}):",
+            description=res,
+            color=hikari.colors.Color(0xAA00FF),
+        )
+        .set_author(name="Индекс плагинов", url=index_url, icon=icon_url)
+        .set_footer(_FOOTER_TEXT)
     )
 
 
@@ -148,8 +152,8 @@ async def help_handler(
     ctx: arc.GatewayContext,
     plugin: arc.Option[
         str | None,
-        arc.StrParams("Название плагина для получение его списка команд")
-    ] = None
+        arc.StrParams("Название плагина для получение его списка команд"),
+    ] = None,
 ) -> None:
     """Отображает список команд.
 
@@ -169,10 +173,12 @@ async def help_handler(
 # Загрузчики и выгрузчики плагина
 # ===============================
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
