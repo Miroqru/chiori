@@ -5,7 +5,7 @@
 Предоставляет
 -------------
 
-Version: v0.3 (6)
+Version: v0.4 (8)
 Author: Milinuri Nirvalen
 """
 
@@ -27,43 +27,47 @@ _SERVER_IP = "polaris.minerent.net:25598"
 # ==================
 
 cmd_group = plugin.include_slash_group(
-    name="mc", description="Взаимодействие с сервером ModCraft"
+    name="mc", description="Взаимодействие с сервером ModCraft."
+)
+
+_SERVER_DESC = (
+    "**ModCraft** — это уникальный сервер Minecraft, "
+    "созданный для любителей модов.\n"
+    "Здесь вы найдете множество интересных модификаций, "
+    "которые добавят новые механики, предметы и возможности в вашу игру."
+)
+
+_SERVER_EVENTS = (
+    "Мы регулярно проводим конкурсы и ивенты с призами для активных игроков."
+)
+
+_SERVER_FEATURES = (
+    "**Моды**: множество популярных модов, таких как create, tacz, "
+    "sophisticated backpacks, и многие другие.\n"
+    "**Кастомные механики**: Уникальные механики и квесты, которые сделают "
+    "игру еще более интересной и разнообразной.\n"
+    "**Сообщество**: У нас дружелюбное и активное сообщество игроков, "
+    "которые всегда готовы помочь новичкам.\n"
+    "**Регулярные обновления**: Мы постоянно обновляем сервер, добавляя новые "
+    "моды, исправляя баги и улучшая игровой процесс.\n"
 )
 
 
 @cmd_group.include
 @arc.slash_subcommand("info", description="Информация о сервере.")
-async def server_info(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_info(ctx: arc.GatewayContext) -> None:
     """Общая информация о сервере.
 
     Позволяет новым участника больше узнать о сервере.
     """
     emb = hikari.Embed(
         title="🎮 Сервер ModCraft",
-        description=(
-            "**ModCraft** — это уникальный сервер Minecraft, созданный для любителей модов.\n"
-            "Здесь вы найдете множество интересных модификаций, которые добавят новые механики, предметы и возможности в вашу игру."
-        ),
+        description=_SERVER_DESC,
         color=0x814634,
         timestamp=_RULE_TIMESTAMP,
     )
-    emb.add_field(
-        name="🎁 События",
-        value=(
-            "Конкурсы и ивенты: Мы регулярно проводим конкурсы и ивенты с призами для активных игроков.\n\n"
-        ),
-    )
-    emb.add_field(
-        name="🌟 Особенности",
-        value=(
-            "**Моды**: Наш сервер предлагает множество популярных модов, таких как IndustrialCraft 2, Forestry, Thaumcraft, Tinkers' Construct и многие другие.\n"
-            "**Кастомные механики**: Мы добавили уникальные механики и квесты, которые сделают вашу игру еще более интересной и разнообразной.\n"
-            "**Комьюнити**: У нас дружелюбное и активное сообщество игроков, которые всегда готовы помочь новичкам и поделиться опытом.\n"
-            "**Регулярные обновления**: Мы постоянно обновляем сервер, добавляя новые моды, исправляя баги и улучшая игровой процесс.\n"
-        ),
-    )
+    emb.add_field(name="🎁 События", value=_SERVER_EVENTS)
+    emb.add_field(name="🌟 Особенности", value=_SERVER_FEATURES)
     emb.add_field(
         name="🍷 Правила сервера",
         value=(
@@ -77,9 +81,7 @@ async def server_info(
 
 @cmd_group.include
 @arc.slash_subcommand("rules", description="Правила discord сервера.")
-async def server_rules(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_rules(ctx: arc.GatewayContext) -> None:
     """Правила Discord сервера.
 
     Позволяет новым участникам ознакомиться с командами сервера.
@@ -103,9 +105,7 @@ async def server_rules(
 
 @cmd_group.include
 @arc.slash_subcommand("commands", description="Список основных команд.")
-async def server_commands(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_commands(ctx: arc.GatewayContext) -> None:
     """Основные команды в Minecraft.
 
     Позволяет новым участникам разобраться с базовыми командами.
@@ -130,20 +130,23 @@ async def server_commands(
 
 @cmd_group.include
 @arc.slash_subcommand("status", description="Статус Minecraft сервера.")
-async def server_status(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_status(ctx: arc.GatewayContext) -> None:
     """Статус Minecraft сервера.
 
     Получает основную информацию о сервере.
+    Название, версия, количество игроков, пинг.
+    Также информация о Forge, если имеется.
     """
-    server = JavaServer.lookup(_SERVER_IP)
-    status = server.status()
+    server = await JavaServer.async_lookup(_SERVER_IP)
+    status = await server.async_status()
     ping = round(status.latency, 2)
 
     emb = hikari.Embed(
         title="🌟 Статус сервера",
-        description=f"{status.motd.to_plain()}",
+        description=(
+            f"{status.version.name} ({status.version.protocol})\n"
+            f"Motd: {status.motd.to_plain()}"
+        ),
         color=0x3D994C,
     )
     emb.add_field("Ping", f"{ping} мс.", inline=True)
@@ -152,25 +155,29 @@ async def server_status(
         f"{status.players.online}/{status.players.max}",
         inline=True,
     )
-    emb.add_field(
-        "Версия",
-        f"{status.version.name} ({status.version.protocol})",
-        inline=True,
-    )
+    if status.forge_data is not None:
+        emb.add_field(
+            "Forge",
+            (
+                f"FML version: `{status.forge_data.fml_network_version}`\n"
+                f"Channels: `{len(status.forge_data.channels)}`\n"
+                f"Mods: `{len(status.forge_data.mods)}`\n"
+                f"truncated: {status.forge_data.truncated}"
+            ),
+            inline=True,
+        )
     await ctx.respond(emb)
 
 
 @cmd_group.include
 @arc.slash_subcommand("mods", description="Какие моды установлены на сервере.")
-async def server_mods(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_mods(ctx: arc.GatewayContext) -> None:
     """Список модов на сервере.
 
     Содержит название и версию мода.
     """
-    server = JavaServer.lookup(_SERVER_IP)
-    status = server.status()
+    server = await JavaServer.async_lookup(_SERVER_IP)
+    status = await server.async_status()
 
     if status.forge_data is None or status.forge_data.mods is None:
         emb = hikari.Embed(
@@ -198,17 +205,20 @@ async def server_mods(
 
 @cmd_group.include
 @arc.slash_subcommand("ping", description="Скорость ответа от сервера.")
-async def server_ping(
-    ctx: arc.GatewayContext,
-) -> None:
+async def server_ping(ctx: arc.GatewayContext) -> None:
     """Пинг Minecraft сервера.
 
-    Получает задержку сервера.
+    Получает задержку между ботом и сервером.
+    Уровень задержки отображает цветом.
     """
-    server = JavaServer.lookup(_SERVER_IP)
-    ping = round(server.ping(), 2)
-
-    await ctx.respond(f"⚡ Ping сервера: {ping} мс.")
+    server = await JavaServer.async_lookup(_SERVER_IP)
+    ping = round(await server.async_ping(), 2)
+    green = min(0, int(0xFF * (1 - ping / 150)))
+    color = hikari.Color.from_rgb(0xFF, green, 0x99)
+    emb = hikari.Embed(
+        title="⚡ Ping", description=f"Ping сервера: `{ping}` мс.", color=color
+    )
+    await ctx.respond(emb)
 
 
 # Загрузчики и выгрузчики плагина
