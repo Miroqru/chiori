@@ -3,9 +3,9 @@
 Предоставляет
 -------------
 
-- /rps  - Игра Камень Ножницы бумага
+- /rps  - Игра Камень Ножницы бумага.
 
-Version: v0.3.1 (9)
+Version: v0.3.2 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -19,12 +19,11 @@ import miru
 plugin = arc.GatewayPlugin("Rps")
 
 # Использованные в игре символы
-_RPS_SIM = [
-    "🪨", "🧻", "✂️"
-]
+_RPS_SIM = ["🪨", "🧻", "✂️"]
 
-# Предсталвения кнопок
+# Представление кнопок
 # ====================
+
 
 class GameObject(IntEnum):
     """Представляет все игровые объекты.
@@ -39,7 +38,9 @@ class GameObject(IntEnum):
     SCISSORS = 2
 
     def __str__(self) -> str:
+        """Представление выбора пользователя в виде символа."""
         return _RPS_SIM[self.value]
+
 
 class Player(NamedTuple):
     """Экземпляр игрока.
@@ -57,24 +58,24 @@ class Player(NamedTuple):
     choice: GameObject
 
     def __str__(self) -> str:
+        """Краткое представление статуса пользователя."""
         return f"{self.choice} {self.user.mention}"
 
 
 class ContinueButton(miru.Button):
     """Кнопка завершения игры.
 
-    Становится доступна после того, как к игре присоеденится минимум
+    Становится доступна после того, как к игре присоединиться минимум
     2 участника.
     При нажатии на кнопку подводятся результаты игры и на основе этого
     отправляется сообщение о победе или поражении.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
-            label="Играть",
-            style=hikari.ButtonStyle.SUCCESS,
-            disabled=True
+            label="Играть", style=hikari.ButtonStyle.SUCCESS, disabled=True
         )
+        self.view: RockPaperScissorsView
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Действия при нажатии на кнопку.
@@ -82,8 +83,7 @@ class ContinueButton(miru.Button):
         Как только вы нажимаете на кнопку продолжения игры.
         Идёт подсчёт результатов и выяснения победителя.
         Если победитель есть, отправляем победное сообщение, если же
-        победителя в данном раунден нету, отправляем сообщение о
-        ничьей.
+        победителя в данном раунде нету, отправляем сообщение о ничьей.
 
         :param ctx: Контекст нажатия на кнопку. Кто, когда, где.
         :type ctx: miru.ViewContext
@@ -91,13 +91,11 @@ class ContinueButton(miru.Button):
         winner = self.view.end_game()
         if winner is None:
             await ctx.edit_response(
-                self.view.game_end_no_winner(),
-                components=None
+                self.view.game_end_no_winner(), components=None
             )
         else:
             await ctx.edit_response(
-                self.view.get_game_result(winner),
-                components=None
+                self.view.get_game_result(winner), components=None
             )
 
         self.view.stop()
@@ -106,29 +104,29 @@ class ContinueButton(miru.Button):
         """Делает кнопку доступной для нажатия."""
         self.disabled = False
 
+
 class GameButton(miru.Button):
     """Кнопка с элементом.
 
     Всего их три: камень, Ножницы, Бумага.
-    При нажатии на такую кнопку, вы будете доабвелны в список игроков
+    При нажатии на такую кнопку, вы будете добавлены в список игроков
     с выбранным элементом в зависимости от типа кнопки.
 
     После этого перевыбрать элемент будет нельзя.
 
-    :param game_object: Какой элемент будет предсталвять кнопка.
+    :param game_object: Какой элемент будет представлять кнопка.
     :type game_object: GameObject
     """
 
-    def __init__(self, game_object: GameObject):
-        super().__init__(
-            label=_RPS_SIM[game_object.value]
-        )
+    def __init__(self, game_object: GameObject) -> None:
+        super().__init__(label=_RPS_SIM[game_object.value])
         self.game_object = game_object
+        self.view: RockPaperScissorsView
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Описывает действие при нажатии на кнопку.
 
-        как только вы нажимаете на кнопку с соотвутствующим элементом,
+        как только вы нажимаете на кнопку с соответствующим элементом,
         вас добавляют в список игроков с выбранным элементом.
 
         _extended_summary_
@@ -139,24 +137,23 @@ class GameButton(miru.Button):
         :rtype: _type_
         """
         if not self.view.add_player(ctx.user, self.game_object):
-            return await ctx.respond(
-                self.view.no_valid_player_message(),
-                delete_after=10
+            await ctx.respond(
+                self.view.no_valid_player_message(), delete_after=10
             )
+            return
         await ctx.edit_response(
-            self.view.get_game_status(),
-            components=self.view
+            self.view.get_game_status(), components=self.view
         )
 
 
 class RockPaperScissorsView(miru.View):
-    """Класс предствления для игры Камень Ножницы Бумага.
+    """Класс представления для игры Камень Ножницы Бумага.
 
-    Реализует все необхоимые методы для игры.
-    А также все необхоидмые кнопки.
+    Реализует все необходимые методы для игры.
+    А также все игровые кнопки.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._players: list[Player] = []
         self._ready_to_game = False
@@ -170,15 +167,8 @@ class RockPaperScissorsView(miru.View):
         self.continue_button = ContinueButton()
         self.add_item(self.continue_button)
 
-
     def check_in_list(self, user: hikari.User) -> bool:
-        """Проверяет, есть ли данный пользователь в списоке игроков.
-
-        :param user: Экземпляр пользователя для проверки.
-        :type user: hikari.User
-        :return: Есть ли данный пользователь в списке игроков.
-        :rtype: bool
-        """
+        """Проверяет, есть ли данный пользователь в списке игроков."""
         for player in self._players:
             if user == player.user:
                 return True
@@ -187,20 +177,21 @@ class RockPaperScissorsView(miru.View):
     def add_player(self, user: hikari.User, choice: GameObject) -> bool:
         """Добавляет игрока в список игроков.
 
-        Возвращет статус добавления нового игрока.
+        Возвращает статус добавления нового игрока.
         True - Если игрок добавлен в список.
 
-        Попать в список могут несколько не повторяющихся игроков.
-        Данная функциия следит, чтобы в список игроков не попали
+        Попасть в список могут несколько не повторяющихся игроков.
+        Данная функция следит, чтобы в список игроков не попали
         дубликаты, а также чтобы список игроков не выходил за заданные
         пределы.
 
-        :param user: Экземпляр пользователя, которого нужно добавить.
-        :type user: hikari.User
-        :param choice: Какой элемент выбрал польщователь.
-        :type choice: GameObject
-        :return: Получилось ли доавбить переданного пользователя.
-        :rtype: bool
+        Args:
+            user: Экземпляр пользователя, которого нужно добавить.
+            choice: Какой элемент выбрал пользователь.
+
+        Returns:
+            Получилось ли добавить переданного пользователя.
+
         """
         if len(self._players) == 0:
             self._players.append(Player(user, choice))
@@ -215,12 +206,11 @@ class RockPaperScissorsView(miru.View):
             self._players.append(Player(user, choice))
 
             if not self._ready_to_game:
-                if len(self._players) >= 2:
+                if len(self._players) >= 2:  # noqa: PLR2004
                     self._ready_to_game = True
                     self.continue_button.set_active()
 
             return True
-
 
     def get_winner(self, a: Player, b: Player) -> Player | None:
         """получает победителя среди двух игроков.
@@ -231,36 +221,34 @@ class RockPaperScissorsView(miru.View):
         - Камень затупляет ножницы.
         - Ножницы разрезают бумагу.
         - Одинаковые элементы приводят к ничьей.
-
-        :param a: Пеовый игрок.
-        :type a: Player
-        :param b: Второй игрок.
-        :type b: Player
-        :return: Победивший игрок или None, если победителей нет.
-        :rtype: Player | None
         """
         if a.choice == b.choice:
             return None
 
-        if a.choice == GameObject.ROCK and b.choice == GameObject.PAPER:
+        if (
+            (a.choice == GameObject.ROCK and b.choice == GameObject.PAPER)
+            or (
+                a.choice == GameObject.PAPER and b.choice == GameObject.SCISSORS
+            )
+            or (a.choice == GameObject.SCISSORS and b.choice == GameObject.ROCK)
+        ):
             return b
-        if a.choice == GameObject.ROCK and b.choice == GameObject.SCISSORS:
+
+        if (
+            (a.choice == GameObject.ROCK and b.choice == GameObject.SCISSORS)
+            or (a.choice == GameObject.PAPER and b.choice == GameObject.ROCK)
+            or (
+                a.choice == GameObject.SCISSORS and b.choice == GameObject.PAPER
+            )
+        ):
             return a
 
-        if a.choice == GameObject.PAPER and b.choice == GameObject.ROCK:
-            return a
-        if a.choice == GameObject.PAPER and b.choice == GameObject.SCISSORS:
-            return b
-
-        if a.choice == GameObject.SCISSORS and b.choice == GameObject.ROCK:
-            return b
-        if a.choice == GameObject.SCISSORS and b.choice == GameObject.PAPER:
-            return a
+        return None
 
     def end_game(self) -> Player | None:
         """Заканчивает игру и возвращает победителя.
 
-        В будущем даный метод может быть расширен, чтобы подводить
+        В будущем данный метод может быть расширен, чтобы подводить
         итоге игры с несколькими игроками.
 
         :return: Победивший игрок или None, если победителей нет.
@@ -268,13 +256,12 @@ class RockPaperScissorsView(miru.View):
         """
         return self.get_winner(self._players[0], self._players[1])
 
-
     def get_players(self, hide: bool = True) -> str:
         """Получает строку со списком игроков.
 
-        Испольузется чтобы отобразить всех игроков, принимающих участие
+        Используется чтобы отобразить всех игроков, принимающих участие
         в игре.
-        Отправляет список с упоминнаниями игроков, а также выбранные
+        Отправляет список с упоминанием игроков, а также выбранные
         ими элементы, если это требуется.
 
         :param hide: Скрывать выбранные элементы (да).
@@ -291,9 +278,9 @@ class RockPaperScissorsView(miru.View):
         return res
 
     def get_game_status(self) -> hikari.Embed:
-        """Возврвщает сообщение статуса игры.
+        """Возвращает сообщение статуса игры.
 
-        Данное сообщение будет изменяться каждый раз, как кто-то ножмёт
+        Данное сообщение будет изменяться каждый раз, как кто-то нажмёт
         на кнопку.
         Отображает список текущих игроков.
 
@@ -303,13 +290,13 @@ class RockPaperScissorsView(miru.View):
         return hikari.Embed(
             title=f"{_RPS_SIM[1]} Камень ножницы бумага",
             description=self.get_players(),
-            color=hikari.colors.Color(0xdc8add)
+            color=hikari.colors.Color(0xDC8ADD),
         )
 
     def get_game_result(self, winner: Player) -> hikari.Embed:
         """Сообщение с результатами игры.
 
-        Отправялется как только становится известен победитель.
+        Отправляет как только становится известен победитель.
         Отображает игроков, выбранные ими элементы, а также самого
         победителя.
 
@@ -321,7 +308,7 @@ class RockPaperScissorsView(miru.View):
         return hikari.Embed(
             title=f"{winner.choice} Камень ножницы бумага / Игра окончена",
             description=f"{self._players[0]} x {self._players[1]}",
-            color=hikari.colors.Color(0x8ff0a4)
+            color=hikari.colors.Color(0x8FF0A4),
         ).add_field("Победитель", str(winner), inline=True)
 
     def game_end_no_winner(self) -> hikari.Embed:
@@ -340,13 +327,13 @@ class RockPaperScissorsView(miru.View):
                 "Игроки выбрали одинаковые элементы, игра окончилась ничьей\n"
                 f"{self._players[0]} x {self._players[1]}"
             ),
-            color=hikari.colors.Color(0xffbe6f)
+            color=hikari.colors.Color(0xFFBE6F),
         )
 
     def no_valid_player_message(self) -> hikari.Embed:
-        """Отправялет сообгение если кто-то потосронний нажал на кнопку.
+        """Отправляет сообщение если кто-то посторонний нажал на кнопку.
 
-        Даннео сообщение появляется, если пользователь хочет нажать на
+        Данное сообщение появляется, если пользователь хочет нажать на
         кнопку ещё раз.
         Также может возникать, если кто-то хочет войти в переполненное
         игровое лобби.
@@ -355,29 +342,29 @@ class RockPaperScissorsView(miru.View):
         :rtype: hikari.Embed
         """
         return hikari.Embed(
-            title=f"{_RPS_SIM[1]} Каень ножницы бумага / Ась?",
+            title=f"{_RPS_SIM[1]} Камень ножницы бумага / Ась?",
             description=(
                 "Вероятно вы уже сделаи свой выбор.\n"
                 "Или лобби данной игры переполнено."
             ),
-            colour=hikari.colors.Color(0xdc8add)
+            colour=hikari.colors.Color(0xDC8ADD),
         )
 
 
 # определение команд
 # ==================
 
+
 @plugin.include
 @arc.slash_command("rps", description="Игра Камень Ножницы Бумага.")
 async def nya_handler(
-    ctx: arc.GatewayContext,
-    client: miru.Client = arc.inject()
+    ctx: arc.GatewayContext, client: miru.Client = arc.inject()
 ) -> None:
     """Начинает новую игру в Камень Ножницы Бумага.
 
     Сразу отображает ещё пустое сообщение со статусом.
     А также кнопки для выбора своей стороны.
-    Кнопка продолжить игру пока буедт недоступна, пока не будет
+    Кнопка продолжить игру пока будет недоступна, пока не будет
     достаточно игроков.
     """
     view = RockPaperScissorsView()
@@ -388,10 +375,12 @@ async def nya_handler(
 # Загрузчики и выгрузчики плагина
 # ===============================
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Загружает плагин в ядро."""
     client.add_plugin(plugin)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
