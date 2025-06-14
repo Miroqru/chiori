@@ -31,7 +31,7 @@
 - /cointop amount - Самые богатые участники с монетками на руках.
 - /cointop deposit - Самые богатые участники с монетками в банке.
 
-Version: v0.3 (9)
+Version: v0.3.1 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -258,6 +258,9 @@ async def pay_handler(
     пользователю.
     Вы не сможете отдать больше, чем у вас есть монет на руках.
     """
+    if user is None:
+        raise ValueError("User is None, cant move coins")
+
     status = await COINS_DB.move(amount, ctx.user.id, user.id)
     if status:
         await COINS_DB.commit()
@@ -300,9 +303,9 @@ async def balance_handler(
             description="Это все монетки, что у вас есть.",
             color=hikari.colors.Color(0xFFCC00),
         )
-        .add_field(name="Всего", value=user_coins.balance, inline=True)
-        .add_field(name="На руках", value=user_coins.amount, inline=True)
-        .add_field(name="Депозит", value=user_coins.deposit, inline=True)
+        .add_field("Всего", str(user_coins.balance), inline=True)
+        .add_field("На руках", str(user_coins.amount), inline=True)
+        .add_field("Депозит", str(user_coins.deposit), inline=True)
     )
     await ctx.respond(embed=embed)
 
@@ -336,11 +339,15 @@ def get_leaders_list(
     """
     res = ""
     for i, user in enumerate(leaders):
-        member = ctx.get_guild().get_member(user.user_id)
+        guild = ctx.get_guild()
+        if guild is None:
+            logger.warning("{} {} guild is Noe", i, user)
+            continue
+        member = guild.get_member(user.user_id)
         if member is not None:
             username = member.nickname
         else:
-            username = user.user_id
+            username = str(user.user_id)
 
         res += f"\n{i + 1}. {username}: {user.amount} ({user.deposit})"
     return res
@@ -350,7 +357,7 @@ def get_leaders_list(
 @arc.slash_subcommand(name="all", description="Самые богатые участники сервера")
 async def cointop_all_handler(
     ctx: arc.GatewayContext,
-):
+) -> None:
     """Общая таблица лидеров (на руках + в банке)."""
     leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.ALL)
     embed = hikari.Embed(
@@ -367,7 +374,7 @@ async def cointop_all_handler(
 )
 async def cointop_amount_handler(
     ctx: arc.GatewayContext,
-):
+) -> None:
     """Таблица лидеров самых богатых участников с монетками на руках."""
     leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.AMOUNT)
     embed = hikari.Embed(
@@ -384,7 +391,7 @@ async def cointop_amount_handler(
 )
 async def cointop_deposit_handler(
     ctx: arc.GatewayContext,
-):
+) -> None:
     """Таблица лидеров самых богатых участников с монетками в банке."""
     leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.deposit)
     embed = hikari.Embed(
@@ -400,7 +407,7 @@ async def cointop_deposit_handler(
 
 
 @plugin.listen(arc.events.StartedEvent)
-async def connect(event: arc.events.StartedEvent):
+async def connect(event: arc.events.StartedEvent) -> None:
     """Подключаемся к базам данных при запуске бота."""
     logger.info("Connect to index/inventory DB")
     await COINS_DB.connect()
@@ -408,7 +415,7 @@ async def connect(event: arc.events.StartedEvent):
 
 
 @plugin.listen(arc.events.StoppingEvent)
-async def disconnect(event: arc.events.StoppingEvent):
+async def disconnect(event: arc.events.StoppingEvent) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to index/inventory DB")
     await COINS_DB.commit()
