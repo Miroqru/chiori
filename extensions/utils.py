@@ -37,7 +37,7 @@ async def delmsg_handler(
     ] = 10,
 ) -> None:
     """Удаляет заданное количество сообщений в чате. По умолчанию 10."""
-    channel = ctx.get_channel()
+    channel = ctx.channel
     if channel is not None:
         count = min(max(count, 1), 100)
         ids = []
@@ -65,7 +65,7 @@ def str_delta(delta: timedelta) -> str:
         return f"{delta.days} д."
 
 
-def get_member_info(member: hikari.Member) -> hikari.Member:
+def get_member_info(member: hikari.Member) -> hikari.Embed:
     """Получает информацию об участнике сервера."""
     today = date.today()
     create_delta = str_delta(today - member.created_at.date())
