@@ -5,7 +5,7 @@
 Предоставляет
 -------------
 
-Version: v0.4 (8)
+Version: v0.5 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 import arc
 import hikari
 from mcstatus import JavaServer
+from mcstatus.responses import JavaStatusPlayers
 
 # Глобальные переменные
 # =====================
@@ -51,6 +52,19 @@ _SERVER_FEATURES = (
     "**Регулярные обновления**: Мы постоянно обновляем сервер, добавляя новые "
     "моды, исправляя баги и улучшая игровой процесс.\n"
 )
+
+
+def online_status(players: JavaStatusPlayers) -> str:
+    """Собирает сообщение с онлайном сервера."""
+    if players.online == 0:
+        return "Сейчас никого нет, может поиграем? 🥹"
+    if players.sample is None:
+        return "🕸️ Нет информации об онлайне."
+
+    list_online = ""
+    for player in players.sample:
+        list_online += f"- {player.name}\n"
+    return list_online
 
 
 @cmd_group.include
@@ -145,15 +159,10 @@ async def server_status(ctx: arc.GatewayContext) -> None:
         title="🌟 Статус сервера",
         description=(
             f"{status.version.name} ({status.version.protocol})\n"
-            f"Motd: {status.motd.to_plain()}"
+            f"Motd: {status.motd.to_plain()}\n"
+            f"Ping {ping} мс.\n"
         ),
         color=0x3D994C,
-    )
-    emb.add_field("Ping", f"{ping} мс.", inline=True)
-    emb.add_field(
-        "Онлайн",
-        f"{status.players.online}/{status.players.max}",
-        inline=True,
     )
     if status.forge_data is not None:
         emb.add_field(
@@ -166,6 +175,11 @@ async def server_status(ctx: arc.GatewayContext) -> None:
             ),
             inline=True,
         )
+    emb.add_field(
+        f"В сети {status.players.online}/{status.players.max}",
+        online_status(status.players),
+        inline=True,
+    )
     await ctx.respond(emb)
 
 
