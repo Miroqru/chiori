@@ -13,6 +13,7 @@ dependencies = [
     "hikari-miru>=4.2.0",
     "lavalink>=5.9.0",
     "loguru>=0.7.3",
+    "mcstatus>=12.0.1",
     "openai>=1.84.0",
     "python-dotenv>=1.1.0",
 ]
