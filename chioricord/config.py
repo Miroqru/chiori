@@ -107,7 +107,7 @@ class PluginConfigManager:
             return None
         plugin_data = self.config.get(key)
         if plugin_data is None:
-            return proto
+            return proto()
         return proto.model_validate(plugin_data)
 
     def save_group(self, key: str, data: ConfigT) -> None:

@@ -1,8 +1,8 @@
 """Игра найди пару.
 
 Перед вами будет поле 4 на 4 клетки.
-Ваша задача найти на этоп поле пары одинаковый вкусностей.
-Нажмите на закрытое поле, чтобы покзаать какая там спрятана вкусность.
+Ваша задача найти на этом поле пары одинаковый вкусностей.
+Нажмите на закрытое поле, чтобы показать какая там спрятана вкусность.
 Теперь сделайте так же с ещё одним полем.
 Если вкусности совпадают - вы нашли пару.
 Если не совпали, то поля снова закрываются.
@@ -13,9 +13,9 @@
 Предоставляет
 -------------
 
-- /pair - Начтаь игру найди пару
+- /pair - Начать игру найди пару
 
-Version: v0.2
+Version: v0.3 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -25,29 +25,45 @@ import arc
 import hikari
 import miru
 
+from chioricord.config import PluginConfig, PluginConfigManager
+
 # Глобальные переменные
 # =====================
 
 plugin = arc.GatewayPlugin("Find pair")
 
-# Перечисляем все варианты вкусностей
-# Поскольку в коде они будут представлены как число от 0 до 8
-# Теоретически так мы сможем сделать несколько стилей для игры
-_PAIRS = [
-    "🍌", "🍓", "🍇", "🍞", "🥐", "🍫", "🍦","☕",
-]
+
+class FindPairConfig(PluginConfig):
+    """Настройки стиля для игры найти пару."""
+
+    pairs: list[str] = [
+        "🍌",
+        "🍓",
+        "🍇",
+        "🍞",
+        "🥐",
+        "🍫",
+        "🍦",
+        "☕",
+    ]
+    """
+    Перечисляем все варианты вкусностей
+    Поскольку в коде они будут представлены как число от 0 до 8
+    Теоретически так мы сможем сделать несколько стилей для игры
+    """
 
 
 # Классы представления игровых объектов
 # =====================================
 
+
 class GameButton(miru.Button):
     """Поле со вкусностью.
 
-    Данная кнопка представляет собой поле, в коотром спрятана вкусность.
-    Как только вы нажимаете на поле, то оно становится открытм и
+    Данная кнопка представляет собой поле, в котором спрятана вкусность.
+    Как только вы нажимаете на поле, то оно становится открыто и
     показывает, что в нём находится.
-    Если послеэ того найти для него пару, то данное поле станет
+    Если после того найти для него пару, то данное поле станет
     помечено как завершённое и не будет закрыто.
     Иначе, следующим ходом поле вновь закроется.
 
@@ -59,13 +75,14 @@ class GameButton(miru.Button):
 
     def __init__(self, pair: int, row: int) -> None:
         super().__init__(
-            label="⬛",
-            style=hikari.ButtonStyle.SECONDARY,
-            row=row
+            label="⬛", style=hikari.ButtonStyle.SECONDARY, row=row
         )
         self.pair = pair
 
-    async def callback(self, ctx: miru.ViewContext):
+        # Аннотация типа
+        self.view: PairView
+
+    async def callback(self, ctx: miru.ViewContext) -> None:
         """Действие при нажатии на кнопку.
 
         Для начала данная игра не ограничивает количество игроков.
@@ -73,8 +90,8 @@ class GameButton(miru.Button):
         это сделать.
         После нажатия на поле, вызывается метод для его открытия.
         Также проверяется, не закончилась ли игра.
-        Если игра ещё идёт, обновялем сообщение статуса.
-        В ином случае отправлям сообщение об успешном окончании игры.
+        Если игра ещё идёт, обновляем сообщение статуса.
+        В ином случае отправляем сообщение об успешном окончании игры.
 
         :param ctx: Контекст нажатия кнопки, кто нажал, в каком чате.
         :type ctx: miru.ViewContext
@@ -83,21 +100,19 @@ class GameButton(miru.Button):
         game_over = self.view.is_game_over()
         if game_over:
             await ctx.edit_response(
-                embed=self.view.end_game_message(),
-                components=self.view
+                embed=self.view.end_game_message(), components=self.view
             )
             self.view.stop()
         else:
             await ctx.edit_response(
-                embed=self.view.game_status(),
-                components=self.view
+                embed=self.view.game_status(), components=self.view
             )
 
     def set_open(self) -> None:
         """Помечает данную кнопку как открытую."""
         self.disabled = True
         self.style = hikari.ButtonStyle.PRIMARY
-        self.label = _PAIRS[self.pair]
+        self.label = self.view.style[self.pair]
 
     def set_close(self) -> None:
         """Помечает кнопка как закрытую, скрывая её содержимое."""
@@ -109,36 +124,36 @@ class GameButton(miru.Button):
         """Помечает кнопку как успешно найденную пару для неё."""
         self.disabled = True
         self.style = hikari.ButtonStyle.SUCCESS
-        self.label = _PAIRS[self.pair]
+        self.label = self.view.style[self.pair]
 
 
 class PairView(miru.View):
     """Представляет собой игровое поел для игры найди пару.
 
     У вас есть 4 на 4 поля.
-    В каждом из них спратяна вкусноть.
+    В каждом из них спрятана вкусность.
     Ваша задача открыть все поля, найдя пары всем вкусностям.
     """
 
-    def __init__(self):
+    def __init__(self, style: list[str]) -> None:
         super().__init__()
-
-        self._board = []
+        self._board: list[int] = []
+        self.style = style
         self.first_open: GameButton | None = None
-        self.secons_open: GameButton | None = None
+        self.second_open: GameButton | None = None
         self.pair_left = 0
 
         self.new_game()
 
     def new_game(self) -> None:
-        """Наичинает новую игру.
+        """Начинает новую игру.
 
-        Сбрасывает данные старой игры, раскладывает вкусности в случаных
+        Сбрасывает данные старой игры, раскладывает вкусности в случайных
         местах.
         """
         self._board.clear()
         self.first_open = None
-        self.secons_open = None
+        self.second_open = None
         self.pair_left = 8
 
         for x in range(8):
@@ -160,21 +175,21 @@ class PairView(miru.View):
             - Если нет, то просто открываем.
         - Если две разные клетки ранее были открыты, то закрываем их.
 
-        :param button: Кнопка, на которую нажали чтбы открыть клетку.
+        :param button: Кнопка, на которую нажали чтобы открыть клетку.
         :type button: GameButton
         """
-        if self.first_open is not None and self.secons_open is not None:
+        if self.first_open is not None and self.second_open is not None:
             self.first_open.set_close()
             self.first_open = None
 
-            self.secons_open.set_close()
-            self.secons_open = None
+            self.second_open.set_close()
+            self.second_open = None
 
         if self.first_open is None:
             self.first_open = button
             button.set_open()
 
-        elif self.secons_open is None:
+        elif self.second_open is None:
             if self.first_open.pair == button.pair:
                 self.first_open.set_completed()
                 self.first_open = None
@@ -182,7 +197,7 @@ class PairView(miru.View):
                 self.pair_left -= 1
             else:
                 button.set_open()
-                self.secons_open = button
+                self.second_open = button
 
     def is_game_over(self) -> bool:
         """Проверяет не завершилась ли игра.
@@ -199,8 +214,8 @@ class PairView(miru.View):
         """
         return hikari.Embed(
             title="☕ Найди пару / игра окончена",
-            description="Поздравляем, вы успешо нашли все пары",
-            color=hikari.colors.Color(0x8ff0a4)
+            description="Поздравляем, вы успешно нашли все пары",
+            color=hikari.colors.Color(0x8FF0A4),
         )
 
     def game_status(self) -> hikari.Embed:
@@ -215,26 +230,29 @@ class PairView(miru.View):
         return hikari.Embed(
             title="☕ Найди пару",
             description=(
-                "Ваша заача найти пару для всех вкусностей.\n"
+                "Ваша задача найти пару для всех вкусностей.\n"
                 "- Нажмите на поле, чтобы открыть его.\n"
                 "- Два одинаковых поля образуют пару.\n"
                 "- Не одинаковые поля будут закрываться."
             ),
-            color=hikari.colors.Color(0x00ccff)
+            color=hikari.colors.Color(0x00CCFF),
         ).add_field("Пар осталось", str(self.pair_left))
 
 
 # определение команд
 # ==================
 
+
 @plugin.include
 @arc.slash_command("pair", description="Игра найди пару.")
 async def nya_handler(
     ctx: arc.GatewayContext,
-    client: miru.Client = arc.inject()
+    client: miru.Client = arc.inject(),
+    cm: PluginConfigManager = arc.inject(),
 ) -> None:
-    """Начинает ноувю игру Найди пару."""
-    view = PairView()
+    """Начинает новую игру Найди пару."""
+    config: FindPairConfig = cm.get_group("find_pair")
+    view = PairView(config.pairs)
     await ctx.respond(view.game_status(), components=view)
     client.start_view(view)
 
@@ -242,10 +260,14 @@ async def nya_handler(
 # Загрузчики и выгрузчики плагина
 # ===============================
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+    cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
+    cm.set_group("find_pair", FindPairConfig)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:

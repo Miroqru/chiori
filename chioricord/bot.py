@@ -74,6 +74,7 @@ async def on_command(ctx: arc.GatewayContext) -> None:
 
 
 @dp.add_shutdown_hook
+@dp.inject_dependencies
 async def shutdown_client(
     client: arc.GatewayClient, cm: PluginConfigManager = arc.inject()
 ) -> None:
