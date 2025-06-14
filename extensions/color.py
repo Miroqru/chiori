@@ -6,10 +6,10 @@
 Предоставляет
 -------------
 
-- /color - Получить случайный цвет
-- /color [color] - Узнать информацию о цвете.
+- /color - Случайный цвет.
+- /color [color] - информацию о цвете.
 
-Version: v0.3 (3)
+Version: v0.3.1 (4)
 Author: Milinuri Nirvalen
 """
 
@@ -24,13 +24,14 @@ plugin = arc.GatewayPlugin("color")
 # определение команд
 # ==================
 
+
 @plugin.include
-@arc.slash_command("color", description="Узнать информцию о цвете.")
-async def color_hadnler(
+@arc.slash_command("color", description="Информация о цвете.")
+async def color_selector(
     ctx: arc.GatewayContext,
     color: arc.Option[
         str | None, arc.StrParams("Hex, RGB, HSV (случайный цвет)")
-    ] = None
+    ] = None,
 ) -> None:
     """Получает информацию о цвете.
 
@@ -45,28 +46,30 @@ async def color_hadnler(
         try:
             color = Color.parse_color(color)
         except ColorParseError:
-            emb = hikari.Embed(title="Неправильный формат?",
+            emb = hikari.Embed(
+                title="Неправильный формат?",
                 description="Пример: `#ffccff`; `rgb(12, 13, 14)`.",
-                color=hikari.colors.Color(0xff00aa)
+                color=hikari.colors.Color(0xFF00AA),
             )
             return await ctx.respond(embed=emb)
 
     # Собираем информацию о цвете
-    emb = hikari.Embed(
-        title="🎨 Информация о цвете",
-        colour=int(color.to_hex_code()[1:], base=16)
-    ).add_field(name="hex", value=color.to_hex_code(), inline=True
-    ).add_field(
-        name="rgb",
-        value=f"{color.red}, {color.green}, {color.blue}",
-        inline=True
+    emb = (
+        hikari.Embed(
+            title="🎨 Информация о цвете",
+            colour=int(color.to_hex_code()[1:], base=16),
+        )
+        .add_field(name="hex", value=color.to_hex_code(), inline=True)
+        .add_field(
+            name="rgb",
+            value=f"{color.red}, {color.green}, {color.blue}",
+            inline=True,
+        )
     )
 
     hsv = color.to_hsv()
     emb.add_field(
-        name="hsv",
-        value=f"{hsv[0]}, {hsv[1]}, {hsv[2]}",
-        inline=True
+        name="hsv", value=f"{hsv[0]}, {hsv[1]}, {hsv[2]}", inline=True
     )
 
     await ctx.respond(embed=emb)
@@ -75,10 +78,14 @@ async def color_hadnler(
 # Загрузчики и выгрузчики плагина
 # ===============================
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
+    """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
+    """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
