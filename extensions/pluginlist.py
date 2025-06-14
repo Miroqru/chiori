@@ -7,7 +7,7 @@
 - /help - Список всех активных команд бота.
 - /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.4 (9)
+Version: v0.4.1 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -24,9 +24,7 @@ plugin = arc.GatewayPlugin("Plugin list")
 # icon_url: Ссылка на иконку индекса пакетов
 index_url = "https://miroq.ru/chio/commands/"
 icon_url = "https://miroq.ru/chio/images/chio.png"
-
-
-_FOOTER_TEXT = "Chiori v0.4"
+_FOOTER_TEXT = "Chiori v0.5"
 
 # определение команд
 # ==================
@@ -147,7 +145,7 @@ def get_plugin_commands(
 
 
 @plugin.include
-@arc.slash_command("help", description="Получить список всех команд")
+@arc.slash_command("help", description="Список всех команд.")
 async def help_handler(
     ctx: arc.GatewayContext,
     plugin: arc.Option[
