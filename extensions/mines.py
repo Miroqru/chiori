@@ -30,34 +30,32 @@ plugin = arc.GatewayPlugin("mines")
 _MIN_BOMBS = 3
 _MAX_BOMBS = 10
 
-# Классы предствления минного поля
+# Классы представление минного поля
 # ================================
+
 
 class EmptyButton(miru.Button):
     """Пустая кнопка на минном поле.
 
     Ничего плохого не случится, если на неё нажать.
-    По умолчанию она просто серая и не примечатльная, ничем не
+    По умолчанию она просто серая и не примечательная, ничем не
     отличается от поля с бомбой.
 
     Как только вы на неё нажмёте, оно рекурсивно откроется.
     Теперь вместо знака вопроса на ней будет отображено число ближайших
     бомб.
-    Если число больше 0, то цвет кнопки поменяется, чтобы предупрежить,
+    Если число больше 0, то цвет кнопки поменяется, чтобы предупредить,
     что где-то рядом может быть бомба.
 
-    Как только вы откроете последную пустую клетку, игра завершится
+    Как только вы откроете последнюю пустую клетку, игра завершится
     победой для вас.
     """
 
     def __init__(self) -> None:
-        super().__init__(
-            label="?",
-            style=hikari.ButtonStyle.SECONDARY
-        )
+        super().__init__(label="?", style=hikari.ButtonStyle.SECONDARY)
         # Получает свой индекс после генерации игрового поля
         self.index: int | None = None
-
+        self.view: MineView
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Действие при нажатие на кнопку.
@@ -75,40 +73,40 @@ class EmptyButton(miru.Button):
         self.view.recursive_open(self)
 
         # Это ваше победное сообщение
-        if self.view.cels_left == 0:
-            self.view.open_bomds()
+        if self.view.cells_left == 0:
+            self.view.open_bombs()
             self.view.stop()
-            await ctx.edit_response(embed=hikari.Embed(
-                title="💣 Сапёр / Игра пройдена",
-                description=(
+            await ctx.edit_response(
+                embed=hikari.Embed(
+                    title="💣 Сапёр / Игра пройдена",
+                    description=(
                         "Поздравляем с успешным прохождением игры.\n"
                         "Мы и не сомневались в том, что вы сможете победить.\n"
                         "А вот где находились все остальные бомбы."
                     ),
-                color=hikari.colors.Color(0x8ff0a4)
+                    color=hikari.colors.Color(0x8FF0A4),
                 ),
-                components=self.view
+                components=self.view,
             )
         else:
             await ctx.edit_response(
-                embed=self.view.game_status(),
-                components=self.view
+                embed=self.view.game_status(), components=self.view
             )
 
-    def set_open(self, nerby_bombs: int):
+    def set_open(self, nearby_bombs: int) -> None:
         """Помечает клетку как открытую.
 
-        Делает её отключеной, чтобы не было возможности снова её нажать.
+        Делает её отключенной, чтобы не было возможности снова её нажать.
         Также меняет текст кнопки на количество ближайших бомб.
         Если поблизости есть бомбы, клетка подсвечивается.
 
-        :param nerby_bombs: Количество ближайших бомб для отображения.
-        :type nerby_bombs: int
+        :param nearby_bombs: Количество ближайших бомб для отображения.
+        :type nearby_bombs: int
         """
         self.disabled = True
-        if nerby_bombs > 0:
+        if nearby_bombs > 0:
             self.style = hikari.ButtonStyle.PRIMARY
-        self.label = str(nerby_bombs)
+        self.label = str(nearby_bombs)
 
 
 class BombButton(miru.Button):
@@ -116,28 +114,26 @@ class BombButton(miru.Button):
 
     Если на него нажать, игра для вас окончится.
     Было ли это случайностью или намеренно неизвестно.
-    Оно никак не выделяется по сравению с обычным.
+    Оно никак не выделяется по сравнению с обычным.
     И лишь ближайшие пустые клетки могут вам подсказать где бомба.
     """
 
     def __init__(self) -> None:
-        super().__init__(
-            label="?",
-            style=hikari.ButtonStyle.SECONDARY
-        )
+        super().__init__(label="?", style=hikari.ButtonStyle.SECONDARY)
         # Получает свой индекс после генерации игрового поля
         self.index: int | None = None
+        self.view: MineView
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Действие при нажатии на кнопку.
 
-        Когда вы нажимиете на бомбу, игра для вас заканчивается.
+        Когда вы нажимаете на бомбу, игра для вас заканчивается.
         на поле будут отображены все другие бомбы.
 
         :param ctx: Контекст, при котором была нажата кнопка.
         :type ctx: miru.ViewContext
         """
-        self.view.open_bomds()
+        self.view.open_bombs()
         self.style = hikari.ButtonStyle.DANGER
         self.view.stop()
 
@@ -148,17 +144,17 @@ class BombButton(miru.Button):
                     "Что-ж, кажется для вас это конец.\n"
                     "Может стоит попробовать ещё раз?"
                 ),
-                colour=hikari.colors.Color(0xffbe6f)
-            ).add_field(
-                name="Всего бомб",
-                value=str(self.view.total_bombs),
-                inline=True
-            ).add_field(
+                colour=hikari.colors.Color(0xFFBE6F),
+            )
+            .add_field(
+                name="Всего бомб", value=str(self.view.total_bombs), inline=True
+            )
+            .add_field(
                 name="Осталось клеток",
-                value=str(self.view.cels_left),
-                inline=True
+                value=str(self.view.cells_left),
+                inline=True,
             ),
-            components=self.view
+            components=self.view,
         )
 
 
@@ -173,12 +169,12 @@ class MineView(miru.View):
     ближайших бомб по координатам клетки.
     """
 
-    def __init__(self, total_bombs: int | None = None):
+    def __init__(self, total_bombs: int | None = None) -> None:
         super().__init__()
 
         self.total_bombs = total_bombs or random.randint(_MIN_BOMBS, _MAX_BOMBS)
-        self.board = []
-        self.cels_left = 0
+        self.board: list[BombButton] = []
+        self.cells_left = 0
         self.start_game()
 
     def start_game(self) -> None:
@@ -187,12 +183,12 @@ class MineView(miru.View):
         Очищает данные старой игры и генерирует новое минное поле.
         """
         self.board.clear()
-        self.cels_left = 25 - self.total_bombs
+        self.cells_left = 25 - self.total_bombs
 
         # Генерация игрового поля
         for x in range(self.total_bombs):
             self.board.append(BombButton())
-        for x in range(self.cels_left):
+        for x in range(self.cells_left):
             self.board.append(EmptyButton())
         random.shuffle(self.board)
 
@@ -201,8 +197,7 @@ class MineView(miru.View):
             self.board[i].index = i
             self.add_item(button)
 
-
-    def get_neibhoors(self, index: int) -> list[miru.Button]:
+    def get_neighbors(self, index: int) -> list[miru.Button]:
         """Получает соседние поля для определенной клетки.
 
         Используется в функция подсчёта количества ближайших бомб,
@@ -221,17 +216,17 @@ class MineView(miru.View):
         buttons = []
 
         for y_shift in range(-1, 2):
-            if pos_y+y_shift < 0 or pos_y+y_shift > 4:
+            if pos_y + y_shift < 0 or pos_y + y_shift > 4:  # noqa: PLR2004
                 continue
 
             for x_shift in range(-1, 2):
-                if pos_x+x_shift < 0 or pos_x+x_shift > 4:
+                if pos_x + x_shift < 0 or pos_x + x_shift > 4:  # noqa: PLR2004
                     continue
 
                 if x_shift == 0 and y_shift == 0:
                     continue
 
-                pos = (pos_y+y_shift)*5 + (pos_x+x_shift)
+                pos = (pos_y + y_shift) * 5 + (pos_x + x_shift)
                 button = self.board[pos]
                 if not button.disabled:
                     buttons.append(button)
@@ -251,7 +246,6 @@ class MineView(miru.View):
                 bomb_counter += 1
         return bomb_counter
 
-
     # Методы открытия клеток
     # ======================
 
@@ -260,11 +254,11 @@ class MineView(miru.View):
 
         Алгоритм работы следующий.
         Помещаем первую переданную клетку в очередь.
-        Начинаем обработку каждой клетки из очередни.
+        Начинаем обработку каждой клетки из очереди.
         Если она отключена, то пропускаем её, чтобы не допустить
         повторной обработки уже открытых клеток.
         Получаем ближайших соседей для текущей клетки.
-        Считаем количесво ближайших бомб.
+        Считаем количество ближайших бомб.
         Если бомб нет, добавляем всех соседей в очередь.
         Если есть бомбы - завершаем обработку текущей клетки.
 
@@ -277,20 +271,19 @@ class MineView(miru.View):
             if target.disabled:
                 continue
 
-            neibhoors = self.get_neibhoors(target.index)
-            nerby_bombs = self.count_bombs(neibhoors)
-            target.set_open(nerby_bombs)
-            self.cels_left -= 1
+            neighbors = self.get_neighbors(target.index)
+            nearby_bombs = self.count_bombs(neighbors)
+            target.set_open(nearby_bombs)
+            self.cells_left -= 1
 
-            if nerby_bombs == 0:
-                targets.extend(neibhoors)
+            if nearby_bombs == 0:
+                targets.extend(neighbors)
 
-    def open_bomds(self) -> None:
+    def open_bombs(self) -> None:
         """Показывает все клетки, где были замечены бомбы."""
         for x in self.board:
             if isinstance(x, BombButton):
                 x.label = "💣"
-
 
     # Методы генерации сообщений
     # ==========================
@@ -305,41 +298,43 @@ class MineView(miru.View):
         :return: Embed, который будет отправлен ботом в чат.
         :rtype: hikari.Embed
         """
-        return hikari.Embed(
-            title="💣 Сапёр",
-            description=(
-                "Хотите попробовать свои силы?\n"
-                "В этой игре вам предстоит обезвредить минное поле.\n"
-                "Посмотрим, получится ли это у вас."
-            ),
-            color=hikari.colors.Color(0x00ccff)
-        ).add_field(
-            name="Правила игры просты:",
-            value=(
-                "- Нажмите на поле, чтобы его обезвредить.\n"
-                "- Число укажет сколько бомб рядом с обезвреженным полем.\n"
-                "- Если вы попадётесь на бомбу, игра закончится."
+        return (
+            hikari.Embed(
+                title="💣 Сапёр",
+                description=(
+                    "Хотите попробовать свои силы?\n"
+                    "В этой игре вам предстоит обезвредить минное поле.\n"
+                    "Посмотрим, получится ли это у вас."
+                ),
+                color=hikari.colors.Color(0x00CCFF),
             )
-        ).add_field(name="Бомб", value=str(self.total_bombs), inline=True
-        ).add_field(
-            name="Осталось клеток",
-            value=str(self.cels_left),
-            inline=True
+            .add_field(
+                name="Правила игры просты:",
+                value=(
+                    "- Нажмите на поле, чтобы его обезвредить.\n"
+                    "- Число укажет сколько бомб рядом с обезвреженным полем.\n"
+                    "- Если вы попадётесь на бомбу, игра закончится."
+                ),
+            )
+            .add_field(name="Бомб", value=str(self.total_bombs), inline=True)
+            .add_field(
+                name="Осталось клеток", value=str(self.cells_left), inline=True
+            )
         )
-
 
 
 # определение команд
 # ==================
 
+
 @plugin.include
 @arc.slash_command("mines", description="Начать игру сапёр.")
-async def mines_handler(
+async def start_mines(
     ctx: arc.GatewayContext,
     client: miru.Client = arc.inject(),
     bombs: arc.Option[
         int | None, arc.IntParams("Количество бомб в игре (3-10)")
-    ] = None
+    ] = None,
 ) -> None:
     """Запускаем игру сапёр.
 
@@ -348,24 +343,27 @@ async def mines_handler(
     """
     if bombs is not None:
         if bombs < _MIN_BOMBS:
-            return await ctx.respond(embed=hikari.Embed(
-                title="💣 Маловато бомб",
-                description=(
-                    f"В игре должны быть как минимум {_MIN_BOMBS} бомбы.\n"
-                    "Иначе игра теряет всякий интерес."
-                ),
-                color=hikari.colors.Color(0xff00aa)
-            ))
+            return await ctx.respond(
+                embed=hikari.Embed(
+                    title="💣 Маловато бомб",
+                    description=(
+                        f"В игре должны быть как минимум {_MIN_BOMBS} бомбы.\n"
+                        "Иначе игра теряет всякий интерес."
+                    ),
+                    color=0xFF00AA,
+                )
+            )
         elif bombs > _MAX_BOMBS:
-            return await ctx.respond(embed=hikari.Embed(
-                title="💣 Многовато бомб",
-                description=(
-                    f"В игре должны быть максимум {_MAX_BOMBS} бомбы.\n"
-                    "Иначе играть буедт не так весело, вы согласны?"
-                ),
-                color=hikari.colors.Color(0xff00aa)
-            ))
-
+            return await ctx.respond(
+                embed=hikari.Embed(
+                    title="💣 Многовато бомб",
+                    description=(
+                        f"В игре должны быть максимум {_MAX_BOMBS} бомбы.\n"
+                        "Иначе играть будет не так весело, вы согласны?"
+                    ),
+                    color=0xFF00AA,
+                )
+            )
 
     view = MineView()
     await ctx.respond(embed=view.game_status(), components=view)
@@ -375,12 +373,14 @@ async def mines_handler(
 # Загрузчики и выгрузчики плагина
 # ===============================
 
+
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
-    """Отвечает за загрузку плагина."""
+    """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
-    """Отвечает за выгрузку плагина."""
+    """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
