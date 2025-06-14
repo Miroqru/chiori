@@ -14,7 +14,7 @@
 
 - /word <word>: Добавить новое слово в цепочку слов.
 
-Version: v0.4.2 (16)
+Version: v0.4.3 (17)
 Author: Milinuri Nirvalen
 """
 
@@ -116,11 +116,11 @@ class WordGame:
         self,
         last_user_id: int | None = None,
         last_word: str | None = None,
-        wordchain: list[Word] | None = None,
+        word_chain: list[Word] | None = None,
     ) -> None:
         self.last_user = last_user_id
         self.last_word = last_word
-        self.wordchain = wordchain or []
+        self.word_chain = word_chain or []
 
     def search_word(self, word: str) -> Word | None:
         """Производит поиск слова в цепочке слов.
@@ -133,7 +133,7 @@ class WordGame:
         :return: Слово в цепочке, если было найдено, иначе None.
         :rtype: Word | None
         """
-        for word_link in self.wordchain:
+        for word_link in self.word_chain:
             if word == word_link.text:
                 return word_link
         return None
@@ -201,7 +201,7 @@ class WordGame:
             self.last_word = new_word
             embed = self.new_game_message()
         else:
-            self.wordchain.append(Word(self.last_word, self.last_user))
+            self.word_chain.append(Word(self.last_word, self.last_user))
             embed = self.next_word_message(new_word)
             self.last_word = new_word
 
@@ -274,13 +274,7 @@ class WordGame:
 
 
 class GameData(NamedTuple):
-    """Описывает данные игры в хранилище.
-
-    :param game: Экземпляр активной игры.
-    :type game: Wordgame
-    :param last_update: Время последнего сохранения игры.
-    :type last_update: int
-    """
+    """Описывает данные игры в хранилище."""
 
     game: WordGame
     last_update: int
@@ -305,16 +299,16 @@ class GameStorage:
     # Работаем с диском
     # =================
 
-    def _load_worldchain(self, json_list: list[str, int]) -> list[Word]:
-        wordchain = []
+    def _load_word_chain(self, json_list: list[tuple[str, int]]) -> list[Word]:
+        word_chain = []
         for word in json_list:
-            wordchain.append(Word(word[0], word[1]))
-        return wordchain
+            word_chain.append(Word(word[0], word[1]))
+        return word_chain
 
-    def _dump_wordchain(self, wordchain: list[Word]) -> list[str, int]:
-        json_list = []
-        for word in wordchain:
-            json_list.append(word.text, word.user_id)
+    def _dump_word_chain(self, word_chain: list[Word]) -> list[tuple[str, int]]:
+        json_list: list[tuple[str, int]] = []
+        for word in word_chain:
+            json_list.append((word.text, word.user_id))
         return json_list
 
     def connect(self) -> None:
@@ -338,11 +332,11 @@ class GameStorage:
         """
         try:
             with open(self.storage_file) as f:
-                json_games: dict[str, list[str, int]] = json.loads(f.read())
+                json_games: dict[int, list] = json.loads(f.read())
             games = {}
             for k, v in json_games.items():
                 games[k] = GameData(
-                    game=WordGame(v[0], v[1], self._load_worldchain(v[2])),
+                    game=WordGame(v[0], v[1], self._load_word_chain(v[2])),
                     last_update=v[3],
                 )
             self._games = games
@@ -375,7 +369,7 @@ class GameStorage:
                 dump_games[k] = [
                     v.game.last_user,
                     v.game.last_word,
-                    self._dump_wordchain(v.game.wordchain),
+                    self._dump_word_chain(v.game.word_chain),
                     v.last_update,
                 ]
             with open(self.storage_file, "w") as f:
@@ -400,7 +394,7 @@ class GameStorage:
         """
         if guild_id in self._games:
             game_data = self._games[guild_id]
-            # Вероятно будет несколько затратноузнавать время
+            # Вероятно будет несколько затратно узнавать время
             if game_data.last_update > 0 and (
                 int(time()) - game_data.last_update > _START_NEW_GAME_AFTER
             ):
@@ -422,7 +416,7 @@ class GameStorage:
 
 
 # Создаём одно глобальное хранилище для всего плагина
-GSTORAGE = GameStorage(Path("bot_data/word_game.json"))
+GLOBAL_STORAGE = GameStorage(Path("bot_data/word_game.json"))
 
 
 # определение команд
@@ -443,18 +437,19 @@ async def word_handler(
     оперативную память.
     """
     if ctx.guild_id is None:
-        return await ctx.respond("Вы не можете играть в одиночку.")
+        await ctx.respond("Вы не можете играть в одиночку.")
+        return
 
-    game = GSTORAGE.get(str(ctx.guild_id))
+    game = GLOBAL_STORAGE.get(ctx.guild_id)
     status = await game.next_word(ctx, word)
     if status:
-        GSTORAGE.set(str(ctx.guild_id), game)
+        GLOBAL_STORAGE.set(ctx.guild_id, game)
 
 
 @plugin.include
 @arc.slash_command(
     "mewword",
-    description="Начинает новую игру в слова.",
+    description="Новая игру в слова.",
     # обычно права удалять сообщения есть у помощника и выше
     default_permissions=hikari.Permissions.MANAGE_MESSAGES,
 )
@@ -467,12 +462,13 @@ async def new_word_game(
     Можно использовать, чтобы очистить результаты игры.
     """
     if ctx.guild_id is None:
-        return await ctx.respond("Вы не можете играть в одиночку.")
+        await ctx.respond("Вы не можете играть в одиночку.")
+        return
 
     game = WordGame()
     status = await game.next_word(ctx, word)
     if status:
-        GSTORAGE.set(str(ctx.guild_id), game)
+        GLOBAL_STORAGE.set(ctx.guild_id, game)
 
 
 # Загрузчики и выгрузчики плагина
@@ -482,15 +478,15 @@ async def new_word_game(
 @plugin.listen(arc.events.StartedEvent)
 async def connect(event: arc.events.StartedEvent) -> None:
     """Подключаемся к базам данных при запуске бота."""
-    logger.info("Connect to wordgames storage")
-    GSTORAGE.connect()
+    logger.info("Connect to word games storage")
+    GLOBAL_STORAGE.connect()
 
 
 @plugin.listen(arc.events.StoppingEvent)
 async def disconnect(event: arc.events.StoppingEvent) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
-    logger.info("Close connect to wordgames storage")
-    GSTORAGE.close()
+    logger.info("Close connect to word games storage")
+    GLOBAL_STORAGE.close()
 
 
 @arc.loader
