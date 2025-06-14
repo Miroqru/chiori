@@ -80,7 +80,8 @@ async def shutdown_client(
 ) -> None:
     """Действия для корректного завершения работы бота."""
     logger.info("Shutdown chiori")
-    cm.dump_config()
+    # TODO: Пока не совсем ясно как стоит сохранять настройки
+    # cm.dump_config()
 
 
 # if isinstance(error, commands.errors.MissingPermissions):
