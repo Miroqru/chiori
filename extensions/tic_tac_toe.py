@@ -73,6 +73,7 @@ class GameButton(miru.Button):
         )
         self.index = index
         self.opener: hikari.User | None = None
+        self.view: TicTacToeView
 
     async def callback(self, ctx: miru.ViewContext) -> None:
         """Действия при нажатии на клетку.
@@ -86,15 +87,13 @@ class GameButton(miru.Button):
         При наличии победителя, игра заканчивается его победой.
         Иначе же игра продолжается дальше и ход передаётся следующему
         игроку.
-
-        :param ctx: Контекст при котором была нажата кнопка, кем, где..
-        :type ctx: miru.ViewContext
         """
         if not self.view.validate_player(ctx):
             # Удаляем сообщение через 10 секунд, чтобы не засорять чат
-            return await ctx.respond(
+            await ctx.respond(
                 self.view.no_valid_player_message(), delete_after=10
             )
+            return
 
         self.set_open(ctx)
 
@@ -117,9 +116,7 @@ class GameButton(miru.Button):
             return
 
         self.view.next_player()
-        await ctx.edit_response(
-            self.view.get_game_status(), components=self.view
-        )
+        await ctx.edit_response(self.view.game_status(), components=self.view)
 
     def set_open(self, ctx: miru.ViewContext) -> None:
         """помечает клетку как кем-то открытую.
@@ -129,9 +126,6 @@ class GameButton(miru.Button):
         Также текст клетки изменится на крестик или нолик в
         зависимости от игрока.
         В конце отмечает кем была открыта клетка.
-
-        :param ctx: Кто нажал на клетку.
-        :type ctx: miru.ViewContext
         """
         self.style = hikari.ButtonStyle.PRIMARY
         self.disabled = True
@@ -174,21 +168,19 @@ class TicTacToeView(miru.View):
 
     Есть два режима игры, помимо классического также есть бесконечный.
     Когда со временем старые клетки очищаются.
-
-    :param endless: Бесконечный режим игры по умолчанию выключен.
-    :rtype endless: bool
     """
 
     def __init__(self, endless: bool = False) -> None:
         super().__init__()
         self.endless = endless
 
-        self._board = []
-        self._players = []
+        self._board: list[int] = []
+        self._players: list[hikari.User] = []
         self._cur = 0
-        self._open_log = []
+        self._open_log: list[int] = []
         self._cell_left = 9
 
+        # Для бесконечных крестиков-ноликов
         self._prepare_close: int | None = None
         self._next_close: int | None = None
 
@@ -246,7 +238,7 @@ class TicTacToeView(miru.View):
             return False
         return True
 
-    def is_game_over(self, index: int) -> hikari.User | None:
+    def is_game_over(self, cell_index: int) -> hikari.User | None:
         """Проверяем, не закончилась ли игра.
 
         Данный метод вызывается при каждом нажатии кнопки.
@@ -257,14 +249,9 @@ class TicTacToeView(miru.View):
 
         Если выбран бесконечный режим игры, то помимо этого будет
         вызван метод для регистрации нажатой кнопки.
-
-        :param index: Порядковый номер нажатой кнопки (0-8).
-        :type index: int
-        :return: Экземпляр пользователя-победителя, иначе None.
-        :rtype: hikari.User | None
         """
         if self.endless:
-            self.register_open(index)
+            self.register_open(cell_index)
 
         # Тут будет всё очень печально
         for a_index, b_index, c_index in _WIN_PATTERNS:
@@ -288,7 +275,7 @@ class TicTacToeView(miru.View):
                 return a_btn.opener
         return None
 
-    def register_open(self, index: int) -> None:
+    def register_open(self, cell_index: int) -> None:
         """Регистрирует открытие всех клеток.
 
         Только для бесконечного режима игры.
@@ -299,9 +286,6 @@ class TicTacToeView(miru.View):
         - Для начала клетка помечается как готовая освободиться.
         - Далее клетка теряет своего владельца и становится пустой.
         - Клетка полностью освобождается и её можно использовать.
-
-        :param index: Порядковый номер клетки для записи (0-8).
-        :type index: int
         """
         if self._next_close is not None:
             self._board[self._next_close].after_close()
@@ -310,8 +294,8 @@ class TicTacToeView(miru.View):
             self._board[self._prepare_close].set_close()
             self._next_close = self._prepare_close
 
-        self._open_log.append(index)
-        if len(self._open_log) > 5:
+        self._open_log.append(cell_index)
+        if len(self._open_log) > 5:  # noqa: PLR2004
             i = self._open_log.pop(0)
             self._board[i].before_close()
             self._prepare_close = i
@@ -335,8 +319,8 @@ class TicTacToeView(miru.View):
             res += f"\n{_TTT_SIM[i]} {user.mention}"
         return res
 
-    def get_game_status(self) -> hikari.Embed:
-        """Возвращает сообщение со статусом игры.
+    def game_status(self) -> hikari.Embed:
+        """Собирает сообщение со статусом игры.
 
         данное сообщение будет обновляться при каждом нажатии кнопки.
         Возвращает название, описание, кто сейчас ходит, режим игры,
@@ -345,9 +329,6 @@ class TicTacToeView(miru.View):
         Словом, вся необходимая информация о текущем ходе игры.
         Когда игра будет закончена с некоторым результатом, данное
         сообщение будет заменено другим.
-
-        :return: Сообщение с текущим статусом игры.
-        :rtype: hikari.Embed
         """
         return (
             hikari.Embed(
@@ -372,16 +353,13 @@ class TicTacToeView(miru.View):
         )
 
     def end_game_no_winner(self) -> hikari.Embed:
-        """Сообщение при ничьей.
+        """Собирает сообщение при ничьей.
 
         Используется по окончанию игры в ничейную пользу.
         Данный исход возможен при стандартном режиме игры, когда
         не остаётся свободных клеток.
 
         Отображает количество описание, режим игры и игроков.
-
-        :return: Сообщение с результатами игры.
-        :rtype: hikari.Embed
         """
         return (
             hikari.Embed(
@@ -402,11 +380,6 @@ class TicTacToeView(miru.View):
 
         Отображается сразу как только кто-то из игроков одержал победу.
         Отображает описание, победителя, режим, список игроков.
-
-        :param winner: Победитель игры.
-        :typw winner: hikari.User
-        :return: Сообщение с результатами игры.
-        :rtype: hikari.Embed
         """
         return (
             hikari.Embed(
@@ -426,13 +399,10 @@ class TicTacToeView(miru.View):
             .add_field(name="Игроки", value=self.get_players(), inline=True)
         )
 
-    def get_current_player(self) -> str:
-        """Получает информацию о текущем игроке.
+    def current_player(self) -> str:
+        """Собирает информацию о текущем игроке.
 
         Символ игрока, а также его упоминание.
-
-        :return: Информация о текущем игроке.
-        :rtype: str
         """
         res = _TTT_SIM[self._cur]
         if len(self._players) < 2:  # noqa: PLR2004
@@ -448,9 +418,6 @@ class TicTacToeView(miru.View):
         В таком случае будет отправлено сообщение с ошибкой.
         Данное сообщение будет удалено через некоторое время, чтобы
         не засорять чат.
-
-        :return: Сообщение о не валидном игроке.
-        :rtype: hikari.Embed
         """
         return hikari.Embed(
             title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ась?",
@@ -458,7 +425,7 @@ class TicTacToeView(miru.View):
                 "Возможно вы не участник данной игры.\n"
                 "ну или возможно сейчас не ваш ход.\n\n"
                 "Так или иначе сейчас ход:"
-                f"{self.get_current_player()}"
+                f"{self.current_player()}"
             ),
             colour=hikari.colors.Color(0xDC8ADD),
         )
@@ -485,7 +452,7 @@ async def nya_handler(
     не мог помешать их игре.
     """
     view = TicTacToeView(endless=endless)
-    await ctx.respond(view.get_game_status(), components=view)
+    await ctx.respond(view.game_status(), components=view)
     client.start_view(view)
 
 
