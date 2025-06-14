@@ -44,7 +44,7 @@ class BotConfig(BaseSettings):
     загружаются вместе с загрузкой бота.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", extra="allow")
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 config = BotConfig()  # type: ignore
