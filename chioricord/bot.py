@@ -6,7 +6,6 @@
 """
 
 import sys
-import traceback
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -16,7 +15,7 @@ import hikari
 import miru
 from loguru import logger
 
-from chioricord import config
+from chioricord.config import PluginConfigManager, config
 
 # Глобальные переменные
 # =====================
@@ -51,18 +50,36 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     Если обработчики сами не реализуют обработчики ошибок, то все
     исключения будут попадать сюда.
     """
-    embed = hikari.Embed(
-        title="Что-то пошло не так!",
-        description="Во время выполнения команды возникло исключение",
-        color=hikari.colors.Color(0xFF00BB),
-        timestamp=datetime.now(tz=ZoneInfo("Europe/Samara")),
-    )
-    await ctx.respond(embed=embed)
+    try:
+        raise exc
+    except Exception as e:
+        embed = hikari.Embed(
+            title="Что-то пошло не так!",
+            description="Во время выполнения команды возникло исключение",
+            color=hikari.colors.Color(0xFF00BB),
+            timestamp=datetime.now(tz=ZoneInfo("Europe/Samara")),
+        )
+        embed.add_field("Тип", str(type(e)))
+        embed.add_field("Исключение", str(e))
+        await ctx.respond(embed=embed)
+        logger.exception(e)
 
-    # Ну и отправляем в логи, чтобы было с чем работать
-    logger.error(str(ctx))
-    logger.exception(exc)
-    traceback.print_exception(exc)
+
+@dp.add_hook
+async def on_command(ctx: arc.GatewayContext) -> None:
+    """Простой журнал вызовы команд."""
+    logger.debug(
+        "Use {} in {} by {}", ctx.command.name, ctx.guild_id, ctx.user.id
+    )
+
+
+@dp.add_shutdown_hook
+async def shutdown_client(
+    client: arc.GatewayClient, cm: PluginConfigManager = arc.inject()
+) -> None:
+    """Действия для корректного завершения работы бота."""
+    logger.info("Shutdown chiori")
+    cm.dump_config()
 
 
 # if isinstance(error, commands.errors.MissingPermissions):
@@ -74,41 +91,6 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
 #          ),
 #         color=0xff2b20
 #     ))
-
-
-# Обработка команд
-# ================
-
-# @bot.command()
-# async def unraid(ctx: commands.Context):
-#     logger.info("Start unraid")
-#     for channel in ctx.guild.channels:
-#         if channel.name == "переезд":
-#             await channel.delete()
-#     logger.info("End unraid")
-#     await ctx.send("Unraid complete")
-
-
-# @bot.hybrid_group()
-# async def system(ctx: commands.Context):
-#     ext = bot.extensions()
-#     await ctx.send("Это системные команды")
-
-# @system.command()
-# async def load(ctx: commands.Context, extension: str):
-#     bot.load_extension(extension)
-#     await ctx.send(f"Модуль **{extension}** подключен...", delete_after=30)
-
-# @system.command()
-# async def unload(ctx: commands.Context, extension: str):
-#     bot.unload_extension(extension)
-#     await ctx.send(f"Модуль **{extension}** выключен...", delete_after=30)
-
-# @system.command()
-# async def reload(ctx: commands.Context, extension: str):
-#     bot.reload_extension(extension)
-#     await ctx.send(f"Модуль **{extension}** перезагружен..", delete_after=30)
-
 
 # Запуск бота
 # ===========
@@ -127,6 +109,10 @@ def start_bot() -> None:
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)
+
+    logger.info("Setup config manager")
+    cm = PluginConfigManager(config.PLUGINS_CONFIG)
+    dp.set_type_dependency(PluginConfigManager, cm)
 
     # Простой загрузчик расширений
     logger.info("Load plugins from {}", EXT_PATH)

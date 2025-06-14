@@ -7,32 +7,111 @@
 хранилище.
 """
 
-from os import getenv
+from pathlib import Path
+from typing import Any
 
-from dotenv import load_dotenv
+import toml
 from loguru import logger
-
-# Подгружаем настройки из рабочего окружения
-# ==========================================
-
-load_dotenv()
-
-# Токен от Discord бота
-# Обязателен для запуска бота, посколькуо благодвря токену дискорд понимает
-# что к нему хочет обратиться нужный бот.
-BOT_TOKEN = getenv("BOT_TOKEN")
-
-# Выжаём исключение, если не получается щапустить бота ввиду отсутствия токена.
-if BOT_TOKEN is None:
-    raise TypeError("You need to set discord bot token")
+from pydantic import BaseModel, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# Владалец бота исползуется для настройки ядра.
-# На владельца не накладываются ограничения бота.
-# Указывать владельца бота не обязательно, но желательно.
-BOT_OWNER = getenv("BOT_OWNER")
+class BotConfig(BaseSettings):
+    """Общие настройки бота.
 
-# Предупреждаем, если нет пользовтеля, кто мог бы настраивать ядро
-if BOT_OWNER is None:
-    logger.warning("Bot owner id is empty.")
-    logger.warning("No one will be able to control the bot system")
+    Загружаются один раз во время запуска и после не изменяются.
+    """
+
+    BOT_TOKEN: str
+    """Токен от дискорд бота.
+
+    Обязателен для запуска бота, поскольку благодаря токену дискорд понимает
+    что к нему хочет обратиться нужный бот.
+    """
+
+    BOT_OWNER: int
+    """ Владелец бота.
+
+    Используется для настройки ядра.
+    На владельца не накладываются ограничения бота.
+    Указывать владельца бота не обязательно, но желательно.
+    """
+
+    PLUGINS_CONFIG: Path = Path("bot_data/plugins.toml")
+    """Путь к настройкам плагинов.
+
+    Здесь хранятся динамические настройки для плагинов, которые
+    загружаются вместе с загрузкой бота.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
+
+
+config = BotConfig()  # type: ignore
+
+
+class PluginConfig(BaseModel):
+    """Базовый класс для настроек плагина."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+# Тип для настроек
+ConfigT = PluginConfig
+
+
+class PluginConfigManager:
+    """Динамические настройки плагинов."""
+
+    def __init__(self, config_path: Path) -> None:
+        self._config_path = config_path
+        self._config: dict[str, dict[str, Any]] | None = None
+        self._groups: dict[str, ConfigT] = {}
+
+    @property
+    def config(self) -> dict[str, dict[str, Any]]:
+        """Настройки приложения."""
+        if self._config is None:
+            self._config = self._load_file()
+        return self._config
+
+    def dump_config(self) -> None:
+        """Сохраняет настройки плагинов в файл."""
+        logger.info("Dump config to file")
+        self._write_file()
+
+    # Работа с файлом конфига
+    # =======================
+
+    def _load_file(self) -> dict[str, dict[str, Any]]:
+        logger.info(self._config_path.absolute())
+        with self._config_path.open() as f:
+            return toml.loads(f.read())
+
+    def _write_file(self) -> None:
+        with self._config_path.open("w") as f:
+            f.write(toml.dumps(self._config))
+
+    # Настройка подгрупп
+    # ==================
+
+    def set_group(self, key: str, proto: ConfigT) -> None:
+        """Назначение прототипа настроек для группы."""
+        logger.info("Setup config for {}", key)
+        self._groups[key] = proto
+
+    def get_group(self, key: str) -> PluginConfig | None:
+        """Получает настройки для плагина."""
+        proto = self._groups.get(key)
+        if proto is None:
+            return None
+        plugin_data = self.config.get(key)
+        if plugin_data is None:
+            return proto
+        return proto.model_validate(plugin_data)
+
+    def save_group(self, key: str, data: ConfigT) -> None:
+        """Сохраняет настройки группы в конфиг."""
+        if self._config is None:
+            raise ValueError("You must load config before use it")
+        self._config[key] = data.model_dump()
