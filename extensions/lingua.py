@@ -10,47 +10,47 @@ TODO: Сделать нормальное хранилище для настро
 Предоставляет
 -------------
 
-Version: v0.9 (4)
+Version: v0.10 (6)
 Maintainer: atarwn
 Source: https://github.com/atarwn/Lingua
 """
 
 from collections import deque
 from collections.abc import Iterator
-from os import getenv
 
 import arc
 import hikari
+from loguru import logger
 from openai import OpenAI
+
+from chioricord.config import PluginConfig, PluginConfigManager
 
 # Глобальные переменные
 # =====================
 
 plugin = arc.GatewayPlugin("lingua")
-MAX_HISTORY_LENGTH = 20
 
-# Настройки API
-OAI_KEY = getenv("OPENAI_KEY")
-API_URL = getenv("OPENAI_API_URL")
-OWNER_ID = getenv("OWNER_ID")
-MODEL = getenv("AI_MODEL", "meta-llama/llama-4-maverick:free")
 
-# Кормим нейронке, чтобы выдавала хорошие ответы
-SYSTEM_PROMPT = getenv("SYSTEM_PROMPT")
+class LinguaConfig(PluginConfig):
+    """Настройки для Lingua."""
+
+    api_key: str
+    api_url: str
+    model: str = "meta-llama/llama-4-maverick:free"
+
+    # Кормим нейронке, чтобы выдавала хорошие ответы
+    system_prompt: str
+
+    history_length: int = 20
 
 
 class MessageStorage:
     """История сообщений с пользователем."""
 
-    def __init__(
-        self, model: str, system_prompt: str | None, history_length: int
-    ) -> None:
-        self.model = model
-        self.system_prompt = system_prompt
-        self.history_length = history_length
-
+    def __init__(self, config: LinguaConfig) -> None:
+        self.config = config
         self.history: dict[int, deque[dict]] = {}
-        self.client = OpenAI(base_url=API_URL, api_key=OAI_KEY)
+        self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
 
     async def get_completion(self, messages: deque[dict]) -> str | None:
         """Делает запрос к AI модели."""
@@ -60,7 +60,7 @@ class MessageStorage:
                     "HTTP-Referer": "https://lingua.qwa.su/",
                     "X-Title": "Lingua AI",
                 },
-                model=self.model,
+                model=self.config.model,
                 messages=messages,
             )
             .choices[0]
@@ -70,10 +70,10 @@ class MessageStorage:
     async def add_to_history(self, user_id: int, message: str) -> None:
         """Добавляет новое сообщение в историю."""
         if user_id not in self.history:
-            self.history[user_id] = deque(maxlen=self.history_length)
+            self.history[user_id] = deque(maxlen=self.config.history_length)
 
             self.history[user_id].append(
-                {"role": "system", "content": self.system_prompt}
+                {"role": "system", "content": self.config.system_prompt}
             )
         self.history[user_id].append({"role": "user", "content": message})
 
@@ -89,10 +89,6 @@ class MessageStorage:
         return completion
 
 
-STORAGE = MessageStorage(
-    model=MODEL, system_prompt=SYSTEM_PROMPT, history_length=MAX_HISTORY_LENGTH
-)
-
 # Дополнительные функции
 # ======================
 
@@ -101,13 +97,13 @@ def get_info() -> hikari.Embed:
     """Немного информации о расширении."""
     embed = hikari.Embed(
         title="Привет, я Lingua!",
-        description="Lingua — Ваш многофункциональный помощник для решения  технических задач.",
+        description="Lingua — Ваш многофункциональный помощник для решения технических задач.",
         color=0x00AAE5,
     )
     embed.set_thumbnail(
         "https://raw.githubusercontent.com/atarwn/Lingua/refs/heads/main/assets/lingua.png"
     )
-    embed.set_footer(text="Lingua v0.9 © Qwaderton Labs, 2024-2025")
+    embed.set_footer(text="Lingua v0.10 © Qwaderton Labs, 2024-2025")
     return embed
 
 
@@ -143,6 +139,7 @@ def iter_message(text: str, max_length: int = 2000) -> Iterator[str]:
 async def lingua_handler(
     ctx: arc.GatewayContext,
     message: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,
+    storage: MessageStorage = arc.inject(),
 ) -> None:
     """Отправляет сообщение в диалог с ботом или же выводит информацию."""
     if message is None:
@@ -150,7 +147,7 @@ async def lingua_handler(
         return
     else:
         resp = await ctx.respond("⏳ Генерация ответа...")
-        answer = await STORAGE.generate_answer(ctx.user.id, message)
+        answer = await storage.generate_answer(ctx.user.id, message)
         if answer is None:
             await ctx.respond("⚠️ Ai на это ничего не ответила...")
             return
@@ -168,15 +165,15 @@ async def lingua_handler(
     "reset_dialog", description="Сбрасывает диалог с пользователем."
 )
 async def reset_ai_dialog(
-    ctx: arc.GatewayContext,
+    ctx: arc.GatewayContext, storage: MessageStorage = arc.inject()
 ) -> None:
     """Очищает историю сообщений для пользователя."""
-    if ctx.user.id not in STORAGE.history:
+    if ctx.user.id not in storage.history:
         await ctx.respond(
             "⚠ У вас нет сохранённых сообщений.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )
-    STORAGE.history.pop(ctx.user.id)
+    storage.history.pop(ctx.user.id)
     await ctx.respond("✅ История очищена!", flags=hikari.MessageFlag.EPHEMERAL)
 
 
@@ -188,6 +185,14 @@ async def reset_ai_dialog(
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+
+    cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
+    cm.set_group("lingua", LinguaConfig)
+
+    logger.info("Init AI message storage")
+    config: LinguaConfig = cm.get_group("lingua")
+    storage = MessageStorage(config)
+    client.set_type_dependency(MessageStorage, storage)
 
 
 @arc.unloader
