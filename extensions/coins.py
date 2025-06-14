@@ -16,22 +16,22 @@
 Предоставляет
 -------------
 
-- /coins - Управление финансами всех пользователей. (особое)
-- /coins reset [user] - Полностью сбросить монеты для пользователя.
+- /coins - Управление финансами всех пользователей.
+- /coins reset [user] - Сбросить монеты пользователя.
 - /coins give <amount> [user] - Выдать монеты участнику.
 - /coins take <amount> [user] - Забрать монеты участника.
-- /deposit - Управляйте вашими накоплениями.
+- /deposit - Управление вашими накоплениями.
 - /deposit put <amount> - Положить монеты в банк.
 - /deposit take <amount> - Взять монеты из банка.
 - /deposit info - Информация о накоплениях.
 - /pay <user> <amount> - Оплатить услугу пользователю.
-- /balance [user] - Сколько монет у пользователя.
+- /balance [user] - Сколько монет у пользователя на руках.
 - /cointop - Таблица лидеров самых богатых участников.
 - /cointop all - Общая таблица лидеров самых богатых участников.
 - /cointop amount - Самые богатые участники с монетками на руках.
 - /cointop deposit - Самые богатые участники с монетками в банке.
 
-Version: v0.3.1 (10)
+Version: v0.3.1 (11)
 Author: Milinuri Nirvalen
 """
 
@@ -68,7 +68,7 @@ BAD_TRANSACTION = hikari.Embed(
 
 coin_group = plugin.include_slash_group(
     name="coins",
-    description="управляйте финансами ваших пользователей",
+    description="Управление финансами всех пользователей.",
     default_permissions=hikari.Permissions.ADMINISTRATOR,
 )
 
@@ -165,7 +165,7 @@ async def coin_take_handler(
 # Управление накоплениями ------------------------------------------------------
 
 deposit_group = plugin.include_slash_group(
-    name="deposit", description="Управляйте вашими накоплениями"
+    name="deposit", description="Управление вашими накоплениями."
 )
 
 
@@ -222,7 +222,7 @@ async def deposit_take_handler(
 
 
 @deposit_group.include
-@arc.slash_subcommand("info", description="Информация о накоплениях.")
+@arc.slash_subcommand("info", description="Ваши накопления.")
 async def deposit_info_handler(ctx: arc.GatewayContext) -> None:
     """Получает информацию о накоплениях.
 
@@ -246,7 +246,7 @@ async def deposit_info_handler(ctx: arc.GatewayContext) -> None:
 
 
 @plugin.include
-@arc.slash_command("pay", description="Оплатить услуги участнику.")
+@arc.slash_command("pay", description="Оплатить услуги пользователю.")
 async def pay_handler(
     ctx: arc.GatewayContext,
     user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],
@@ -277,7 +277,7 @@ async def pay_handler(
 
 
 @plugin.include
-@arc.slash_command("balance", description="Сколько монеток у вас есть.")
+@arc.slash_command("balance", description="Сколько монеток у вас на руках.")
 async def balance_handler(
     ctx: arc.GatewayContext,
     user: arc.Option[
@@ -313,7 +313,7 @@ async def balance_handler(
 # Таблица лидеров --------------------------------------------------------------
 
 cointop_group = plugin.include_slash_group(
-    name="cointop", description="Таблица лидеров самых богатых участников"
+    name="cointop", description="Таблица лидеров самых богатых участников."
 )
 
 
@@ -354,7 +354,9 @@ def get_leaders_list(
 
 
 @cointop_group.include
-@arc.slash_subcommand(name="all", description="Самые богатые участники сервера")
+@arc.slash_subcommand(
+    name="all", description="Самые богатые участники сервера."
+)
 async def cointop_all_handler(
     ctx: arc.GatewayContext,
 ) -> None:
@@ -370,7 +372,7 @@ async def cointop_all_handler(
 
 @cointop_group.include
 @arc.slash_subcommand(
-    name="amount", description="Самые богатые участники (монетки на руках)"
+    name="amount", description="Самые богатые участники (монетки на руках)."
 )
 async def cointop_amount_handler(
     ctx: arc.GatewayContext,
@@ -387,7 +389,7 @@ async def cointop_amount_handler(
 
 @cointop_group.include
 @arc.slash_subcommand(
-    name="deposit", description="Самые богатые участники (банк)"
+    name="deposit", description="Самые богатые участники (банк)."
 )
 async def cointop_deposit_handler(
     ctx: arc.GatewayContext,
@@ -422,9 +424,6 @@ async def disconnect(event: arc.events.StoppingEvent) -> None:
     await COINS_DB.close()
 
 
-# ----------------------------------------------------------------------
-
-
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина.
@@ -437,8 +436,5 @@ def loader(client: arc.GatewayClient) -> None:
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина.
-
-    Завершаем подключение к базе данных предметов и инвентаря.
-    """
+    """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
