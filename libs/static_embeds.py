@@ -5,15 +5,18 @@
 
 Для удобной сборки Embed: https://embed.dan.onl/
 
-Version: v1.0 (1)
+Version: v1.1 (2)
 Author: Milinuri Nirvalen
 """
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import arc
 import hikari
 from arc import SlashCommand, SlashSubCommand
+from loguru import logger
 from pydantic import BaseModel
 
 
@@ -95,6 +98,19 @@ def build_embed(emb_data: EmbedData) -> hikari.Embed:
         emb.set_thumbnail(emb_data.thumbnail.url)
 
     return emb
+
+
+def load_commands(path: Path) -> list[StaticCommand]:
+    """Загружает статические команды из файла."""
+    logger.info("Load static commands from {}", path)
+    if not path.exists():
+        logger.warning("{} not exists to load commands", path)
+        return []
+
+    with path.open() as f:
+        data = json.loads(f.read())
+
+    return [StaticCommand.model_validate(command) for command in data]
 
 
 class StaticCommands:
