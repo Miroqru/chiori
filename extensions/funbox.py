@@ -11,7 +11,7 @@
 - /flip: Подбросить монетку.
 - /ball: Совет от мудрого шара.
 
-Version: v0.3 (4)
+Version: v0.4 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -138,6 +138,20 @@ async def flip_ball(
     result = random.choice(config.ball_result)
 
     await ctx.respond(f"🔮 **Мудрый шар говорит Вам**:\n\n> {prefix}{result}")
+
+
+@plugin.include
+@arc.slash_command("chance", description="Вероятность случайного события")
+async def chance(
+    ctx: arc.GatewayContext,
+    event: arc.Option[str, arc.StrParams("Некоторое событие")],
+) -> None:
+    """Вероятность случайного события.
+
+    Возвращает случайное число в диапазоне от 0 до 100.
+    """
+    num = random.randint(0, 100)
+    await ctx.respond(f"🎀 Вероятность {event} - {num}%")
 
 
 # Загрузчики и выгрузчики плагина
