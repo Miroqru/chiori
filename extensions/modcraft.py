@@ -25,7 +25,7 @@ from libs.static_embeds import StaticCommands, load_commands
 
 plugin = arc.GatewayPlugin("ModCraft")
 _RULE_TIMESTAMP = datetime(2024, 6, 6, 15, 49, tzinfo=UTC)
-_SERVER_IP = "polaris.minerent.net:25598"
+_SERVER_IP = "hydra.minerent.net:25598"
 sc = StaticCommands()
 COMMANDS_PATh = Path("bot_data/modcraft_embeds.json")
 
