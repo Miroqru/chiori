@@ -10,6 +10,7 @@ Author: Milinuri Nirvalen
 """
 
 import arc
+import hikari
 from loguru import logger
 
 plugin = arc.GatewayPlugin("Unraid")
@@ -20,7 +21,11 @@ plugin = arc.GatewayPlugin("Unraid")
 
 
 @plugin.include
-@arc.slash_command("unraid", description="Чистка последствий рейда.")
+@arc.slash_command(
+    "unraid",
+    description="Чистка последствий рейда.",
+    default_permissions=hikari.Permissions.MANAGE_CHANNELS,
+)
 async def unraid(
     ctx: arc.GatewayContext,
     channel_name: arc.Option[
