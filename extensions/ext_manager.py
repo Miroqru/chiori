@@ -21,23 +21,13 @@ from pathlib import Path
 import arc
 import hikari
 
-from chioricord.config import config
+from chioricord.hooks import owner_hook
 
 plugin = arc.GatewayPlugin("Extension manager")
 
 cmd_group = plugin.include_slash_group(
     name="ext", description="Управление загруженными расширениями."
 )
-
-
-class NotOwnerError(arc.HookAbortError):
-    """Если другой пользователь пытается получить доступ к командам."""
-
-
-def owner_hook(ctx: arc.GatewayContext) -> None:
-    """Проверка на администратора бота."""
-    if config.BOT_OWNER != ctx.author.id:
-        raise NotOwnerError("This command can use only bot owner,")
 
 
 # Определение команд
