@@ -5,7 +5,7 @@
 
 Для удобной сборки Embed: https://embed.dan.onl/
 
-Version: v1.1 (2)
+Version: v1.1.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -119,21 +119,25 @@ class StaticCommands:
     def __init__(self) -> None:
         self._embeds: dict[str, hikari.Embed] = {}
 
-    def add_command(self, command: StaticCommand) -> SlashCommand:
+    def add_command(
+        self, command: StaticCommand
+    ) -> SlashCommand[arc.GatewayClient]:
         """Добавляет новую статическую команду."""
         self._embeds[command.name] = build_embed(command.embed)
 
         async def _handler(ctx: arc.GatewayContext) -> None:
             await ctx.respond(self._embeds[command.name])
 
-        return SlashCommand(
+        return SlashCommand[arc.GatewayClient](
             callback=_handler,
             name=command.name,
             description=command.desc,
             is_nsfw=command.is_nsfw,
         )
 
-    def add_subcommand(self, command: StaticCommand) -> SlashSubCommand:
+    def add_subcommand(
+        self, command: StaticCommand
+    ) -> SlashSubCommand[arc.GatewayClient]:
         """Добавляет новую статическую саб-команду."""
         self._embeds[command.name] = build_embed(command.embed)
 
