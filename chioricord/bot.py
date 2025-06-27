@@ -56,7 +56,7 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
         embed = hikari.Embed(
             title="Что-то пошло не так!",
             description="Во время выполнения команды возникло исключение",
-            color=hikari.colors.Color(0xFF00BB),
+            color=hikari.Color(0xFF00BB),
             timestamp=datetime.now(tz=ZoneInfo("Europe/Samara")),
         )
         embed.add_field("Тип", str(type(e)))
@@ -113,7 +113,7 @@ def start_bot() -> None:
     BOT_DATA_PATH.mkdir(exist_ok=True)
 
     logger.info("Setup config manager")
-    cm = PluginConfigManager(config.PLUGINS_CONFIG)
+    cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
     dp.set_type_dependency(PluginConfigManager, cm)
 
     # Простой загрузчик расширений
@@ -122,8 +122,8 @@ def start_bot() -> None:
 
     # Устанавливаем активность бота
     # "prefix для получение справки"
-    activity = hikari.presences.Activity(
-        name="для справки /help", type=hikari.presences.ActivityType.PLAYING
+    activity = hikari.Activity(
+        name="для справки /help", type=hikari.ActivityType.PLAYING
     )
 
     # Запускаем бота

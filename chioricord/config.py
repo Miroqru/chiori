@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import toml
+from arc import GatewayClient
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -56,17 +57,14 @@ class PluginConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-# Тип для настроек
-ConfigT = PluginConfig
-
-
 class PluginConfigManager:
     """Динамические настройки плагинов."""
 
-    def __init__(self, config_path: Path) -> None:
+    def __init__(self, config_path: Path, client: GatewayClient) -> None:
         self._config_path = config_path
         self._config: dict[str, dict[str, Any]] | None = None
-        self._groups: dict[str, ConfigT] = {}
+        self._groups: dict[str, type[PluginConfig]] = {}
+        self._client = client
 
     @property
     def config(self) -> dict[str, dict[str, Any]]:
@@ -89,28 +87,35 @@ class PluginConfigManager:
             return toml.loads(f.read())
 
     def _write_file(self) -> None:
+        if self._config is None:
+            return
         with self._config_path.open("w") as f:
             f.write(toml.dumps(self._config))
 
     # Настройка подгрупп
     # ==================
 
-    def set_group(self, key: str, proto: ConfigT) -> None:
+    def register(self, key: str, proto: type[PluginConfig]) -> None:
+        """Регистрирует новые настройки для плагина."""
+        self.set_group(key, proto)
+        self._client.set_type_dependency(proto, self.get_group(key))
+
+    def set_group(self, key: str, proto: type[PluginConfig]) -> None:
         """Назначение прототипа настроек для группы."""
         logger.info("Setup config for {}", key)
         self._groups[key] = proto
 
-    def get_group(self, key: str) -> PluginConfig | None:
+    def get_group(self, key: str) -> PluginConfig:
         """Получает настройки для плагина."""
         proto = self._groups.get(key)
         if proto is None:
-            return None
+            raise KeyError(f"Config {key} not registered")
         plugin_data = self.config.get(key)
         if plugin_data is None:
             return proto()
         return proto.model_validate(plugin_data)
 
-    def save_group(self, key: str, data: ConfigT) -> None:
+    def save_group(self, key: str, data: PluginConfig) -> None:
         """Сохраняет настройки группы в конфиг."""
         if self._config is None:
             raise ValueError("You must load config before use it")

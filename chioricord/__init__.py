@@ -7,7 +7,7 @@
 или удалением файлов из директорий ``libs/`` и ``extensions/``.
 
 Author: Milinuri Nirvalen
-Version: v0.4 +2 (16)
+Version: v0.5 (20)
 """
 
 __version__ = "0.4"
