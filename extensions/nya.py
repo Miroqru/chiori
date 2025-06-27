@@ -19,7 +19,16 @@ Author: Milinuri Nirvalen
 import arc
 import hikari
 
+from chioricord.config import PluginConfig, PluginConfigManager
+
 plugin = arc.GatewayPlugin("Nya")
+
+
+class NyaConfig(PluginConfig):
+    """Пример использования настроек для плагина."""
+
+    message: str = "ня!"
+    mention: str = "{user}, ня?"
 
 
 # определение команд
@@ -30,9 +39,10 @@ plugin = arc.GatewayPlugin("Nya")
 @arc.slash_command("nya", description="Скажи ня участнику сервера.")
 async def nya_handler(
     ctx: arc.GatewayContext,
-    user: arc.Option[
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Кого нужно някнуть")
     ] = None,
+    config: NyaConfig = arc.inject(),
 ) -> None:
     """Первая няшная команда для бота.
 
@@ -40,9 +50,9 @@ async def nya_handler(
     Впрочем более эта команда ничего не делает.
     """
     if user is not None:
-        await ctx.respond(f"{user.mention}, ня?")
+        await ctx.respond(config.mention.format(user=user.mention))
     else:
-        await ctx.respond("ня!")
+        await ctx.respond(config.message)
 
 
 # Загрузчики и выгрузчики плагина
@@ -53,6 +63,8 @@ async def nya_handler(
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
+    cm = client.get_type_dependency(PluginConfigManager)
+    cm.register("nya", NyaConfig)
 
 
 @arc.unloader
