@@ -5,7 +5,7 @@
 
 - /rps  - Игра Камень Ножницы бумага.
 
-Version: v0.3.2 (10)
+Version: v0.3.3 (11)
 Author: Milinuri Nirvalen
 """
 
@@ -290,7 +290,7 @@ class RockPaperScissorsView(miru.View):
         return hikari.Embed(
             title=f"{_RPS_SIM[1]} Камень ножницы бумага",
             description=self.get_players(),
-            color=hikari.colors.Color(0xDC8ADD),
+            color=hikari.Color(0xDC8ADD),
         )
 
     def get_game_result(self, winner: Player) -> hikari.Embed:
@@ -308,7 +308,7 @@ class RockPaperScissorsView(miru.View):
         return hikari.Embed(
             title=f"{winner.choice} Камень ножницы бумага / Игра окончена",
             description=f"{self._players[0]} x {self._players[1]}",
-            color=hikari.colors.Color(0x8FF0A4),
+            color=hikari.Color(0x8FF0A4),
         ).add_field("Победитель", str(winner), inline=True)
 
     def game_end_no_winner(self) -> hikari.Embed:
@@ -327,7 +327,7 @@ class RockPaperScissorsView(miru.View):
                 "Игроки выбрали одинаковые элементы, игра окончилась ничьей\n"
                 f"{self._players[0]} x {self._players[1]}"
             ),
-            color=hikari.colors.Color(0xFFBE6F),
+            color=hikari.Color(0xFFBE6F),
         )
 
     def no_valid_player_message(self) -> hikari.Embed:
@@ -347,7 +347,7 @@ class RockPaperScissorsView(miru.View):
                 "Вероятно вы уже сделаи свой выбор.\n"
                 "Или лобби данной игры переполнено."
             ),
-            colour=hikari.colors.Color(0xDC8ADD),
+            colour=hikari.Color(0xDC8ADD),
         )
 
 

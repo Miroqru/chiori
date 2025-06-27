@@ -7,7 +7,7 @@
 - /help - Список всех активных команд бота.
 - /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.4.1 (10)
+Version: v0.4.2 (12)
 Author: Milinuri Nirvalen
 """
 
@@ -76,11 +76,13 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
         pl_commands_count = 0
         pl_commands_str = ""
 
-        for cmd in plugin.walk_commands(hikari.CommandType.SLASH):
+        for cmd in plugin.walk_commands(
+            hikari.CommandType.SLASH, callable_only=False
+        ):
             pl_commands_count += 1
             pl_commands_str += f" {cmd.display_name}"
 
-        if pl_commands_count < 3:
+        if pl_commands_count < 3:  # noqa: PLR2004
             other_commands += pl_commands_str
         else:
             res += f"\n**{pn}**: {pl_commands_str}"
@@ -91,7 +93,7 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
         hikari.Embed(
             title=f"🌟 Доступные команды ({cmd_count})",
             description=res,
-            color=hikari.colors.Color(0x8866CC),
+            color=hikari.Color(0x8866CC),
         )
         .add_field(
             name="Подсказка",
@@ -123,13 +125,15 @@ def get_plugin_commands(
         return hikari.Embed(
             title="👀 У-упс-ь",
             description=f"Я не смогла найти `{plugin_name}` плагин.",
-            color=hikari.colors.Color(0x9966FF),
+            color=hikari.Color(0x9966FF),
         ).add_field(
             name="Подсказка", value="`/plugins`: Все загруженные плагины Чиори"
         )
     res = ""
     cmd_count = 0
-    for command in plugin.walk_commands(hikari.CommandType.SLASH):
+    for command in plugin.walk_commands(
+        hikari.CommandType.SLASH, callable_only=False
+    ):
         cmd_count += 1
         res += f"\n- `{command.display_name}`: {command.description}"
 
@@ -137,7 +141,7 @@ def get_plugin_commands(
         hikari.Embed(
             title=f"✨ Команда {plugin_name} ({cmd_count}):",
             description=res,
-            color=hikari.colors.Color(0xAA00FF),
+            color=hikari.Color(0xAA00FF),
         )
         .set_author(name="Индекс плагинов", url=index_url, icon=icon_url)
         .set_footer(_FOOTER_TEXT)
@@ -148,7 +152,7 @@ def get_plugin_commands(
 @arc.slash_command("help", description="Список всех команд.")
 async def help_handler(
     ctx: arc.GatewayContext,
-    plugin: arc.Option[
+    plugin: arc.Option[  # type: ignore
         str | None,
         arc.StrParams("Название плагина для получение его списка команд"),
     ] = None,

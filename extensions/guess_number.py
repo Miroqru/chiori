@@ -6,9 +6,9 @@
 Предоставляет
 -------------
 
-/guessnum - Начать игру Угадай число.
+ - /guessnum - Начать игру Угадай число.
 
-Version: 0.2 (2)
+Version: 0.2.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -50,6 +50,7 @@ class GuessModal(miru.Modal):
                 f"Вам бы следовало написать тут число от 1 до {_MAX_GUESS}",
                 flags=hikari.MessageFlag.EPHEMERAL,
             )
+            return None
 
         if guess > _MAX_GUESS or guess < 1:
             await ctx.respond(
@@ -58,7 +59,7 @@ class GuessModal(miru.Modal):
             )
             return
 
-        self.view._user_guess = guess
+        self.view.user_guess = guess
         game_over = self.view.is_game_over()
         if game_over:
             await ctx.edit_response(embed=self.view.end_game())
@@ -73,7 +74,7 @@ class GuessView(miru.View):
     def __init__(self) -> None:
         super().__init__()
         self._guess: int = 0
-        self._user_guess: int = 0
+        self.user_guess: int = 0
         self.new_game()
 
     @miru.button("Загадать")
@@ -87,25 +88,23 @@ class GuessView(miru.View):
     def new_game(self) -> None:
         """Начинает новую игру."""
         self._guess = randint(1, 1000)
-        self._user_guess = 0
+        self.user_guess = 0
 
     def is_game_over(self) -> bool:
         """проверяет не завершилась ил игра."""
-        return self._user_guess == self._guess
+        return self.user_guess == self._guess
 
     def guess_status(self) -> str:
         """Сообщение отношения догадки.
 
         Насколько пользователь близок к загаданному числу.
         """
-        if self._user_guess is None:
-            return "Вы ещё не делали предположений."
-        elif self._user_guess < self._guess:
-            return f"Загаданное вами число **{self._user_guess}** меньше моего"
-        elif self._user_guess > self._guess:
-            return f"Загаданное вами число **{self._user_guess}** больше моего"
+        if self.user_guess < self._guess:
+            return f"Загаданное вами число **{self.user_guess}** меньше моего"
+        elif self.user_guess > self._guess:
+            return f"Загаданное вами число **{self.user_guess}** больше моего"
         else:
-            return f"Я загадывала **{self._user_guess}**"
+            return f"Я загадывала **{self.user_guess}**"
 
     def game_status(self) -> hikari.Embed:
         """Сообщение статуса игры."""

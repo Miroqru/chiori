@@ -4,20 +4,21 @@
 У вас есть поле 5 на 5 клеток, но некоторые из них заминированы.
 Как только вы открываете пустое поле, на нём показывается число бомб
 поблизости.
-Для прохождения игры вам необхоидмо открыть все пустые клетки, не
+Для прохождения игры вам необходимо открыть все пустые клетки, не
 задев при этом ни одной бомбы.
 Игра не такая простая, как может показаться на первый взгляд.
 
 Предоставляет
 -------------
 
-- /mines - Начать игру Сапёп
+- /mines - Начать игру Сапёр.
 
-Version: v0.4 (19)
+Version: v0.4.1 (20)
 Author: Milinuri Nirvalen
 """
 
 import random
+from venv import logger
 
 import arc
 import hikari
@@ -84,7 +85,7 @@ class EmptyButton(miru.Button):
                         "Мы и не сомневались в том, что вы сможете победить.\n"
                         "А вот где находились все остальные бомбы."
                     ),
-                    color=hikari.colors.Color(0x8FF0A4),
+                    color=hikari.Color(0x8FF0A4),
                 ),
                 components=self.view,
             )
@@ -144,7 +145,7 @@ class BombButton(miru.Button):
                     "Что-ж, кажется для вас это конец.\n"
                     "Может стоит попробовать ещё раз?"
                 ),
-                colour=hikari.colors.Color(0xFFBE6F),
+                colour=hikari.Color(0xFFBE6F),
             )
             .add_field(
                 name="Всего бомб", value=str(self.view.total_bombs), inline=True
@@ -173,7 +174,7 @@ class MineView(miru.View):
         super().__init__()
 
         self.total_bombs = total_bombs or random.randint(_MIN_BOMBS, _MAX_BOMBS)
-        self.board: list[BombButton] = []
+        self.board: list[BombButton | EmptyButton] = []
         self.cells_left = 0
         self.start_game()
 
@@ -186,9 +187,9 @@ class MineView(miru.View):
         self.cells_left = 25 - self.total_bombs
 
         # Генерация игрового поля
-        for x in range(self.total_bombs):
+        for _ in range(self.total_bombs):
             self.board.append(BombButton())
-        for x in range(self.cells_left):
+        for _ in range(self.cells_left):
             self.board.append(EmptyButton())
         random.shuffle(self.board)
 
@@ -197,7 +198,7 @@ class MineView(miru.View):
             self.board[i].index = i
             self.add_item(button)
 
-    def get_neighbors(self, index: int) -> list[miru.Button]:
+    def get_neighbors(self, index: int) -> list[BombButton | EmptyButton]:
         """Получает соседние поля для определенной клетки.
 
         Используется в функция подсчёта количества ближайших бомб,
@@ -213,7 +214,7 @@ class MineView(miru.View):
         :rtype: list[miru.Button]
         """
         pos_y, pos_x = divmod(index, 5)
-        buttons = []
+        buttons: list[BombButton | EmptyButton] = []
 
         for y_shift in range(-1, 2):
             if pos_y + y_shift < 0 or pos_y + y_shift > 4:  # noqa: PLR2004
@@ -232,13 +233,12 @@ class MineView(miru.View):
                     buttons.append(button)
         return buttons
 
-    def count_bombs(self, buttons: list[miru.Button]) -> int:
+    def count_bombs(self, buttons: list[BombButton | EmptyButton]) -> int:
         """Считает количество клеток с бомбами среди переданных клеток.
 
-        :param buttons: Список соседних клеток, для подсчёта бомб.
-        :type buttons: list[miru.Button]
-        :return: Сколько среди переданных клеток содержат бомбы.
-        :rtype: int
+        Args:
+            buttons: Список соседних клеток для подсчёта бомб.
+
         """
         bomb_counter = 0
         for button in buttons:
@@ -249,7 +249,7 @@ class MineView(miru.View):
     # Методы открытия клеток
     # ======================
 
-    def recursive_open(self, index: miru.Button) -> None:
+    def recursive_open(self, index: EmptyButton) -> None:
         """Рекурсивно открывает все ближайшие пустые клетки.
 
         Алгоритм работы следующий.
@@ -263,12 +263,14 @@ class MineView(miru.View):
         Если есть бомбы - завершаем обработку текущей клетки.
 
         :param index: Клетка, которую необходимо открыть.
-        :type index: miru.Button
         """
-        targets = [index]
+        targets: list[EmptyButton | BombButton] = [index]
 
         for target in targets:
-            if target.disabled:
+            if target.disabled or target.index is None:
+                continue
+            if isinstance(target, BombButton):
+                logger.warning("Good luck {}", target)
                 continue
 
             neighbors = self.get_neighbors(target.index)
@@ -306,7 +308,7 @@ class MineView(miru.View):
                     "В этой игре вам предстоит обезвредить минное поле.\n"
                     "Посмотрим, получится ли это у вас."
                 ),
-                color=hikari.colors.Color(0x00CCFF),
+                color=hikari.Color(0x00CCFF),
             )
             .add_field(
                 name="Правила игры просты:",
@@ -332,7 +334,7 @@ class MineView(miru.View):
 async def start_mines(
     ctx: arc.GatewayContext,
     client: miru.Client = arc.inject(),
-    bombs: arc.Option[
+    bombs: arc.Option[  # type: ignore
         int | None, arc.IntParams("Количество бомб в игре (3-10)")
     ] = None,
 ) -> None:
@@ -343,7 +345,7 @@ async def start_mines(
     """
     if bombs is not None:
         if bombs < _MIN_BOMBS:
-            return await ctx.respond(
+            await ctx.respond(
                 embed=hikari.Embed(
                     title="💣 Маловато бомб",
                     description=(
@@ -353,8 +355,9 @@ async def start_mines(
                     color=0xFF00AA,
                 )
             )
+            return None
         elif bombs > _MAX_BOMBS:
-            return await ctx.respond(
+            await ctx.respond(
                 embed=hikari.Embed(
                     title="💣 Многовато бомб",
                     description=(
@@ -364,6 +367,7 @@ async def start_mines(
                     color=0xFF00AA,
                 )
             )
+            return None
 
     view = MineView()
     await ctx.respond(embed=view.game_status(), components=view)

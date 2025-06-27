@@ -5,9 +5,9 @@
 Предоставляет
 -------------
 
-- /nya <member> - Някнуть участника
+- /math - Начать тест по математике.
 
-Version: v0.5 (9)
+Version: v0.5.1 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -23,7 +23,6 @@ import miru
 plugin = arc.GatewayPlugin("Math Test")
 
 _MATH_TIMER = 60
-
 _OPERATORS = ["+", "-", "*", "/"]
 
 
@@ -123,7 +122,7 @@ class MathView(miru.View):
         """Начинает новую игру."""
         self.success = 0
         self.fail = 0
-        self.end_time = datetime.now() + timedelta(minutes=1)
+        self.end_time = datetime.now() + timedelta(seconds=_MATH_TIMER)
         self.example = self.get_example()
 
         self.buttons = []
@@ -145,7 +144,7 @@ class MathView(miru.View):
 
     def add_answers(self, example: MathExample) -> None:
         """Добавляет случайные ответы на задачу."""
-        res = []
+        res: list[int] = []
         res.append(example.result)
         for m in range(1, 4):
             res.append(example.result + randint(-m, m * 10))
@@ -209,7 +208,7 @@ class MathView(miru.View):
         self.total += 1
 
         now = datetime.now()
-        if self.end_time is not None and now >= self.end_time:
+        if now >= self.end_time:
             return False
 
         self.example = self.get_example()

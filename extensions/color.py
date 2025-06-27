@@ -9,7 +9,7 @@
 - /color - Случайный цвет.
 - /color [color] - информацию о цвете.
 
-Version: v0.3.1 (4)
+Version: v0.3.2 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -29,7 +29,7 @@ plugin = arc.GatewayPlugin("color")
 @arc.slash_command("color", description="Информация о цвете.")
 async def color_selector(
     ctx: arc.GatewayContext,
-    color: arc.Option[
+    color: arc.Option[  # type: ignore
         str | None, arc.StrParams("Hex, RGB, HSV (случайный цвет)")
     ] = None,
 ) -> None:
@@ -41,38 +41,44 @@ async def color_selector(
     """
     # получаем цвет
     if color is None:
-        color = Color.random()
+        parse_color = Color.random()
     else:
-        try:
-            color = Color.parse_color(color)
-        except ColorParseError:
-            emb = hikari.Embed(
-                title="Неправильный формат?",
-                description="Пример: `#ffccff`; `rgb(12, 13, 14)`.",
-                color=hikari.colors.Color(0xFF00AA),
-            )
-            return await ctx.respond(embed=emb)
+        parse_color = Color.parse_color(color)
 
     # Собираем информацию о цвете
     emb = (
         hikari.Embed(
             title="🎨 Информация о цвете",
-            colour=int(color.to_hex_code()[1:], base=16),
+            colour=int(parse_color.to_hex_code()[1:], base=16),
         )
-        .add_field(name="hex", value=color.to_hex_code(), inline=True)
+        .add_field(name="hex", value=parse_color.to_hex_code(), inline=True)
         .add_field(
             name="rgb",
-            value=f"{color.red}, {color.green}, {color.blue}",
+            value=f"{parse_color.red}, {parse_color.green}, {parse_color.blue}",
             inline=True,
         )
     )
 
-    hsv = color.to_hsv()
+    hsv = parse_color.to_hsv()
     emb.add_field(
         name="hsv", value=f"{hsv[0]}, {hsv[1]}, {hsv[2]}", inline=True
     )
 
     await ctx.respond(embed=emb)
+
+
+@color_selector.set_error_handler
+async def error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
+    """Обрабатывает ошибки получения цвета."""
+    if isinstance(exc, ColorParseError):
+        emb = hikari.Embed(
+            title="Неправильный формат?",
+            description="Пример: `#ffccff`; `rgb(12, 13, 14)`.",
+            color=hikari.Color(0xFF00AA),
+        )
+        await ctx.respond(emb)
+        return
+    raise exc
 
 
 # Загрузчики и выгрузчики плагина

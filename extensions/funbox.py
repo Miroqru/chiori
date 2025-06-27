@@ -10,8 +10,9 @@
 - /dice: Подбросить кубик.
 - /flip: Подбросить монетку.
 - /ball: Совет от мудрого шара.
+- /chance <message>: Вероятность случайного события.
 
-Version: v0.4 (5)
+Version: v0.4.1 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -61,8 +62,8 @@ async def ping(ctx: arc.GatewayContext) -> None:
 @arc.slash_command("dice", description="Подбросить кубик.")
 async def roll_dice(
     ctx: arc.GatewayContext,
-    sides: arc.Option[int, arc.IntParams("Сколько сторон у кубика (6)")] = 6,
-    count: arc.Option[int, arc.IntParams("Сколько будет кубиков (1)")] = 1,
+    sides: arc.Option[int, arc.IntParams("Сколько сторон у кубика (6)")] = 6,  # type: ignore
+    count: arc.Option[int, arc.IntParams("Сколько будет кубиков (1)")] = 1,  # type: ignore
 ) -> None:
     """Подбрасывает кубик.
 
@@ -86,7 +87,7 @@ async def roll_dice(
             "выбрасываете их на стол.\n\n"
             "Что же тут у нас?"
         ),
-        color=hikari.colors.Color(0xF66151),
+        color=hikari.Color(0xF66151),
     )
 
     # Добавляем результат подсчётов
@@ -105,7 +106,7 @@ async def roll_dice(
 @plugin.include
 @arc.slash_command("flip", description="Подбросить монетку.")
 async def flip_coin(
-    ctx: arc.GatewayContext, cm: PluginConfigManager = arc.inject()
+    ctx: arc.GatewayContext, config: FunboxConfig = arc.inject()
 ) -> None:
     """Подбрасывает монетку.
 
@@ -113,7 +114,6 @@ async def flip_coin(
     В результате может выпасть орёл или решка.
     Сообщение с результатом содержит выпавшую сторону монетки.
     """
-    config: FunboxConfig = cm.get_group("funbox")
     result = random.randint(0, 1)
     result_str = config.flip_results[result]
     await ctx.respond(f"🪙 Подбросив монетку вы увидели там {result_str}.")
@@ -122,7 +122,7 @@ async def flip_coin(
 @plugin.include
 @arc.slash_command("ball", description="Совет от мудрого шара.")
 async def flip_ball(
-    ctx: arc.GatewayContext, cm: PluginConfigManager = arc.inject()
+    ctx: arc.GatewayContext, config: FunboxConfig = arc.inject()
 ) -> None:
     """8 шар.
 
@@ -130,7 +130,6 @@ async def flip_ball(
     На самом деле ответ подбирается случайный.
     Но так ведь даже веселее.
     """
-    config: FunboxConfig = cm.get_group("funbox")
     if random.randint(0, 1) == 1:
         prefix = random.choice(config.ball_prefix)
     else:
@@ -144,7 +143,7 @@ async def flip_ball(
 @arc.slash_command("chance", description="Вероятность случайного события")
 async def chance(
     ctx: arc.GatewayContext,
-    event: arc.Option[str, arc.StrParams("Некоторое событие")],
+    event: arc.Option[str, arc.StrParams("Некоторое событие")],  # type: ignore
 ) -> None:
     """Вероятность случайного события.
 
@@ -163,7 +162,7 @@ def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
     cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
-    cm.set_group("funbox", FunboxConfig)
+    cm.register("funbox", FunboxConfig)
 
 
 @arc.unloader

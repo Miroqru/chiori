@@ -15,7 +15,7 @@
 - /rune <text> - Переводит текст на рунический язык.
 - /unrune <text> - Обратный перевод рунического текста.
 
-Version: v1.0.1 (2)
+Version: v1.0.2 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -150,7 +150,7 @@ def translate_to_text(rune_text: str) -> str:
 @arc.slash_command("rune", description="Перевод на рунический язык.")
 async def rune_translate(
     ctx: arc.GatewayContext,
-    text: arc.Option[str, arc.StrParams("Текст для перевода")] = None,
+    text: arc.Option[str, arc.StrParams("Текст для перевода")],  # type: ignore
 ) -> None:
     """Переводит текст в рунический язык по словарю."""
     await ctx.respond(
@@ -166,7 +166,7 @@ async def rune_translate(
 @arc.slash_command("unrune", description="Обратный перевод рунического текста.")
 async def unrune_translate(
     ctx: arc.GatewayContext,
-    text: arc.Option[str, arc.StrParams("Текст для перевода")] = None,
+    text: arc.Option[str, arc.StrParams("Текст для перевода")],  # type: ignore
 ) -> None:
     """Расшифровывает рунический текст."""
     await ctx.respond(

@@ -31,7 +31,7 @@
 - /cointop amount - Самые богатые участники с монетками на руках.
 - /cointop deposit - Самые богатые участники с монетками в банке.
 
-Version: v0.3.1 (11)
+Version: v0.3.2 (12)
 Author: Milinuri Nirvalen
 """
 
@@ -57,7 +57,7 @@ COINS_DB = coinengine.CoinDB(Path("bot_data/coins.db"))
 BAD_TRANSACTION = hikari.Embed(
     title="Ой, ошибочка",
     description="Вероятно у вас недостаточно средств, для данной транзакции.",
-    color=hikari.colors.Color(0xFF00AA),
+    color=hikari.Color(0xFF00AA),
 )
 
 
@@ -77,7 +77,7 @@ coin_group = plugin.include_slash_group(
 @arc.slash_subcommand("reset", description="Сбросить баланс участника.")
 async def coin_reset_handler(
     ctx: arc.GatewayContext,
-    user: arc.Option[
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("У кого сбросить баланс (себе)")
     ] = None,
 ) -> None:
@@ -96,7 +96,7 @@ async def coin_reset_handler(
     embed = hikari.Embed(
         title="Успешный сброс",
         description=f"{user.mention} остался без монеток",
-        color=hikari.colors.Color(0x00FFCC),
+        color=hikari.Color(0x00FFCC),
     )
     await ctx.respond(embed=embed)
 
@@ -105,8 +105,8 @@ async def coin_reset_handler(
 @arc.slash_subcommand("give", description="Выдать монетки участнику.")
 async def coin_give_handler(
     ctx: arc.GatewayContext,
-    amount: arc.Option[int, arc.IntParams("Сколько дать")],
-    user: arc.Option[
+    amount: arc.Option[int, arc.IntParams("Сколько дать")],  # type: ignore
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Кому дать монетки (себе)")
     ] = None,
 ) -> None:
@@ -124,7 +124,7 @@ async def coin_give_handler(
     embed = hikari.Embed(
         title="Успешная транзакция",
         description=f"Вы выдали {user.mention} {amount} монеток",
-        color=hikari.colors.Color(0x00FFCC),
+        color=hikari.Color(0x00FFCC),
     )
     await ctx.respond(embed=embed)
 
@@ -133,8 +133,8 @@ async def coin_give_handler(
 @arc.slash_subcommand("take", description="Забрать монетки участника.")
 async def coin_take_handler(
     ctx: arc.GatewayContext,
-    amount: arc.Option[int, arc.IntParams("Сколько взять")],
-    user: arc.Option[
+    amount: arc.Option[int, arc.IntParams("Сколько взять")],  # type: ignore
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("У кого забрать (себе)")
     ] = None,
 ) -> None:
@@ -155,7 +155,7 @@ async def coin_take_handler(
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы взяли у {user.mention} {amount} монеток",
-            color=hikari.colors.Color(0x00FFCC),
+            color=hikari.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
@@ -173,7 +173,7 @@ deposit_group = plugin.include_slash_group(
 @arc.slash_subcommand("put", description="Положить монеты в банк.")
 async def deposit_put_handler(
     ctx: arc.GatewayContext,
-    amount: arc.Option[int, arc.IntParams("Сколько положить")],
+    amount: arc.Option[int, arc.IntParams("Сколько положить")],  # type: ignore
 ) -> None:
     """Перекладывает монеты в банк.
 
@@ -189,7 +189,7 @@ async def deposit_put_handler(
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы положили на депозит {amount} монеток",
-            color=hikari.colors.Color(0x00FFCC),
+            color=hikari.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
@@ -200,7 +200,7 @@ async def deposit_put_handler(
 @arc.slash_subcommand("take", description="Взять монеты из банка.")
 async def deposit_take_handler(
     ctx: arc.GatewayContext,
-    amount: arc.Option[int, arc.IntParams("Сколько взять")],
+    amount: arc.Option[int, arc.IntParams("Сколько взять")],  # type: ignore
 ) -> None:
     """Берёт монетки из банка.
 
@@ -214,7 +214,7 @@ async def deposit_take_handler(
         embed = hikari.Embed(
             title="Успешная транзакция",
             description=f"Вы взяли с депозита {amount} монеток",
-            color=hikari.colors.Color(0x00FFCC),
+            color=hikari.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
@@ -237,7 +237,7 @@ async def deposit_info_handler(ctx: arc.GatewayContext) -> None:
             "Тут они будут надёжно лежать и ждать вас.\n"
             "А ещё приятный бонус - со временем они вырастут."
         ),
-        color=hikari.colors.Color(0x00FFCC),
+        color=hikari.Color(0x00FFCC),
     ).add_field(name="Сейчас лежит", value=str(user_info.deposit))
     await ctx.respond(embed=embed)
 
@@ -249,8 +249,8 @@ async def deposit_info_handler(ctx: arc.GatewayContext) -> None:
 @arc.slash_command("pay", description="Оплатить услуги пользователю.")
 async def pay_handler(
     ctx: arc.GatewayContext,
-    user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],
-    amount: arc.Option[int, arc.IntParams("Сколько передать")],
+    user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],  # type: ignore
+    amount: arc.Option[int, arc.IntParams("Сколько передать")],  # type: ignore
 ) -> None:
     """Оплатить услугу пользователю.
 
@@ -258,9 +258,6 @@ async def pay_handler(
     пользователю.
     Вы не сможете отдать больше, чем у вас есть монет на руках.
     """
-    if user is None:
-        raise ValueError("User is None, cant move coins")
-
     status = await COINS_DB.move(amount, ctx.user.id, user.id)
     if status:
         await COINS_DB.commit()
@@ -269,7 +266,7 @@ async def pay_handler(
             description=(
                 f"{ctx.user.mention} перевёл {user.mention} {amount} монеток"
             ),
-            color=hikari.colors.Color(0x00FFCC),
+            color=hikari.Color(0x00FFCC),
         )
         await ctx.respond(embed=embed)
     else:
@@ -280,7 +277,7 @@ async def pay_handler(
 @arc.slash_command("balance", description="Сколько монеток у вас на руках.")
 async def balance_handler(
     ctx: arc.GatewayContext,
-    user: arc.Option[
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Чьи монетки хотите посмотреть")
     ] = None,
 ) -> None:
@@ -301,7 +298,7 @@ async def balance_handler(
         hikari.Embed(
             title="Баланс",
             description="Это все монетки, что у вас есть.",
-            color=hikari.colors.Color(0xFFCC00),
+            color=hikari.Color(0xFFCC00),
         )
         .add_field("Всего", str(user_coins.balance), inline=True)
         .add_field("На руках", str(user_coins.amount), inline=True)
@@ -357,9 +354,7 @@ def get_leaders_list(
 @arc.slash_subcommand(
     name="all", description="Самые богатые участники сервера."
 )
-async def cointop_all_handler(
-    ctx: arc.GatewayContext,
-) -> None:
+async def cointop_all_handler(ctx: arc.GatewayContext) -> None:
     """Общая таблица лидеров (на руках + в банке)."""
     leaders = await COINS_DB.get_leaderboard(coinengine.OrderBy.ALL)
     embed = hikari.Embed(
@@ -409,7 +404,7 @@ async def cointop_deposit_handler(
 
 
 @plugin.listen(arc.events.StartedEvent)
-async def connect(event: arc.events.StartedEvent) -> None:
+async def connect(event: arc.events.StartedEvent[arc.GatewayClient]) -> None:
     """Подключаемся к базам данных при запуске бота."""
     logger.info("Connect to index/inventory DB")
     await COINS_DB.connect()
@@ -417,7 +412,9 @@ async def connect(event: arc.events.StartedEvent) -> None:
 
 
 @plugin.listen(arc.events.StoppingEvent)
-async def disconnect(event: arc.events.StoppingEvent) -> None:
+async def disconnect(
+    event: arc.events.StoppingEvent[arc.GatewayClient],
+) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to index/inventory DB")
     await COINS_DB.commit()

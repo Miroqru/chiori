@@ -30,30 +30,27 @@ plugin = arc.GatewayPlugin("utils")
     description="Удалить несколько сообщений в канале",
     default_permissions=hikari.Permissions.MANAGE_MESSAGES,
 )
-async def delmsg_handler(
+async def delete_messages(
     ctx: arc.GatewayContext,
-    count: arc.Option[
+    channel: arc.Option[  # type: ignore
+        hikari.TextableGuildChannel,
+        arc.ChannelParams("Канал для очистки сообщений"),
+    ],
+    count: arc.Option[  # type: ignore
         int, arc.IntParams("Сколько удалить сообщений (10)")
     ] = 10,
 ) -> None:
     """Удаляет заданное количество сообщений в чате. По умолчанию 10."""
-    channel = ctx.channel
-    if channel is not None:
-        count = min(max(count, 1), 100)
-        ids = []
-        for i, message in enumerate(await channel.fetch_history()):
-            ids.append(message.id)
-            if i + 1 == count:
-                break
-        await channel.delete_messages(ids)
-        await ctx.respond(
-            f"Удалено {count} сообщений", flags=hikari.MessageFlag.EPHEMERAL
-        )
-    else:
-        await ctx.respond(
-            "Данная команда только для текстовых каналов.",
-            flags=hikari.MessageFlag.EPHEMERAL,
-        )
+    count = min(max(count, 1), 100)
+    ids: list[int] = []
+    for i, message in enumerate(await channel.fetch_history()):
+        ids.append(message.id)
+        if i + 1 == count:
+            break
+    await channel.delete_messages(ids)
+    await ctx.respond(
+        f"Удалено {count} сообщений", flags=hikari.MessageFlag.EPHEMERAL
+    )
 
 
 def str_delta(delta: timedelta) -> str:
@@ -69,27 +66,32 @@ def get_member_info(member: hikari.Member) -> hikari.Embed:
     """Получает информацию об участнике сервера."""
     today = date.today()
     create_delta = str_delta(today - member.created_at.date())
-    join_delta = str_delta(today - member.joined_at.date())
-
     role = member.get_top_role()
     if role is not None:
         color = role.color
     else:
         color = hikari.Color(0xCC66FF)
 
-    return hikari.Embed(
+    emb = hikari.Embed(
         title=f"Участник {member.global_name}",
         description=(
             f"**ID**: {member.id}\n"
             f"**Ник**: {member.nickname}\n"
             f"**Создан**: {member.created_at.strftime('%d/%m/%Y %H:%M:%S')}\n"
             f"**Существует**: {create_delta}\n"
-            "**Присоединился**: "
-            f"{member.joined_at.strftime('%d/%m/%Y %H:%M:%S')}\n"
-            f"**С нами**: {join_delta}"
         ),
         color=color,
-    ).set_thumbnail(member.avatar_url)
+    )
+    emb.set_thumbnail(member.make_avatar_url(file_format="PNG"))
+    if member.joined_at is not None:
+        join_delta = str_delta(today - member.joined_at.date())
+        emb.add_field(
+            "Присоединился",
+            f"{member.joined_at.strftime('%d/%m/%Y %H:%M:%S')}\n"
+            f"**С нами**: {join_delta}",
+        )
+
+    return emb
 
 
 def get_user_info(user: hikari.User) -> hikari.Embed:
@@ -105,14 +107,14 @@ def get_user_info(user: hikari.User) -> hikari.Embed:
             f"**Существует**: {create_delta}"
         ),
         color=hikari.Color(0xCC66FF),
-    ).set_thumbnail(user.avatar_url)
+    ).set_thumbnail(user.make_avatar_url(file_format="PNG"))
 
 
 @plugin.include
 @arc.slash_command("user", description="Информация о пользователе")
 async def user_info(
     ctx: arc.GatewayContext,
-    user: arc.Option[
+    user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("О ком получить сведения")
     ] = None,
 ) -> None:

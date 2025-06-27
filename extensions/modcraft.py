@@ -5,11 +5,10 @@
 Предоставляет
 -------------
 
-Version: v0.6 (10)
+Version: v0.6.1 (11)
 Author: Milinuri Nirvalen
 """
 
-from datetime import UTC, datetime
 from pathlib import Path
 
 import arc
@@ -20,11 +19,7 @@ from mcstatus.responses import JavaStatusPlayers
 
 from libs.static_embeds import StaticCommands, load_commands
 
-# Глобальные переменные
-# =====================
-
 plugin = arc.GatewayPlugin("ModCraft")
-_RULE_TIMESTAMP = datetime(2024, 6, 6, 15, 49, tzinfo=UTC)
 _SERVER_IP = "hydra.minerent.net:25598"
 sc = StaticCommands()
 COMMANDS_PATh = Path("bot_data/modcraft_embeds.json")
@@ -102,7 +97,7 @@ async def server_mods(ctx: arc.GatewayContext) -> None:
     server = await JavaServer.async_lookup(_SERVER_IP)
     status = await server.async_status()
 
-    if status.forge_data is None or status.forge_data.mods is None:
+    if status.forge_data is None:
         emb = hikari.Embed(
             title="📦 Список модов",
             description=(

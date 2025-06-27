@@ -7,7 +7,7 @@
 - /index [item_id]: Детальную информацию о предмете.
 - /inventory: Предметы в ваших карманах.
 
-Version: v0.1.1 (4)
+Version: v0.1.2 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -110,7 +110,7 @@ def index_status(items: list[inventory.Item]) -> hikari.Embed:
     return hikari.Embed(
         title="📦 Индекс предметов",
         description=list_items,
-        color=hikari.colors.Color(0xFF66CC),
+        color=hikari.Color(0xFF66CC),
     ).add_field(
         name="Подсказка", value="`/index [item_id]` - для подробной информации"
     )
@@ -122,7 +122,7 @@ def item_info(item: inventory.Item) -> hikari.Embed:
     return hikari.Embed(
         title=item.name,
         description=item.description,
-        color=hikari.colors.Color(rare_info.color),
+        color=hikari.Color(rare_info.color),
     ).add_field(name="Редкость", value=f"{rare_info.name}\n> {rare_info.desc}")
 
 
@@ -130,7 +130,7 @@ def item_info(item: inventory.Item) -> hikari.Embed:
 @arc.slash_command("index", description="Информацию о предмете.")
 async def index_handler(
     ctx: arc.GatewayContext,
-    item_id: arc.Option[
+    item_id: arc.Option[  # type: ignore
         int | None, arc.IntParams("ID предмета из индекса предметов")
     ] = None,
     index: inventory.ItemIndex = arc.inject(),
@@ -167,7 +167,9 @@ async def user_inventory(
 
 
 @plugin.listen(arc.events.StartedEvent)
-async def start_plugin(event: arc.events.StartedEvent) -> None:
+async def start_plugin(
+    event: arc.events.StartedEvent[arc.GatewayClient],
+) -> None:
     """Подключаемся к базам данных при запуске бота."""
     logger.info("Connect to index/inventory DB")
     await item_index.connect()
@@ -179,7 +181,9 @@ async def start_plugin(event: arc.events.StartedEvent) -> None:
 
 
 @plugin.listen(arc.events.StoppingEvent)
-async def stop_plugin(event: arc.events.StoppingEvent) -> None:
+async def stop_plugin(
+    event: arc.events.StoppingEvent[arc.GatewayClient],
+) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to index/inventory DB")
     await inv.commit()

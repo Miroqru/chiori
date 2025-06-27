@@ -17,7 +17,7 @@
 
 - /ttt - Игра крестики-нолики.
 
-Version: v0.5.2 (20)
+Version: v0.5.3 (21)
 Author: Milinuri Nirvalen
 """
 
@@ -129,7 +129,7 @@ class GameButton(miru.Button):
         """
         self.style = hikari.ButtonStyle.PRIMARY
         self.disabled = True
-        self.label = _TTT_SIM[self.view._cur]
+        self.label = _TTT_SIM[self.view.cur]
         self.view.cell_left -= 1
         self.opener = ctx.user
 
@@ -174,11 +174,11 @@ class TicTacToeView(miru.View):
         super().__init__()
         self.endless = endless
 
-        self._board: list[int] = []
+        self._board: list[GameButton] = []
         self._players: list[hikari.User] = []
-        self._cur = 0
         self._open_log: list[int] = []
         self._cell_left = 9
+        self.cur = 0
 
         # Для бесконечных крестиков-ноликов
         self._prepare_close: int | None = None
@@ -206,7 +206,7 @@ class TicTacToeView(miru.View):
 
     def next_player(self) -> None:
         """Переключает курсор на следующего игрока."""
-        self._cur = (self._cur + 1) % 2
+        self.cur = (self.cur + 1) % 2
 
     def validate_player(self, ctx: miru.ViewContext) -> bool:
         """Проверяет что игрок может играть в крестики-нолики.
@@ -234,7 +234,7 @@ class TicTacToeView(miru.View):
                 return False
         if ctx.user not in self._players:
             return False
-        if ctx.user != self._players[self._cur]:
+        if ctx.user != self._players[self.cur]:
             return False
         return True
 
@@ -332,13 +332,13 @@ class TicTacToeView(miru.View):
         """
         return (
             hikari.Embed(
-                title=f"{_TTT_SIM[self._cur]} Крестики-нолики",
+                title=f"{_TTT_SIM[self.cur]} Крестики-нолики",
                 description=(
                     "Перед вами игровое поле.\n"
                     "Вы сошлись здесь в дуэли, чтобы доказать свою силу.\n"
                     "Мешать вам будет только ограниченное поле и ваш противник."
                 ),
-                colour=hikari.colors.Color(0x00B0F4),
+                colour=hikari.Color(0x00B0F4),
             )
             .add_field(
                 name="Режим игры",
@@ -363,13 +363,13 @@ class TicTacToeView(miru.View):
         """
         return (
             hikari.Embed(
-                title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ничья",
+                title=f"{_TTT_SIM[self.cur]} Крестики-нолики / Ничья",
                 description=(
                     "Это была долгая битва.\n"
                     "Однако поле закончилось.\n"
                     "Теперь не получится выяснить кто выиграл."
                 ),
-                colour=hikari.colors.Color(0xFFBE6F),
+                colour=hikari.Color(0xFFBE6F),
             )
             .add_field(name="Режим игры", value="Обычный", inline=True)
             .add_field(name="Игроки", value=self.get_players(), inline=True)
@@ -383,13 +383,13 @@ class TicTacToeView(miru.View):
         """
         return (
             hikari.Embed(
-                title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Игра завершена",
+                title=f"{_TTT_SIM[self.cur]} Крестики-нолики / Игра завершена",
                 description=(
                     "Это была долгая битва.\n"
                     "И только один мог выйти из неё победителем.\n\n"
                     f"**Победитель**: {winner.mention}"
                 ),
-                colour=hikari.colors.Color(0x8FF0A4),
+                colour=hikari.Color(0x8FF0A4),
             )
             .add_field(
                 name="Режим игры",
@@ -404,11 +404,11 @@ class TicTacToeView(miru.View):
 
         Символ игрока, а также его упоминание.
         """
-        res = _TTT_SIM[self._cur]
+        res = _TTT_SIM[self.cur]
         if len(self._players) < 2:  # noqa: PLR2004
             return res + " игрока"
         else:
-            return f"{res} {self._players[self._cur].mention}"
+            return f"{res} {self._players[self.cur].mention}"
 
     def no_valid_player_message(self) -> hikari.Embed:
         """Сообщение если кто-то посторонний нажал на кнопку.
@@ -420,14 +420,14 @@ class TicTacToeView(miru.View):
         не засорять чат.
         """
         return hikari.Embed(
-            title=f"{_TTT_SIM[self._cur]} Крестики-нолики / Ась?",
+            title=f"{_TTT_SIM[self.cur]} Крестики-нолики / Ась?",
             description=(
                 "Возможно вы не участник данной игры.\n"
                 "ну или возможно сейчас не ваш ход.\n\n"
                 "Так или иначе сейчас ход:"
                 f"{self.current_player()}"
             ),
-            colour=hikari.colors.Color(0xDC8ADD),
+            colour=hikari.Color(0xDC8ADD),
         )
 
 
@@ -439,7 +439,7 @@ class TicTacToeView(miru.View):
 @arc.slash_command("ttt", description="Начать игру крестики-нолики.")
 async def nya_handler(
     ctx: arc.GatewayContext,
-    endless: arc.Option[
+    endless: arc.Option[  # type: ignore
         bool, arc.BoolParams("Бесконечная ли игр (нет)")
     ] = False,
     client: miru.Client = arc.inject(),
