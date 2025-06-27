@@ -8,7 +8,7 @@
 - /delmsg [count] - Удаляет сообщения из канала.
 - /user [user] - Информация о пользователе.
 
-Version: v0.2.1 (13)
+Version: v0.2.2 (14)
 Author: Milinuri Nirvalen
 """
 

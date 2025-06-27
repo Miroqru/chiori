@@ -15,7 +15,7 @@
 
 - /pair - Начать игру найди пару
 
-Version: v0.3 (6)
+Version: v0.3.1 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -215,7 +215,7 @@ class PairView(miru.View):
         return hikari.Embed(
             title="☕ Найди пару / игра окончена",
             description="Поздравляем, вы успешно нашли все пары",
-            color=hikari.colors.Color(0x8FF0A4),
+            color=hikari.Color(0x8FF0A4),
         )
 
     def game_status(self) -> hikari.Embed:
@@ -235,7 +235,7 @@ class PairView(miru.View):
                 "- Два одинаковых поля образуют пару.\n"
                 "- Не одинаковые поля будут закрываться."
             ),
-            color=hikari.colors.Color(0x00CCFF),
+            color=hikari.Color(0x00CCFF),
         ).add_field("Пар осталось", str(self.pair_left))
 
 
@@ -248,10 +248,9 @@ class PairView(miru.View):
 async def nya_handler(
     ctx: arc.GatewayContext,
     client: miru.Client = arc.inject(),
-    cm: PluginConfigManager = arc.inject(),
+    config: FindPairConfig = arc.inject(),
 ) -> None:
     """Начинает новую игру Найди пару."""
-    config: FindPairConfig = cm.get_group("find_pair")
     view = PairView(config.pairs)
     await ctx.respond(view.game_status(), components=view)
     client.start_view(view)
@@ -266,7 +265,7 @@ def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
     cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
-    cm.set_group("find_pair", FindPairConfig)
+    cm.register("find_pair", FindPairConfig)
 
 
 @arc.unloader

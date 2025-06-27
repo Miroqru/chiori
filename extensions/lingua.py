@@ -10,18 +10,20 @@ TODO: Сделать нормальное хранилище для настро
 Предоставляет
 -------------
 
-Version: v0.10 (6)
+Version: v0.10.1 (7)
 Maintainer: atarwn
 Source: https://github.com/atarwn/Lingua
 """
 
 from collections import deque
 from collections.abc import Iterator
+from typing import cast
 
 import arc
 import hikari
 from loguru import logger
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from chioricord.config import PluginConfig, PluginConfigManager
 
@@ -44,15 +46,20 @@ class LinguaConfig(PluginConfig):
     history_length: int = 20
 
 
+# Немножечко типов
+MessagesT = deque[ChatCompletionMessageParam]
+HistoryT = dict[int, MessagesT]
+
+
 class MessageStorage:
     """История сообщений с пользователем."""
 
     def __init__(self, config: LinguaConfig) -> None:
         self.config = config
-        self.history: dict[int, deque[dict]] = {}
+        self.history: HistoryT = {}
         self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
 
-    async def get_completion(self, messages: deque[dict]) -> str | None:
+    async def get_completion(self, messages: MessagesT) -> str | None:
         """Делает запрос к AI модели."""
         return (
             self.client.chat.completions.create(
@@ -97,7 +104,10 @@ def get_info() -> hikari.Embed:
     """Немного информации о расширении."""
     embed = hikari.Embed(
         title="Привет, я Lingua!",
-        description="Lingua — Ваш многофункциональный помощник для решения технических задач.",
+        description=(
+            "Lingua — Ваш многофункциональный помощник для "
+            "решения технических задач."
+        ),
         color=0x00AAE5,
     )
     embed.set_thumbnail(
@@ -138,7 +148,7 @@ def iter_message(text: str, max_length: int = 2000) -> Iterator[str]:
 @arc.slash_command("lingua", description="Диалог с AI.")
 async def lingua_handler(
     ctx: arc.GatewayContext,
-    message: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,
+    message: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,  # type: ignore
     storage: MessageStorage = arc.inject(),
 ) -> None:
     """Отправляет сообщение в диалог с ботом или же выводит информацию."""
@@ -186,11 +196,12 @@ def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
 
-    cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
-    cm.set_group("lingua", LinguaConfig)
+    cm = client.get_type_dependency(PluginConfigManager)
+    cm.register("lingua", LinguaConfig)
 
     logger.info("Init AI message storage")
-    config: LinguaConfig = cm.get_group("lingua")
+    # FIXME: Выглядит как костыль какой-то. по сути возможно так и есть.
+    config = cast(LinguaConfig, cm.get_group("lingua"))
     storage = MessageStorage(config)
     client.set_type_dependency(MessageStorage, storage)
 

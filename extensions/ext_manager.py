@@ -3,7 +3,16 @@
 Его задача управлять загруженными в клиент плагинами во время работы
 бота.
 
-Version: v1.0 (6)
+Предоставляет
+-------------
+
+- /ext list: Список всех доступных расширений.
+- /ext load <ext>: Загружает расширение из файла.
+- /ext unload <ext>: Выгружает расширение из шиори.
+- /ext reload <ext>: Перезагружает расширение.
+- /ext sync: Синхронизирует список команд с Discord.
+
+Version: v1.0.1 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -31,6 +40,10 @@ def owner_hook(ctx: arc.GatewayContext) -> None:
         raise NotOwnerError("This command can use only bot owner,")
 
 
+# Определение команд
+# ==================
+
+
 @cmd_group.include
 @arc.with_hook(owner_hook)
 @arc.slash_subcommand("list", description="Список всех доступных расширений.")
@@ -39,7 +52,7 @@ async def list_extension(ctx: arc.GatewayContext) -> None:
 
     Просматривает список файлов в папке `extensions/`.
     """
-    ext_list = []
+    ext_list: list[str] = []
     for file in Path("extensions/").iterdir():
         if file.is_dir():
             continue
@@ -64,7 +77,7 @@ async def list_extension(ctx: arc.GatewayContext) -> None:
 @arc.slash_subcommand("load", description="Загружает расширение по имени.")
 async def load_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],
+    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
 ) -> None:
     """Загружает расширение по пути модуля.
 
@@ -83,7 +96,7 @@ async def load_extension(
 @arc.slash_subcommand("unload", description="Выгружает расширение по имени.")
 async def unload_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],
+    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
 ) -> None:
     """Загружает расширение по пути модуля.
 
@@ -102,7 +115,7 @@ async def unload_extension(
 @arc.slash_subcommand("reload", description="Выгружает расширение по имени.")
 async def reload_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],
+    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
 ) -> None:
     """Загружает расширение по пути модуля.
 
