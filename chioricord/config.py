@@ -7,6 +7,7 @@
 хранилище.
 """
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,11 @@ class PluginConfigManager:
             self._config = self._load_file()
         return self._config
 
+    @property
+    def groups(self) -> Iterable[str]:
+        """Возвращает список групп настроек."""
+        return self._groups.keys()
+
     def dump_config(self) -> None:
         """Сохраняет настройки плагинов в файл."""
         logger.info("Dump config to file")
@@ -105,11 +111,16 @@ class PluginConfigManager:
         logger.info("Setup config for {}", key)
         self._groups[key] = proto
 
-    def get_group(self, key: str) -> PluginConfig:
-        """Получает настройки для плагина."""
+    def get_proto(self, key: str) -> type[PluginConfig]:
+        """получает прототип настроек для группы."""
         proto = self._groups.get(key)
         if proto is None:
             raise KeyError(f"Config {key} not registered")
+        return proto
+
+    def get_group(self, key: str) -> PluginConfig:
+        """Получает настройки для плагина."""
+        proto = self.get_proto(key)
         plugin_data = self.config.get(key)
         if plugin_data is None:
             return proto()
