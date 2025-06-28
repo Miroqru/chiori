@@ -12,7 +12,7 @@
 - /ext reload <ext>: Перезагружает расширение.
 - /ext sync: Синхронизирует список команд с Discord.
 
-Version: v1.0.1 (7)
+Version: v1.1 (8)
 Author: Milinuri Nirvalen
 """
 
@@ -28,6 +28,31 @@ plugin = arc.GatewayPlugin("Extension manager")
 cmd_group = plugin.include_slash_group(
     name="ext", description="Управление загруженными расширениями."
 )
+
+
+def get_extensions() -> list[str]:
+    """Получает список всех расширений."""
+    ext_list: list[str] = []
+    for file in Path("extensions/").iterdir():
+        if file.is_dir():
+            continue
+        ext_list.append(file.name.split(".")[0])
+    return ext_list
+
+
+async def ext_opts(
+    data: arc.AutocompleteData[arc.GatewayClient, str],
+) -> list[str]:
+    """Авто дополнение для списка расширений."""
+    extensions = get_extensions()
+    if data.focused_value is None:
+        return extensions[:25]
+
+    res: list[str] = []
+    for ext in extensions:
+        if ext.startswith(data.focused_value):
+            res.append(ext)
+    return res[:25]
 
 
 # Определение команд
@@ -67,7 +92,9 @@ async def list_extension(ctx: arc.GatewayContext) -> None:
 @arc.slash_subcommand("load", description="Загружает расширение по имени.")
 async def load_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
+    extension: arc.Option[  # type: ignore
+        str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
+    ],
 ) -> None:
     """Загружает расширение по пути модуля.
 
@@ -86,7 +113,9 @@ async def load_extension(
 @arc.slash_subcommand("unload", description="Выгружает расширение по имени.")
 async def unload_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
+    extension: arc.Option[  # type: ignore
+        str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
+    ],
 ) -> None:
     """Загружает расширение по пути модуля.
 
@@ -105,7 +134,9 @@ async def unload_extension(
 @arc.slash_subcommand("reload", description="Выгружает расширение по имени.")
 async def reload_extension(
     ctx: arc.GatewayContext,
-    extension: arc.Option[str, arc.StrParams("Путь до расширения")],  # type: ignore
+    extension: arc.Option[  # type: ignore
+        str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
+    ],
 ) -> None:
     """Загружает расширение по пути модуля.
 

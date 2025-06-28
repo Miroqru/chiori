@@ -8,7 +8,7 @@
 - /config - Список всех групп настроек.
 - /config <group> - Настройки для конкретной группы.
 
-Version: v1.0 (1)
+Version: v1.1 (2)
 Author: Milinuri Nirvalen
 """
 
@@ -19,6 +19,22 @@ from chioricord.config import PluginConfigManager
 from chioricord.hooks import owner_hook
 
 plugin = arc.GatewayPlugin("Config manager")
+
+
+@plugin.inject_dependencies()
+async def group_opts(
+    data: arc.AutocompleteData[arc.GatewayClient, str],
+    cm: PluginConfigManager = arc.inject(),
+) -> list[str]:
+    """Авто дополнение для списка расширений."""
+    if data.focused_value is None:
+        return list(cm.groups)[:25]
+
+    res: list[str] = []
+    for group in cm.groups:
+        if group.startswith(data.focused_value):
+            res.append(group)
+    return res[:25]
 
 
 def config_status(cm: PluginConfigManager) -> hikari.Embed:
