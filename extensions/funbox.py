@@ -12,7 +12,7 @@
 - /ball: Совет от мудрого шара.
 - /chance <message>: Вероятность случайного события.
 
-Version: v0.4.1 (6)
+Version: v0.5 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -129,8 +129,34 @@ async def flip_coin(
     Сообщение с результатом содержит выпавшую сторону монетки.
     """
     result = random.randint(0, 1)
-    result_str = config.flip_results[result]
-    await ctx.respond(f"🪙 Подбросив монетку вы увидели там {result_str}.")
+    res_str = config.flip_results[result]
+    emb = hikari.Embed(
+        title="🪙 Монетка",
+        description=f"Подбросив монетку вы увидели там `{res_str}`",
+        color=hikari.Color(0xFFCC99),
+    )
+    await ctx.respond(emb)
+
+
+@plugin.include
+@arc.slash_command("number", description="Случайное число в диапазоне.")
+async def random_number(
+    ctx: arc.GatewayContext,
+    start: arc.Option[int, arc.IntParams("Начальное число (0)")] = 0,  # type: ignore
+    stop: arc.Option[int, arc.IntParams("Конечное число (100)")] = 100,  # type: ignore
+) -> None:
+    """Случайное число.
+
+    Возвращает случайное число из диапазона
+    """
+    result = random.randint(start, stop)
+    emb = hikari.Embed(
+        title="Случайное число",
+        description=f"Выпало: `{result}`",
+        color=hikari.Color(0x99CCFF),
+    )
+    emb.add_field("Диапазон", f"{start} ... {stop}")
+    await ctx.respond(emb)
 
 
 @plugin.include
