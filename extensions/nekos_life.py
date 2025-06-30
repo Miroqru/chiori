@@ -18,7 +18,7 @@
 - /neko spoiler <text> - Спрятать текст под спойлером.
 
 Plugin:
-Version: v1.1 (2)
+Version: v1.2 (3)
 Author: Milinuri Nirvalen
 Repo: https://github.com/Nekos-life
 """
@@ -99,11 +99,19 @@ async def neko_image(
     group: arc.Option[  # type: ignore
         str, arc.StrParams("Тип картинки", choices=list(_IMAGE_TYPES.keys()))
     ],
+    member: arc.Option[  # type: ignore
+        hikari.Member | None, arc.MemberParams("к кому применить действие")
+    ] = None,
 ) -> None:
     """Отправляет фото вайфу."""
     image = _IMAGE_TYPES[group]
     async with aiohttp.ClientSession() as session:
-        emb = hikari.Embed(title=image.header, color=image.color)
+        desc = ""
+        if member is not None:
+            desc += f"{member.mention}"
+        emb = hikari.Embed(
+            title=image.header, description=desc, color=image.color
+        )
         emb.set_image(await fetch(session, image.url, "url"))
         await ctx.respond(emb)
 

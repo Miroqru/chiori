@@ -8,7 +8,7 @@
 
 - /neko <group> - Милая аниме картинка.
 
-Version: v1.0 (2)
+Version: v1.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -114,16 +114,27 @@ async def neko_image(
     category: arc.Option[  # type: ignore
         str, arc.StrParams("Тип картинки", autocomplete_with=category_opts)
     ],
+    member: arc.Option[  # type: ignore
+        hikari.Member | None, arc.MemberParams("к кому применить действие")
+    ] = None,
 ) -> None:
     """Отправляет аниме картинку."""
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{API_URL}/{category}") as res:
             resp: ImageResult = (await res.json())["results"][0]
 
+    desc = ""
+    anime = resp.get("anime_name")
+    if anime is not None:
+        desc += f"\n**Anime**: {anime}"
+
+    if member is not None:
+        desc += f"\n{member.mention}"
+
     image = _CATEGORIES[category]
     emb = hikari.Embed(
         title=image.header,
-        description=resp.get("anime_name"),
+        description=desc,
         color=image.color,
         url=resp.get("source_url"),
     )
