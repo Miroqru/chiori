@@ -119,9 +119,26 @@ async def neko_image(
     ] = None,
 ) -> None:
     """Отправляет аниме картинку."""
+    me = ctx.client.cache.get_me()
+    if me is None:
+        raise ValueError("Chiori not in cache")
+
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{API_URL}/{category}") as res:
             resp: ImageResult = (await res.json())["results"][0]
+
+    image = _CATEGORIES[category]
+    if member is not None and (member.id in (me.id, member.id)):
+        emb = hikari.Embed(
+            title=image.header,
+            description=(
+                f"{ctx.user.mention}\nМожет лучше выбрать своего друга?..."
+            ),
+            color=hikari.Color(0x2B2D31),
+        )
+        emb.set_image("https://media.giphy.com/media/4RK7EnRhtkat2/giphy.gif")
+        await ctx.respond(emb)
+        return
 
     desc = ""
     anime = resp.get("anime_name")
@@ -131,7 +148,6 @@ async def neko_image(
     if member is not None:
         desc += f"\n{member.mention}"
 
-    image = _CATEGORIES[category]
     emb = hikari.Embed(
         title=image.header,
         description=desc,
