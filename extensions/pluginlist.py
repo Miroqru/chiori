@@ -1,5 +1,7 @@
 """Список плагинов.
 
+Позволяет удобно просматривать список доступных плагинов и команд.
+
 Предоставляет
 -------------
 
@@ -7,9 +9,11 @@
 - /help - Список всех активных команд бота.
 - /help [plugin] - Список команд для конкретного плагина.
 
-Version: v0.4.2 (12)
+Version: v0.5 (13)
 Author: Milinuri Nirvalen
 """
+
+from collections.abc import Iterable
 
 import arc
 import hikari
@@ -30,11 +34,24 @@ _FOOTER_TEXT = "Chiori v0.5"
 # ==================
 
 
+def plugins_list(plugins: Iterable[str]) -> str:
+    """Собирает сгруппированный список плагинов."""
+    groups: dict[str, list[str]] = {}
+    for plugin in plugins:
+        group = plugin[0].lower()
+        if group not in groups:
+            groups[group] = []
+        groups[group].append(plugin)
+
+    res = ""
+    for k, v in sorted(groups.items()):
+        res += f"\n**{k}**: {', '.join(v)}"
+    return res
+
+
 @plugin.include
 @arc.slash_command("plugins", description="Список активных плагинов.")
-async def plugin_handler(
-    ctx: arc.GatewayContext,
-) -> None:
+async def plugin_handler(ctx: arc.GatewayContext) -> None:
     """Список всех загруженных плагинов Чиори.
 
     Включает в себя перечисление всех названий плагинов.
@@ -42,7 +59,7 @@ async def plugin_handler(
     plugins = ctx.client.plugins
     emb = hikari.Embed(
         title=f"🎀 Расширения ({len(plugins)})",
-        description=", ".join(sorted(plugins.keys())),
+        description=plugins_list(plugins.keys()),
         color=0x00FFCC,
     )
     emb.add_field(
@@ -97,7 +114,10 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
         )
         .add_field(
             name="Подсказка",
-            value="Используйте `/help [plugin]` для подробностей",
+            value=(
+                "-`/help [plugin]` для подробностей о плагине.\n"
+                "- `/plugins` Список всех плагинов."
+            ),
         )
         .set_author(name="Индекс плагинов", url=index_url, icon=icon_url)
         .set_footer(_FOOTER_TEXT)
@@ -148,13 +168,31 @@ def get_plugin_commands(
     )
 
 
+async def plugin_opts(
+    data: arc.AutocompleteData[arc.GatewayClient, str],
+) -> list[str]:
+    """Авто дополнение для списка расширений."""
+    plugins = list(data.client.plugins.keys())
+    if data.focused_value is None:
+        return plugins[:25]
+
+    res: list[str] = []
+    for ext in plugins:
+        if ext.startswith(data.focused_value):
+            res.append(ext)
+    return res[:25]
+
+
 @plugin.include
 @arc.slash_command("help", description="Список всех команд.")
 async def help_handler(
     ctx: arc.GatewayContext,
     plugin: arc.Option[  # type: ignore
         str | None,
-        arc.StrParams("Название плагина для получение его списка команд"),
+        arc.StrParams(
+            "Название плагина для получение его списка команд",
+            autocomplete_with=plugin_opts,
+        ),
     ] = None,
 ) -> None:
     """Отображает список команд.
