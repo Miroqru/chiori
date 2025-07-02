@@ -18,7 +18,7 @@ class ChioDatabase:
 
     def __init__(self, dsn: str, client: arc.GatewayClient) -> None:
         self.dsn = dsn
-        self._client = client
+        self.client = client
 
         self._conn: asyncpg.Connection | None = None
         self._tables: dict[str, DBTable] = {}
@@ -64,7 +64,7 @@ class ChioDatabase:
 
         table = proto(self)
         self._tables[name] = table
-        self._client.set_type_dependency(proto, table)
+        self.client.set_type_dependency(proto, table)
 
 
 class DBTable(ABC):

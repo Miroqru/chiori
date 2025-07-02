@@ -1,6 +1,6 @@
 [project]
 name = "chioricord"
-version = "0.4"
+version = "0.6"
 description = "Multi-functional modular discord bot for fluffy your server"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
@@ -8,6 +8,8 @@ license = "GPL-3.0-or-later"
 dependencies = [
     "aiohttp>=3.12.9",
     "aiosqlite>=0.21.0",
+    "asyncpg>=0.30.0",
+    "asyncpg-stubs>=0.30.2",
     "hikari>=2.3.3",
     "hikari-arc>=2.1.1",
     "hikari-miru>=4.2.0",
@@ -44,6 +46,4 @@ requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "mypy>=1.16.0",
-]
+dev = ["mypy>=1.16.0"]
