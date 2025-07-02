@@ -1,179 +1,181 @@
+"""Монетная система.
+
+Часть экономической системы.
+Предоставляет базу данных для работы с валютой пользователя.
+
+Version: v2.0 (8)
+Author: Milinuri Nirvalen
+"""
+
+from dataclasses import dataclass
 from enum import Enum
+from typing import Self
 
-from pathlib import Path
-from typing import NamedTuple, Self
+from asyncpg import Record
 
-import aiosqlite
+from chioricord.db import DBTable
+
+# Будет капать на баланс каждый день
+DEPOSIT_PERCENT = 0.05
 
 
-class CoinsData(NamedTuple):
+@dataclass(slots=True, frozen=True)
+class UserCoins:
+    """Монеты пользователя.
+
+    Содержит баланс пользователя.
+    Сколько у него находится на руках и в банке.
+    """
+
     user_id: int
     amount: int
-    deposite: int
+    deposit: int
 
     @property
     def balance(self) -> int:
-        return self.amount + self.deposite
+        """Считает полный баланс пользователя."""
+        return self.amount + self.deposit
 
     @classmethod
-    def from_row(cls, row: aiosqlite.Row) -> Self:
-        return CoinsData(int(row[0]), int(row[1]), int(row[2]))
+    def from_row(cls, row: Record) -> Self:
+        """Собирает значение из строки базы данных."""
+        return cls(int(row[0]), int(row[1]), int(row[2]))
 
 
 class OrderBy(Enum):
+    """По каким значениям можно сортировать таблицу лидеров."""
+
     AMOUNT = "amount"
-    DEPOSITE = "deposite"
-    ALL = "amount+deposite"
+    deposit = "deposit"
+    ALL = "amount+deposit"
 
 
-# Будет капать на баланс каждый день
-DEPOSITE_PERCENT = 0.05
+class CoinsTable(DBTable):
+    """Таблица монет пользователя."""
 
-
-class CoinDB:
-    def __init__(self, db_path: Path):
-        self.db_path = db_path
-        self._db: aiosqlite.Connection | None = None
-
-    # Методы для работы с файлом базы данных
-    # ======================================
-
-    async def connect(self) -> None:
-        self._db = await aiosqlite.connect(self.db_path)
-
-    async def close(self) -> None:
-        if self._db is not None:
-            await self._db.close()
-            self._db = None
-
-    async def create_tables(self) -> None:
-        await self._db.execute((
+    async def create_table(self) -> None:
+        """Создаёт таблицу для базы данных."""
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS "coins" ('
-            '"user_id"	INTEGER UNIQUE,'
+            '"user_id"	BIGINT UNIQUE,'
             '"amount"	INTEGER NOT NULL,'
-            '"deposite"	INTEGER NOT NULL,'
+            '"deposit"	INTEGER NOT NULL,'
             'PRIMARY KEY("user_id")'
-            ');'
-            ))
+            ");"
+        )
 
-    async def commit(self) -> None:
-        await self._db.commit()
-
-
-    # методы получения данных из базы
-    # ===============================
-
-    async def get_leaderboard(self, order_by: OrderBy) -> list[CoinsData]:
-        cur: aiosqlite.Cursor = await self._db.execute(
+    async def get_leaders(self, order_by: OrderBy) -> list[UserCoins]:
+        """Собирает таблицу лидеров по количеству монет."""
+        cur = await self.conn.fetch(
             f"SELECT * FROM coins ORDER BY {order_by.value} DESC",
         )
-        res = []
-        for row in await cur.fetchall():
-            res.append(CoinsData.from_row(row))
-        return res
+        return [UserCoins.from_row(row) for row in cur]
 
-    async def get(self, user_id: int) -> CoinsData | None:
-        cur: aiosqlite.Cursor = await self._db.execute(
-            "SELECT * FROM coins WHERE user_id=?", (user_id,)
+    async def get_user(self, user_id: int) -> UserCoins | None:
+        """Получает пользователя по его id."""
+        cur = await self.conn.fetch(
+            "SELECT * FROM coins WHERE user_id=$1", user_id
         )
-        row = await cur.fetchone()
-        if row is not None:
-            return CoinsData.from_row(row)
+        if len(cur) != 0:
+            return UserCoins.from_row(cur[0])
         return None
 
-    async def get_or_create(self, user_id: int) -> CoinsData:
-        coin_data = await self.get(user_id)
-        return coin_data if coin_data is not None else CoinsData(user_id, 0, 0)
-
+    async def get_or_create(self, user_id: int) -> UserCoins:
+        """Получает пользователя или создаёт его."""
+        user = await self.get_user(user_id)
+        return user if user is not None else UserCoins(user_id, 0, 0)
 
     # Методы прямого изменения данных
     # ===============================
 
-    async def create(self, coins: CoinsData) -> None:
-        await self._db.execute(
-            "INSERT INTO coins VALUES(?,?,?)",
-            (coins.user_id, coins.amount, coins.deposite)
+    async def create_user(self, coins: UserCoins) -> None:
+        """Создаёт нового пользователя."""
+        await self.conn.execute(
+            "INSERT INTO coins VALUES($1,$2,$3)",
+            coins.user_id,
+            coins.amount,
+            coins.deposit,
         )
 
-    async def delete(self, user_id: int) -> None:
-        await self._db.execute(
-            "DELETE FROM coins WHERE user_id=?", (user_id,)
-        )
-
-
-    async def set(self, coins: CoinsData) -> None:
-        user_data = await self.get(user_id=coins.user_id)
-        if user_data is None:
-           await self.create(coins)
+    async def set_user(self, coins: UserCoins) -> None:
+        """Обновляет данные пользователя."""
+        user = await self.get_user(user_id=coins.user_id)
+        if user is None:
+            await self.create_user(coins)
         else:
-            await self._db.execute(
-                "UPDATE coins SET amount=?,deposite=? WHERE user_id=?",
-                (coins.amount, coins.deposite, coins.user_id)
+            await self.conn.execute(
+                "UPDATE coins SET amount=$1,deposit=$2 WHERE user_id=$3",
+                coins.amount,
+                coins.deposit,
+                coins.user_id,
             )
-
 
     # Методы изменения данных
     # =======================
 
+    async def _update_amount(self, user_id: int, amount: int) -> bool:
+        await self.conn.execute(
+            "UPDATE coins SET amount=$1 WHERE user_id=$2", amount, user_id
+        )
+        return True
+
     async def give(self, user_id: int, amount: int) -> None:
-        user_data = await self.get(user_id)
-        if user_data is None:
-            await self.create(CoinsData(user_id, amount, 0))
-        else:
-            await self._db.execute(
-                "UPDATE coins SET amount=? WHERE user_id=?",
-                (
-                    max(user_data.amount + amount, 0),
-                    user_id
-                )
-            )
+        """Выдаёт пользователю монеты."""
+        user = await self.get_user(user_id)
+        if user is None:
+            await self.create_user(UserCoins(user_id, amount, 0))
+            return None
+        await self._update_amount(user_id, max(user.amount + amount, 0))
 
     async def take(self, user_id: int, amount: int) -> bool:
+        """Вычитает монеты с баланса пользователя."""
         if amount < 0:
             return False
 
-        user_data = await self.get(user_id)
-        if user_data is None:
+        user = await self.get_user(user_id)
+        if user is None or user.amount < amount:
             return False
-        if user_data.amount < amount:
+
+        return await self._update_amount(user_id, user.amount - amount)
+
+    async def to_deposit(self, user_id: int, amount: int) -> bool:
+        """Ложит монеты на депозит."""
+        if amount < 0:
             return False
-        await self._db.execute(
-            "UPDATE coins SET amount=? WHERE user_id=?",
-            (user_data.amount-amount, user_id)
+
+        user = await self.get_user(user_id)
+        if user is None:
+            return False
+        if user.amount < amount:
+            return False
+        await self.conn.execute(
+            "UPDATE coins SET amount=$1, deposit=$2 WHERE user_id=$3",
+            user.amount - amount,
+            user.deposit + amount,
+            user_id,
         )
         return True
 
-    async def to_deposite(self, user_id: int, amount: int) -> bool:
+    async def from_deposit(self, user_id: int, amount: int) -> bool:
+        """Забирает монеты с депозита."""
         if amount < 0:
             return False
 
-        user_data = await self.get(user_id)
-        if user_data is None:
+        user = await self.get_user(user_id)
+        if user is None:
             return False
-        if user_data.amount < amount:
+        if user.deposit < amount:
             return False
-        await self._db.execute(
-            "UPDATE coins SET amount=?, deposite=? WHERE user_id=?",
-            (user_data.amount-amount, user_data.deposite+amount, user_id)
-        )
-        return True
-
-    async def from_deposite(self, user_id: int, amount: int) -> bool:
-        if amount < 0:
-            return False
-
-        user_data = await self.get(user_id)
-        if user_data is None:
-            return False
-        if user_data.deposite < amount:
-            return False
-        await self._db.execute(
-            "UPDATE coins SET amount=?, deposite=? WHERE user_id=?",
-            (user_data.amount+amount, user_data.deposite-amount, user_id)
+        await self.conn.execute(
+            "UPDATE coins SET amount=$1, deposit=$2 WHERE user_id=$3",
+            user.amount + amount,
+            user.deposit - amount,
+            user_id,
         )
         return True
 
     async def move(self, amount: int, from_id: int, to_id: int) -> bool:
+        """Перемещает монеты между двумя пользователями."""
         status = await self.take(from_id, amount)
         if status:
             await self.give(to_id, amount)
