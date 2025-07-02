@@ -9,23 +9,45 @@
 - /top [category]: Таблица лидеров по активности на сервере.
 - /active: Активность участника на сервере.
 
-Version: v1.1 (7)
+Version: v1.3 (10)
 Author: Milinuri Nirvalen
 """
 
-from pathlib import Path
+from dataclasses import dataclass
 from time import time
 
 import arc
 import hikari
 from loguru import logger
 
-from libs.member_active import ActiveDatabase
+from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.db import ChioDatabase
+from libs.active_levels import ActiveTable, UserActive
 
-plugin = arc.GatewayPlugin("Members active")
-voice_start_times: dict[int, int] = {}
+plugin = arc.GatewayPlugin("Active levels")
 
-ACTIVE_DB = ActiveDatabase(Path("bot_data/active.db"))
+
+@dataclass(slots=True)
+class UserVoice:
+    """Состояние пользователя в голосовом канале."""
+
+    start: int
+    start_buffer: int
+    xp_buffer: int
+    modifier: float
+
+
+voice_start_times: dict[int, UserVoice] = {}
+
+
+class LevelsConfig(PluginConfig):
+    """Настройки для журнала событий."""
+
+    channel_id: int
+    """
+    ID канала для отправки событий.
+    Именно сюда будут отправляться уведомлений о поднятии уровня.
+    """
 
 
 def format_duration(minutes: int) -> str:
@@ -36,12 +58,33 @@ def format_duration(minutes: int) -> str:
     return f"{days:02d} д. {hours:02d}:{minutes:02d}"
 
 
+def count_modifier(state: hikari.VoiceState) -> float:
+    """Высчитывает модификатор на основе."""
+    if state.is_guild_deafened or state.is_self_deafened or state.is_suppressed:
+        return 0
+    base = 1.0
+
+    if state.is_streaming:
+        base += 1
+
+    if state.is_guild_muted or state.is_guild_muted:
+        base -= 0.5
+
+    if state.is_video_enabled:
+        base += 0.5
+
+    return base
+
+
 # Отслеживание событий
 # ====================
 
 
 @plugin.listen(hikari.GuildMessageCreateEvent)
-async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
+@plugin.inject_dependencies()
+async def on_message(
+    event: hikari.GuildMessageCreateEvent, active: ActiveTable = arc.inject()
+) -> None:
     """Добавляем опыт за текстовые сообщения."""
     if event.author.is_bot:
         return
@@ -50,7 +93,7 @@ async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
     if event.content is not None:
         xp += len(event.content.split())
 
-    await ACTIVE_DB.add_messages(event.author_id, xp)
+    await active.add_messages(event.author_id, xp)
 
     # # -> Message Bumps
     # if event.author.is_bot:
@@ -101,7 +144,10 @@ async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
 
 
 @plugin.listen(hikari.VoiceStateUpdateEvent)
-async def on_voice_update(event: hikari.VoiceStateUpdateEvent) -> None:
+@plugin.inject_dependencies()
+async def on_voice_update(
+    event: hikari.VoiceStateUpdateEvent, active: ActiveTable = arc.inject()
+) -> None:
     """Отслеживаем активность в голосовом канале."""
     before = event.old_state
     after = event.state
@@ -110,17 +156,55 @@ async def on_voice_update(event: hikari.VoiceStateUpdateEvent) -> None:
     if member is None or member.is_bot:
         return
 
+    # Добавляет человека если его ещё нету
+    # Может быть такое что человек зашёл раньше, чем запустился бот
+    now = int(time())
     if member.id not in voice_start_times:
         logger.info("Add {} to listener", member.id)
-        voice_start_times[member.id] = int(time())
+        voice_start_times[member.id] = UserVoice(
+            now, now, 0, count_modifier(after)
+        )
 
-    elif before is not None and after.channel_id is None:
-        if member.id in voice_start_times:
-            logger.info("Remove {} from listener", member.id)
-            start = voice_start_times.pop(member.id)
-            duration = round((int(time()) - start) / 60)
-            if duration > 0:
-                await ACTIVE_DB.add_voice(member.id, duration)
+    # Пользователь только зашёл в канал
+    if before is None:
+        return
+
+    user_voice = voice_start_times[member.id]
+    user_voice.xp_buffer += round(
+        ((now - user_voice.start_buffer) / 60) * user_voice.modifier
+    )
+    user_voice.start_buffer = now
+    user_voice.modifier = count_modifier(after)
+
+    logger.debug("{}: {}", member.id, user_voice)
+
+    # Когда человек покидает голосовой канал -> начисляем опыт.
+    if after.channel_id is None and member.id in voice_start_times:
+        logger.info("Remove {} from listener", member.id)
+        duration = round((now - user_voice.start) / 60)
+        voice_start_times.pop(member.id)
+        if duration > 0:
+            await active.add_voice(member.id, duration, user_voice.xp_buffer)
+
+
+@plugin.inject_dependencies
+async def on_level_up(
+    db: ChioDatabase,
+    user_id: int,
+    active: UserActive,
+    config: LevelsConfig = arc.inject(),
+) -> None:
+    """Когда пользователь повышает свой уровень."""
+    user = db.client.cache.get_user(user_id) or await db.client.rest.fetch_user(
+        user_id
+    )
+    emb = hikari.Embed(
+        title="Повышение уровня",
+        description=f"{user.mention} повышает свой уровень до {active.level}",
+        color=hikari.Color(0xFFCC99),
+    )
+    emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
+    await db.client.rest.create_message(config.channel_id, emb)
 
 
 # определение команд
@@ -138,9 +222,10 @@ async def message_top(
             choices=["words", "level", "voice", "bumps"],
         ),
     ] = "level",
+    active: ActiveTable = arc.inject(),
 ) -> None:
     """Таблица лидеров по сообщениям."""
-    leaders = await ACTIVE_DB.get_top(group)
+    leaders = await active.get_top(group)
 
     header = "словам"
     if group == "level":
@@ -151,7 +236,7 @@ async def message_top(
         header = "Бампам"
 
     leaderboard = ""
-    for i, (user_id, active) in enumerate(leaders):
+    for i, (user_id, user_active) in enumerate(leaders):
         user = ctx.client.cache.get_user(user_id)
         if user is not None:
             name = user.display_name
@@ -159,16 +244,16 @@ async def message_top(
             user = await ctx.client.rest.fetch_user(user_id)
             name = user.display_name
 
-        points = f"`{active.words}` слов / `{active.messages}` сообщений"
+        points = (
+            f"`{user_active.words}` слов / `{user_active.messages}` сообщений"
+        )
         if group == "level":
-            target_xp = active.count_xp()
-            points = (
-                f"`{active.level}` уровень `{active.xp}/{target_xp}` опыта."
-            )
+            target_xp = user_active.count_xp()
+            points = f"`{user_active.level}` уровень `{user_active.xp}/{target_xp}` опыта."
         if group == "voice":
-            points = f"`{format_duration(active.voice)}`"
+            points = f"`{format_duration(user_active.voice)}`"
         if group == "bumps":
-            points = f"`{active.bumps}` бампов"
+            points = f"`{user_active.bumps}` бампов"
 
         leaderboard += f"\n{i + 1}. **{name}**: {points}"
 
@@ -187,27 +272,28 @@ async def user_active(
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Для какого пользователя.")
     ] = None,
+    active: ActiveTable = arc.inject(),
 ) -> None:
     """Таблица лидеров по сообщениям."""
     if user is None:
         user = ctx.author
 
-    active = await ACTIVE_DB.get_or_default(user.id)
+    user_active = await active.get_or_default(user.id)
     emb = hikari.Embed(
         title="Активность",
         description=(
-            f"**Уровень:** {active.level} / 100\n"
-            f"**Сообщений:** {active.messages}\n"
-            f"**Слов:** {active.words}\n"
-            f"**В голосовом канале:** {format_duration(active.voice)}\n"
-            f"**Бампов:** {active.bumps}\n"
+            f"**Уровень:** {user_active.level} / 100\n"
+            f"**Сообщений:** {user_active.messages}\n"
+            f"**Слов:** {user_active.words}\n"
+            f"**В голосовом канале:** {format_duration(user_active.voice)}\n"
+            f"**Бампов:** {user_active.bumps}\n"
         ),
         color=user.accent_color,
     )
 
-    target_xp = active.count_xp()
-    pr = round((active.xp / target_xp) * 100, 2)
-    emb.add_field("Опыт", f"{active.xp}/{target_xp} ({pr}%)")
+    target_xp = user_active.count_xp()
+    pr = round((user_active.xp / target_xp) * 100, 2)
+    emb.add_field("Опыт", f"{user_active.xp}/{target_xp} ({pr}%)")
     emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
     await ctx.respond(emb)
 
@@ -216,16 +302,11 @@ async def user_active(
 # ===============================
 
 
-@plugin.listen(arc.events.StartedEvent)
-async def connect(event: arc.events.StartedEvent[arc.GatewayClient]) -> None:
-    """Подключаемся к базам данных при запуске бота."""
-    logger.info("Connect to active DB")
-    await ACTIVE_DB.connect()
-
-
 @plugin.listen(arc.events.StoppingEvent)
+@plugin.inject_dependencies
 async def disconnect(
     event: arc.events.StoppingEvent[arc.GatewayClient],
+    active: ActiveTable = arc.inject(),
 ) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to active DB")
@@ -233,19 +314,23 @@ async def disconnect(
     now = int(time())
     for k, v in voice_start_times.items():
         logger.info("Remove {} from listener", k)
-        duration = round(now - v / 60)
+        duration = round((now - v) / 60)
         if duration > 0:
-            await ACTIVE_DB.add_voice(k, duration)
-
-    await ACTIVE_DB.commit()
-    await ACTIVE_DB.close()
+            await active.add_voice(k, duration)
 
 
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-    client.set_type_dependency(ActiveDatabase, ACTIVE_DB)
+
+    db = client.get_type_dependency(ChioDatabase)
+    db.register("active", ActiveTable)
+    active = client.get_type_dependency(ActiveTable)
+    active.add_level_up_handler(on_level_up)
+
+    cm = client.get_type_dependency(PluginConfigManager)
+    cm.register("levels", LevelsConfig)
 
 
 @arc.unloader

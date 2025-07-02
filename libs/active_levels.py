@@ -1,10 +1,17 @@
-"""База данных активности участников."""
+"""База данных активности участников.
 
+Version: v2.0 (5)
+Author: Milinuri Nirvalen
+"""
+
+from collections.abc import Awaitable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Self
 
-import aiosqlite
+from asyncpg import Record
+from loguru import logger
+
+from chioricord.db import ChioDatabase, DBTable
 
 
 @dataclass(slots=True)
@@ -26,7 +33,7 @@ class UserActive:
     xp: int
 
     @classmethod
-    def from_row(cls, row: aiosqlite.Row) -> Self:
+    def from_row(cls, row: Record) -> Self:
         """Собирает значение из строки базы данных."""
         return cls(
             messages=int(row[1]),
@@ -42,7 +49,10 @@ class UserActive:
         return (self.level**2 * 15) + (self.level * 5) + 10
 
 
-class ActiveDatabase:
+Handler = Awaitable
+
+
+class ActiveTable(DBTable):
     """База данных активности пользователе.
 
     Сохраняет данные об активности участников.
@@ -52,104 +62,83 @@ class ActiveDatabase:
     Это будет стимулом для участников больше заниматься активностям.
     """
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self._conn: aiosqlite.Connection | None = None
+    def __init__(self, db: ChioDatabase) -> None:
+        super().__init__(db)
+        self._level_up_handlers: list[Handler] = []
 
-    @property
-    def conn(self) -> aiosqlite.Connection:
-        """Получает подключение к базе данных."""
-        if self._conn is None:
-            raise ValueError("You need to connect active database")
-        return self._conn
+    def add_level_up_handler(self, func: Handler) -> None:
+        """Добавляет обработчик на событие поднятия уровня."""
+        self._level_up_handlers.append(func)
 
-    async def _create_tables(self) -> None:
+    async def dispatch_level_up(self, user_id: int, user: UserActive) -> None:
+        """Вызывает событие поднятия уровня."""
+        logger.info("Dispatch level up handlers {} {}", user_id, user)
+        for handler in self._level_up_handlers:
+            await handler(self._db, user_id, user)
+
+    # Работа с базой данных
+    # =====================
+
+    async def create_table(self) -> None:
         """Создаёт недостающие таблицы для базы данных."""
         await self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS 'active' ("
-            "'user_id'	INTEGER NOT NULL,"
-            "'messages'	INTEGER NOT NULL DEFAULT 0,"
-            "'words'	INTEGER NOT NULL DEFAULT 0,"
-            "'voice'	INTEGER NOT NULL DEFAULT 0,"
-            "'bumps'	INTEGER NOT NULL DEFAULT 0,"
-            "'level'	INTEGER NOT NULL DEFAULT 0,"
-            "'xp'	INTEGER NOT NULL DEFAULT 0,"
-            "PRIMARY KEY('user_id'));"
+            "CREATE TABLE IF NOT EXISTS active ("
+            "user_id	BIGINT NOT NULL,"
+            "messages	INTEGER NOT NULL DEFAULT 0,"
+            "words	INTEGER NOT NULL DEFAULT 0,"
+            "voice	INTEGER NOT NULL DEFAULT 0,"
+            "bumps	INTEGER NOT NULL DEFAULT 0,"
+            "level	INTEGER NOT NULL DEFAULT 0,"
+            "xp	INTEGER NOT NULL DEFAULT 0,"
+            "PRIMARY KEY(user_id));"
         )
-
-    async def connect(self) -> None:
-        """Подключается к базе данных."""
-        self._conn = await aiosqlite.connect(self.db_path)
-        await self._create_tables()
-
-    async def close(self) -> None:
-        """Закрывает соединение с базой данных."""
-        if self._conn is None:
-            return
-        await self._conn.close()
-
-    async def commit(self) -> None:
-        """Записывает изменения в базу данных."""
-        await self.conn.commit()
-
-    # Таблица лидеров
-    # ===============
 
     async def get_top(self, active: str) -> list[tuple[int, UserActive]]:
         """Таблица лидеров по сообщениям."""
-        cur = await self.conn.execute(
+        cur = await self.conn.fetch(
             f"SELECT * FROM active ORDER BY {active} DESC LIMIT 10"
         )
-        return [
-            (row[0], UserActive.from_row(row)) for row in await cur.fetchall()
-        ]
+        return [(row[0], UserActive.from_row(row)) for row in cur]
 
     async def get_user(self, user_id: int) -> UserActive | None:
         """Получает пользователя по ID."""
-        cur = await self.conn.execute(
-            "SELECT * FROM active WHERE user_id=?", (user_id,)
+        cur = await self.conn.fetch(
+            "SELECT * FROM active WHERE user_id=$1", user_id
         )
-        row = await cur.fetchone()
-        if row is None:
+        if len(cur) == 0:
             return None
-        return UserActive.from_row(row)
+        return UserActive.from_row(cur[0])
 
     async def set_user(
         self, user_id: int, user: UserActive
     ) -> UserActive | None:
         """Получает пользователя по ID."""
-        cur = await self.conn.execute(
-            "SELECT * FROM active WHERE user_id=?", (user_id,)
+        cur = await self.conn.fetch(
+            "SELECT * FROM active WHERE user_id=$1", user_id
         )
-        row = await cur.fetchone()
-        if row is None:
+        if len(cur) == 0:
             await self.conn.execute(
-                "INSERT INTO active VALUES(?, ?, ?, ?, ?, ?, ?)",
-                (
-                    user_id,
-                    user.messages,
-                    user.words,
-                    user.voice,
-                    user.bumps,
-                    user.level,
-                    user.xp,
-                ),
+                "INSERT INTO active VALUES($1, $2, $3, $4, $5, $6, $7)",
+                user_id,
+                user.messages,
+                user.words,
+                user.voice,
+                user.bumps,
+                user.level,
+                user.xp,
             )
             return await self.get_user(user_id)
         else:
             await self.conn.execute(
-                "UPDATE active "
-                "SET messages=?, words=?, voice=?, bumps=?, level=?, xp=? "
-                "WHERE user_id=?",
-                (
-                    user.messages,
-                    user.words,
-                    user.voice,
-                    user.bumps,
-                    user.level,
-                    user.xp,
-                    user_id,
-                ),
+                "UPDATE active SET messages=$1, words=$2, voice=$3, "
+                "bumps=$4, level=$5, xp=$6 WHERE user_id=$7",
+                user.messages,
+                user.words,
+                user.voice,
+                user.bumps,
+                user.level,
+                user.xp,
+                user_id,
             )
             return user
 
@@ -163,6 +152,23 @@ class ActiveDatabase:
     # Высокоуровневое обновление данных
     # =================================
 
+    async def add_xp(
+        self, user_id: int, user: UserActive, xp: int
+    ) -> UserActive:
+        """Добавляет опыт пользователю."""
+        user.xp += xp
+
+        start_level = user.level
+        next_level = user.count_xp()
+        while user.xp >= next_level:
+            user.level += 1
+            user.xp -= next_level
+            next_level = user.count_xp()
+
+        if user.level != start_level:
+            await self.dispatch_level_up(user_id, user)
+        return user
+
     async def add_messages(self, user_id: int, amount: int) -> UserActive:
         """Обновляет счётчик сообщений.
 
@@ -171,26 +177,20 @@ class ActiveDatabase:
         user = await self.get_or_default(user_id)
         user.messages += 1
         user.words += amount
-        user.xp += amount
-        next_level = user.count_xp()
-        if user.xp >= next_level:
-            user.level += 1
-            user.xp -= next_level
+        user = await self.add_xp(user_id, user, amount)
         await self.set_user(user_id, user)
         return user
 
-    async def add_voice(self, user_id: int, amount: int) -> UserActive | None:
+    async def add_voice(
+        self, user_id: int, amount: int, xp: int
+    ) -> UserActive | None:
         """Обновляет счётчик голосового канала.
 
         Также прибавляет 2*amount xp.
         """
         user = await self.get_or_default(user_id)
         user.voice += amount
-        user.xp += amount * 2
-        next_level = user.count_xp()
-        if user.xp >= next_level:
-            user.level += 1
-            user.xp -= next_level
+        user = await self.add_xp(user_id, user, xp * 5)
         await self.set_user(user_id, user)
         return user
 
@@ -201,10 +201,6 @@ class ActiveDatabase:
         """
         user = await self.get_or_default(user_id)
         user.bumps += amount
-        user.xp += amount * 5
-        next_level = user.count_xp()
-        if user.xp >= next_level:
-            user.level += 1
-            user.xp -= next_level
+        user = await self.add_xp(user_id, user, amount * 5)
         await self.set_user(user_id, user)
         return user
