@@ -14,7 +14,7 @@ from typing import Any
 import toml
 from arc import GatewayClient
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +44,12 @@ class BotConfig(BaseSettings):
 
     Здесь хранятся динамические настройки для плагинов, которые
     загружаются вместе с загрузкой бота.
+    """
+
+    DB_DSN: PostgresDsn
+    """DSN для подключения к базе данных.
+
+    Используется чтобы подключиться к главной базе данных Chiori.
     """
 
     model_config = SettingsConfigDict(env_file=".env")

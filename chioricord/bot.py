@@ -16,6 +16,7 @@ import miru
 from loguru import logger
 
 from chioricord.config import PluginConfigManager, config
+from chioricord.db import ChioDatabase
 
 # Глобальные переменные
 # =====================
@@ -32,7 +33,7 @@ LOG_FORMAT = (
 # Директория откуда будут грузиться все расширения
 EXT_PATH = Path("extensions/")
 BOT_DATA_PATH = Path("bot_data/")
-bot = hikari.GatewayBot(token=config.BOT_TOKEN)
+bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
 dp = arc.GatewayClient(bot)
 miru_client = miru.Client.from_arc(dp)
 
@@ -73,6 +74,16 @@ async def on_command(ctx: arc.GatewayContext) -> None:
     )
 
 
+@dp.add_startup_hook
+@dp.inject_dependencies
+async def on_startup(
+    client: arc.GatewayClient, db: ChioDatabase = arc.inject()
+) -> None:
+    """Производим подключение к базе данных."""
+    await db.connect()
+    await db.create_tables()
+
+
 @dp.add_shutdown_hook
 @dp.inject_dependencies
 async def shutdown_client(
@@ -105,26 +116,24 @@ def start_bot() -> None:
     Подгружает все плагины.
     Запускает самого бота.
     """
-    # Настройка журнала
     logger.remove()
     logger.add(sys.stdout, format=LOG_FORMAT)
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)
 
-    logger.info("Setup config manager")
+    logger.info("Setup config and database")
     cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
+    db = ChioDatabase(str(config.DB_DSN), dp)
+
     dp.set_type_dependency(PluginConfigManager, cm)
+    dp.set_type_dependency(ChioDatabase, db)
 
     # Простой загрузчик расширений
-    logger.info("Load plugins from {}", EXT_PATH)
+    logger.info("Load plugins from {} ...", EXT_PATH)
     dp.load_extensions_from(EXT_PATH)
 
-    # Устанавливаем активность бота
-    # "prefix для получение справки"
     activity = hikari.Activity(
-        name="для справки /help", type=hikari.ActivityType.PLAYING
+        name="для справки /help", type=hikari.ActivityType.STREAMING
     )
-
-    # Запускаем бота
     bot.run(activity=activity)
