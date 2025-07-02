@@ -29,7 +29,7 @@ hsv = color.to_hsv()
     Помните про это, если будете использовать библиотеку.
 
 Author: Milinuri Nirvalen
-Version: v0.2.2 (9)
+Version: v0.2.3 (10)
 """
 
 import colorsys
@@ -248,23 +248,26 @@ class Color(NamedTuple):
                 green=int(hex_color[3:5], base=16),
                 blue=int(hex_color[5:7], base=16),
             )
+
         rgb_color = parse_color_rgb(text)
         if rgb_color is not None:
             return Color(
                 red=rgb_color[0], green=rgb_color[1], blue=rgb_color[2]
             )
+
         hsv_color = parse_color_hsv(text)
         if hsv_color is not None:
-            rgb_color = colorsys.hsv_to_rgb(
+            to_rgb = colorsys.hsv_to_rgb(
                 hsv_color[0] / 360,
                 hsv_color[1] / 100,
                 hsv_color[2] / 100,
             )
             return Color(
-                red=round(rgb_color[0] * 255),
-                green=round(rgb_color[1] * 255),
-                blue=round(rgb_color[2] * 255),
+                red=round(to_rgb[0] * 255),
+                green=round(to_rgb[1] * 255),
+                blue=round(to_rgb[2] * 255),
             )
+
         raise ColorParseError(f"No match color code in text: {text}")
 
     # цветовые конверторы
