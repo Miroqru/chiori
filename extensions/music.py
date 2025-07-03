@@ -17,6 +17,8 @@ Version: v2.0 (21)
 Author: Milinuri Nirvalen
 """
 
+from collections.abc import Sequence
+
 import arc
 import hikari
 import ongaku
@@ -45,6 +47,139 @@ class MusicConfig(PluginConfig):
 
     password: str = "you_shall_not_pass"
     """Пароль для подключения к плееру."""
+
+
+QueryTrack = ongaku.Playlist | Sequence[ongaku.Track] | ongaku.Track
+
+_MAX_FIELDS = 25
+
+
+def format_time(milliseconds: int) -> str:
+    """Преобразует количество миллисекунд в строку времени."""
+    days, r = divmod(milliseconds // 1000, 86400)
+    hours, r = divmod(r, 3600)
+    minutes, seconds = divmod(r, 60)
+
+    if days > 0:
+        return f"{days}:{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    elif hours > 0:
+        return f"{days * 24 + hours}:{minutes:02d}:{seconds:02d}"
+
+    return f"{(days * 24 + hours) * 60 + minutes}:{seconds:02d}"
+
+
+def track_status(track: ongaku.Track) -> str:
+    """Возвращает краткую информацию о треке для плейлиста."""
+    if track.info.is_stream:
+        stream_emoji = "📻 "
+    else:
+        stream_emoji = ""
+
+    return (
+        f"{stream_emoji}{track.info.author} "
+        f"(`{format_time(track.info.length)}`)"
+    )
+
+
+def track_embed(track: ongaku.Track, requestor: hikari.User) -> hikari.Embed:
+    """Описание конкретного трека."""
+    if track.info.is_stream:
+        color = hikari.Color(0xCC66FF)
+    else:
+        color = hikari.Color(0x66CCFF)
+
+    emb = hikari.Embed(
+        title=track.info.title,
+        description=(
+            f"Автор: {track.info.author}\n"
+            f"Длительность: `{format_time(track.info.length)}`\n"
+            f"Начало: `{format_time(track.info.position)}`\n"
+        ),
+        url=track.info.uri,
+        color=color,
+    )
+    emb.add_field("Добавил", requestor.mention, inline=True)
+    emb.add_field("Источник", track.info.source_name, inline=True)
+    emb.set_image(track.info.artwork_url)
+    return emb
+
+
+def list_track_embed(
+    track: Sequence[ongaku.Track], requestor: hikari.User
+) -> hikari.Embed:
+    """Описание конкретного трека."""
+    first_track = track[0]
+
+    if first_track.info.is_stream:
+        color = hikari.Color(0xCC66FF)
+    else:
+        color = hikari.Color(0x66CCFF)
+
+    emb = hikari.Embed(
+        title=f"Добавил треки ({len(track)})",
+        description=(
+            f"Название: {first_track.info.title}"
+            f"Автор: {first_track.info.author}\n"
+            f"Длительность: `{format_time(first_track.info.length)}`\n"
+            f"Начало: `{format_time(first_track.info.position)}`\n"
+            f"Источник: `{first_track.info.source_name}`\n"
+            f"Добавил: {requestor.mention}\n"
+        ),
+        color=color,
+    )
+    emb.set_thumbnail(first_track.info.artwork_url)
+
+    for i, sub_track in enumerate(track[1:]):
+        if i == _MAX_FIELDS:
+            break
+        emb.add_field(sub_track.info.title, track_status(sub_track))
+
+    return emb
+
+
+def playlist_embed(
+    playlist: ongaku.Playlist, requestor: hikari.User
+) -> hikari.Embed:
+    """Описание конкретного трека."""
+    first_track = playlist.tracks[0]
+    if first_track.info.is_stream:
+        color = hikari.Color(0xCC66FF)
+    else:
+        color = hikari.Color(0x66CCFF)
+
+    emb = hikari.Embed(
+        title=playlist.info.name,
+        description=(
+            f"Название: {first_track.info.title}"
+            f"Автор: {first_track.info.author}\n"
+            f"Длительность: `{format_time(first_track.info.length)}`\n"
+            f"Начало: `{format_time(first_track.info.position)}`\n"
+            f"Источник: `{first_track.info.source_name}`\n"
+            f"Добавил: {requestor.mention}\n"
+            f"Треков: {len(playlist.tracks)}\n"
+        ),
+        color=color,
+    )
+    emb.set_thumbnail(first_track.info.artwork_url)
+
+    for i, sub_track in enumerate(playlist.tracks[1:]):
+        if i == _MAX_FIELDS:
+            break
+        emb.add_field(sub_track.info.title, track_status(sub_track))
+
+    return emb
+
+
+def query_track_embed(
+    query: QueryTrack, requestor: hikari.User
+) -> hikari.Embed:
+    """Собирает embed о добавленном плеер треке."""
+    if isinstance(query, ongaku.Track):
+        return track_embed(query, requestor)
+    elif isinstance(query, ongaku.Playlist):
+        return playlist_embed(query, requestor)
+    return list_track_embed(query, requestor)
 
 
 # определение команд
@@ -92,8 +227,7 @@ async def play_song(
     if not player.connected:
         await player.connect(state.channel_id)
 
-    # TODO: подробная информация о треке
-    emb = hikari.Embed(description=f"Добавила: {res}")
+    emb = query_track_embed(res, ctx.author)
     await player.play(requestor=ctx.author)
     await ctx.respond(emb)
 
@@ -120,7 +254,7 @@ async def add_songs(
         return
 
     player.add(res)
-    emb = hikari.Embed(description=f"Добавила: {res}")
+    emb = query_track_embed(res, ctx.author)
     await ctx.respond(emb)
 
 
@@ -135,7 +269,7 @@ async def player_pause(
     await player.pause()
 
     if player.is_paused:
-        await ctx.respond("Музыку приостановлена.")
+        await ctx.respond("Музыка приостановлена.")
     else:
         await ctx.respond("Музыка продолжается.")
 
@@ -151,24 +285,7 @@ async def player_queue(
     if len(player.queue) == 0:
         await ctx.respond("Очередь пуста. Играть нечего.")
         return
-
-    emb = hikari.Embed(
-        title="Очередь",
-        description=f"Текущий трек: {player.queue[0]}",
-    )
-
-    for x in range(len(player.queue)):
-        if x == 0:
-            continue
-
-        if x >= 25:  # noqa: PLR2004
-            break
-
-        track = player.queue[x]
-
-        emb.add_field(track.info.title, track.info.author)
-
-    await ctx.respond(emb)
+    await ctx.respond(list_track_embed(player.queue, ctx.author))
 
 
 @plugin.include
@@ -200,7 +317,7 @@ async def skip_command(
 ) -> None:
     """Пропускает песни в очереди."""
     await player.skip(amount)
-    await ctx.respond(f"{amount} песен было пропущено.")
+    await ctx.respond(f"{amount} песен пропускаю.")
 
 
 @plugin.include
@@ -212,7 +329,7 @@ async def stop_player(
 ) -> None:
     """Останавливает воспроизведение в канале."""
     await player.disconnect()
-    await ctx.respond("Successfully stopped the player.")
+    await ctx.respond("Увидимся позже.")
 
 
 # Загрузчики и выгрузчики плагина
@@ -229,8 +346,6 @@ def loader(client: arc.GatewayClient) -> None:
 
     logger.info("Create ongaku session")
     ongaku_client = ongaku.Client.from_arc(client)
-
-    # ongaku_client = client.get_type_dependency(ongaku.Client)
     ongaku_client.create_session(
         name=config.name,
         ssl=config.ssl,
