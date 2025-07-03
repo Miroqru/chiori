@@ -9,8 +9,9 @@
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, overload
 
+import arc
 import toml
 from arc import GatewayClient
 from loguru import logger
@@ -64,6 +65,9 @@ class PluginConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+_C = TypeVar("_C", bound=PluginConfig)
+
+
 class PluginConfigManager:
     """Динамические настройки плагинов."""
 
@@ -109,13 +113,10 @@ class PluginConfigManager:
 
     def register(self, key: str, proto: type[PluginConfig]) -> None:
         """Регистрирует новые настройки для плагина."""
-        self.set_group(key, proto)
-        self._client.set_type_dependency(proto, self.get_group(key))
-
-    def set_group(self, key: str, proto: type[PluginConfig]) -> None:
-        """Назначение прототипа настроек для группы."""
         logger.info("Setup config for {}", key)
         self._groups[key] = proto
+        config = self.get_group(key)
+        self._client.set_type_dependency(proto, config)
 
     def get_proto(self, key: str) -> type[PluginConfig]:
         """получает прототип настроек для группы."""
@@ -124,7 +125,17 @@ class PluginConfigManager:
             raise KeyError(f"Config {key} not registered")
         return proto
 
+    @overload
+    def get_group(self, key: str, type_: type[_C]) -> _C:
+        pass
+
+    @overload
     def get_group(self, key: str) -> PluginConfig:
+        pass
+
+    def get_group(
+        self, key: str, type_: type[_C] | None = None
+    ) -> _C | PluginConfig:
         """Получает настройки для плагина."""
         proto = self.get_proto(key)
         plugin_data = self.config.get(key)
