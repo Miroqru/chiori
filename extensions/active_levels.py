@@ -9,7 +9,7 @@
 - /top [category]: Таблица лидеров по активности на сервере.
 - /active: Активность участника на сервере.
 
-Version: v1.3 (10)
+Version: v1.3.1 (12)
 Author: Milinuri Nirvalen
 """
 
@@ -314,9 +314,9 @@ async def disconnect(
     now = int(time())
     for k, v in voice_start_times.items():
         logger.info("Remove {} from listener", k)
-        duration = round((now - v) / 60)
+        duration = round((now - v.start) / 60)
         if duration > 0:
-            await active.add_voice(k, duration)
+            await active.add_voice(k, duration, v.xp_buffer)
 
 
 @arc.loader
