@@ -5,9 +5,10 @@
 TODO для релиза
 ---------------
 
-- [ ] Сейчас играет.
 - [ ] Документация.
     - [ ] Player
+        - [ ] set position
+        - [ ] set filters
     - [ ] Events
     - [ ] Rest
 - [ ] Обработка событий.
@@ -94,6 +95,28 @@ def track_status(track: ongaku.Track) -> str:
     )
 
 
+def now_playing_embed(track: ongaku.Track) -> hikari.Embed:
+    """Описание конкретного трека."""
+    if track.info.is_stream:
+        color = hikari.Color(0xCC66FF)
+    else:
+        color = hikari.Color(0x66FFCC)
+
+    emb = hikari.Embed(
+        title="Сейчас играет",
+        description=(
+            f"{track.info.title}"
+            f"Автор: {track.info.author} (`{track.info.source_name}`)\n"
+            f"`{format_time(track.info.position)}` / "
+            f"`{format_time(track.info.length)}`\n"
+        ),
+        url=track.info.uri,
+        color=color,
+    )
+    emb.set_thumbnail(track.info.artwork_url)
+    return emb
+
+
 def track_embed(track: ongaku.Track, requestor: hikari.User) -> hikari.Embed:
     """Описание конкретного трека."""
     if track.info.is_stream:
@@ -105,8 +128,8 @@ def track_embed(track: ongaku.Track, requestor: hikari.User) -> hikari.Embed:
         title=track.info.title,
         description=(
             f"Автор: {track.info.author}\n"
-            f"Длительность: `{format_time(track.info.length)}`\n"
-            f"Начало: `{format_time(track.info.position)}`\n"
+            f"`{format_time(track.info.position)}` / "
+            f"`{format_time(track.info.length)}`\n"
         ),
         url=track.info.uri,
         color=color,
@@ -133,8 +156,8 @@ def list_track_embed(
         description=(
             f"Название: {first_track.info.title}"
             f"Автор: {first_track.info.author}\n"
-            f"Длительность: `{format_time(first_track.info.length)}`\n"
-            f"Начало: `{format_time(first_track.info.position)}`\n"
+            f"`{format_time(first_track.info.position)}` / "
+            f"`{format_time(first_track.info.length)}`\n"
             f"Источник: `{first_track.info.source_name}`\n"
             f"Добавил: {requestor.mention}\n"
         ),
@@ -165,8 +188,8 @@ def playlist_embed(
         description=(
             f"Название: {first_track.info.title}"
             f"Автор: {first_track.info.author}\n"
-            f"Длительность: `{format_time(first_track.info.length)}`\n"
-            f"Начало: `{format_time(first_track.info.position)}`\n"
+            f"`{format_time(first_track.info.position)}` / "
+            f"`{format_time(first_track.info.length)}`\n"
             f"Источник: `{first_track.info.source_name}`\n"
             f"Добавил: {requestor.mention}\n"
             f"Треков: {len(playlist.tracks)}\n"
@@ -255,33 +278,7 @@ async def now_playing(
     if len(player.queue) == 0:
         await ctx.respond("Я сейчас ничего не играю.")
         return
-    await ctx.respond(track_embed(player.queue[0], ctx.author))
-
-
-@plugin.include
-@arc.with_hook(arc_ensure_player)
-@arc.slash_command("add", description="Добавить песни в очередь.")
-async def add_songs(
-    ctx: arc.GatewayContext,
-    query: arc.Option[  # type: ignore
-        str, arc.StrParams("Какую песню играть")
-    ],
-    ongaku_client: ongaku.Client = arc.inject(),
-    player: ongaku.Player = arc.inject(),
-) -> None:
-    """Добавляет песни в очередь проигрывания."""
-    res = await ongaku_client.rest.load_track(query)
-
-    if res is None:
-        await ctx.respond(
-            "простите, я не нашла что мне играть.",
-            flags=hikari.MessageFlag.EPHEMERAL,
-        )
-        return
-
-    player.add(res)
-    emb = query_track_embed(res, ctx.author)
-    await ctx.respond(emb)
+    await ctx.respond(now_playing_embed(player.queue[0]))
 
 
 @plugin.include
@@ -302,16 +299,34 @@ async def player_pause(
 
 @plugin.include
 @arc.with_hook(arc_ensure_player)
-@arc.slash_command("queue", "Очередь воспроизведения.")
-async def player_queue(
+@arc.slash_command("autoplay", "Приостановить/возобновить воспроизведение.")
+async def player_aytoplay(
     ctx: arc.GatewayContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
-    """Очередь воспроизведения."""
-    if len(player.queue) == 0:
-        await ctx.respond("Очередь пуста. Играть нечего.")
-        return
-    await ctx.respond(list_track_embed(player.queue, ctx.author))
+    """Останавливает/возобновляет воспроизведение музыку."""
+    status = player.set_autoplay()
+
+    if status:
+        await ctx.respond("✅ Авто-проигрывание включено.")
+    else:
+        await ctx.respond("❌ Авто-проигрывание отключено.")
+
+
+@plugin.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_command("loop", "Приостановить/возобновить воспроизведение.")
+async def player_loop(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Останавливает/возобновляет воспроизведение музыку."""
+    status = player.set_loop()
+
+    if status:
+        await ctx.respond("✅ Зацикливание включено.")
+    else:
+        await ctx.respond("❌ Зацикливание отключено.")
 
 
 @plugin.include
@@ -354,8 +369,134 @@ async def stop_player(
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает воспроизведение в канале."""
+    await player.stop()
+    await ctx.respond("Останавливаю воспроизведение.")
+
+
+@plugin.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_command("leave", "Завершить плеер.")
+async def leave_player(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Останавливает воспроизведение в канале."""
     await player.disconnect()
     await ctx.respond("Увидимся позже.")
+
+
+@plugin.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_command("player", "Состояние плеера.")
+async def player_info(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Основная информация о плеере."""
+    guild = ctx.get_guild()
+    if guild is None:
+        raise arc.GuildOnlyError
+
+    if player.channel_id:
+        channel = guild.get_channel(player.channel_id)
+        if channel is not None:
+            in_channel = channel.mention
+        else:
+            in_channel = f"`{player.channel_id}`"
+    else:
+        in_channel = "< без канала >"
+
+    emb = hikari.Embed(
+        title="плеер",
+        description=(
+            f"в канале {in_channel}\n"
+            f"Громкость: {player.volume}\n"
+            f"Позиция: {format_time(player.position)}\n"
+            f"В очереди: {len(player.queue)} треков\n"
+            f"⚡ {'стоит' if player.is_paused else 'мурлычет'}\n"
+            f"⚡ {'живой' if player.is_alive else 'откис'}\n"
+            f"⚡ Автоплей: {'имеется' if player.autoplay else 'отключили'}\n"
+            f"⚡ Петля: {'зациклен' if player.loop else 'не зациклен'}\n"
+        ),
+        color=hikari.Color(0x66FFCC),
+    )
+    await ctx.respond(emb)
+
+
+# Управление очередью треков
+# ==========================
+
+queue = plugin.include_slash_group(
+    "queue", "Управление очередью воспроизведения"
+)
+
+
+@queue.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_subcommand("list", "Очередь воспроизведения.")
+async def player_queue(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Очередь воспроизведения."""
+    if len(player.queue) == 0:
+        await ctx.respond("Очередь пуста. Играть нечего.")
+        return
+    await ctx.respond(list_track_embed(player.queue, ctx.author))
+
+
+@queue.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_subcommand("add", description="Добавить песни в очередь.")
+async def add_track(
+    ctx: arc.GatewayContext,
+    query: arc.Option[  # type: ignore
+        str, arc.StrParams("Какую песню играть")
+    ],
+    ongaku_client: ongaku.Client = arc.inject(),
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Добавляет песни в очередь проигрывания."""
+    res = await ongaku_client.rest.load_track(query)
+
+    if res is None:
+        await ctx.respond(
+            "простите, я не нашла что мне играть.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
+
+    player.add(res)
+    emb = query_track_embed(res, ctx.author)
+    await ctx.respond(emb)
+
+
+@queue.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_subcommand("remove", description="удалить трек из очереди.")
+async def remove_track(
+    ctx: arc.GatewayContext,
+    track: arc.Option[  # type: ignore
+        int, arc.IntParams("Какую песню удалить.")
+    ],
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Удаляет трек из очереди проигрывания."""
+    track_info = player.queue[track]
+    player.remove(track)
+    await ctx.respond(f"Удалено из очереди {track_info.info.title}.")
+
+
+@queue.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_subcommand("clear", description="Очистить очередь.")
+async def clear_queue(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Удаляет трек из очереди проигрывания."""
+    await player.clear()
+    await ctx.respond("Очередь очищена.")
 
 
 # Загрузчики и выгрузчики плагина
