@@ -2,6 +2,18 @@
 
 Использует библиотеку hikari-ongaku для взаимодействия с lavalink.
 
+TODO для релиза
+---------------
+
+- [ ] Сейчас играет.
+- [ ] Документация.
+    - [ ] Player
+    - [ ] Events
+    - [ ] Rest
+- [ ] Обработка событий.
+- [ ] PlayerView.
+- [ ] Портировать говнокод.
+
 Предоставляет
 -------------
 
@@ -13,7 +25,7 @@
 - /skip [1]: Пропустить песни в очереди.
 - /stop: Остановить воспроизведение.
 
-Version: v2.0 (21)
+Version: v2.2 (24)
 Author: Milinuri Nirvalen
 """
 
@@ -230,6 +242,20 @@ async def play_song(
     emb = query_track_embed(res, ctx.author)
     await player.play(requestor=ctx.author)
     await ctx.respond(emb)
+
+
+@plugin.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_command("np", "Что сейчас играет.")
+async def now_playing(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Какая песня сейчас играет."""
+    if len(player.queue) == 0:
+        await ctx.respond("Я сейчас ничего не играю.")
+        return
+    await ctx.respond(track_embed(player.queue[0], ctx.author))
 
 
 @plugin.include
