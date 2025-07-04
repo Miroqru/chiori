@@ -10,6 +10,10 @@ TODO для релиза
         - [ ] set position
         - [ ] set filters
     - [ ] Events
+        - [ ] StartTrackEvent
+        - [ ] EndTrackEvent
+        - [ ] PlayerUpdateEvent
+        - [ ] StatisticsEvent
     - [ ] Rest
 - [ ] Обработка событий.
 - [ ] PlayerView.
@@ -26,7 +30,7 @@ TODO для релиза
 - /skip [1]: Пропустить песни в очереди.
 - /stop: Остановить воспроизведение.
 
-Version: v2.2 (24)
+Version: v2.3 (28)
 Author: Milinuri Nirvalen
 """
 
@@ -61,10 +65,17 @@ class MusicConfig(PluginConfig):
     password: str = "you_shall_not_pass"
     """Пароль для подключения к плееру."""
 
+    player_channel_id: int
+    """Канал. куда оправлять сообщения и события плеера."""
+
 
 QueryTrack = ongaku.Playlist | Sequence[ongaku.Track] | ongaku.Track
 
 _MAX_FIELDS = 25
+
+
+# Вспомогательные функции
+# =======================
 
 
 def format_time(milliseconds: int) -> str:
@@ -215,6 +226,79 @@ def query_track_embed(
     elif isinstance(query, ongaku.Playlist):
         return playlist_embed(query, requestor)
     return list_track_embed(query, requestor)
+
+
+# Обработка событий
+# =================
+
+
+@plugin.listen(ongaku.TrackExceptionEvent)
+@plugin.inject_dependencies()
+async def on_track_exception(
+    event: ongaku.TrackExceptionEvent, config: MusicConfig = arc.inject()
+) -> None:
+    """Когда Трек во время воспроизведения застревает."""
+    emb = hikari.Embed(
+        title="Проблема воспроизведения",
+        description=(
+            f"`{event.exception.severity}`: {event.exception.message}\n"
+            f"Причина: {event.exception.cause}"
+        ),
+        color=hikari.Color(0xFF66CC),
+    )
+    emb.add_field(event.track.info.title, track_status(event.track))
+    await event.app.rest.create_message(config.player_channel_id, emb)
+
+
+@plugin.listen(ongaku.TrackStuckEvent)
+@plugin.inject_dependencies()
+async def on_track_stuck(
+    event: ongaku.TrackStuckEvent, config: MusicConfig = arc.inject()
+) -> None:
+    """Когда Трек во время воспроизведения застревает."""
+    emb = hikari.Embed(
+        title="Проблема воспроизведения",
+        description=f"Немного зажевало.\nПорог: `{event.threshold_ms}` мс.",
+        color=hikari.Color(0xFF66CC),
+    )
+    emb.add_field(event.track.info.title, track_status(event.track))
+    await event.app.rest.create_message(config.player_channel_id, emb)
+
+
+@plugin.listen(ongaku.WebsocketClosedEvent)
+@plugin.inject_dependencies()
+async def on_websocket_closed(
+    event: ongaku.WebsocketClosedEvent, config: MusicConfig = arc.inject()
+) -> None:
+    """Когда веб сокет разорвал соединение."""
+    emb = hikari.Embed(
+        title="Разорвано соединение",
+        description=f"`{event.code}`: {event.reason}",
+        color=hikari.Color(0xFF66CC),
+    )
+    await event.app.rest.create_message(config.player_channel_id, emb)
+
+
+@plugin.listen(ongaku.QueueEmptyEvent)
+@plugin.inject_dependencies()
+async def on_queue_empty(
+    event: ongaku.QueueEmptyEvent, config: MusicConfig = arc.inject()
+) -> None:
+    """Когда переходит на новый трек."""
+    await event.app.rest.create_message(
+        config.player_channel_id, "Больше нечего играть, спасибо за внимание."
+    )
+
+
+@plugin.listen(ongaku.QueueNextEvent)
+@plugin.inject_dependencies()
+async def on_next_track(
+    event: ongaku.QueueNextEvent, config: MusicConfig = arc.inject()
+) -> None:
+    """Когда переходит на новый трек."""
+    await event.app.rest.create_message(
+        config.player_channel_id, now_playing_embed(event.track)
+    )
 
 
 # определение команд
@@ -389,8 +473,7 @@ async def leave_player(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("player", "Состояние плеера.")
 async def player_info(
-    ctx: arc.GatewayContext,
-    player: ongaku.Player = arc.inject(),
+    ctx: arc.GatewayContext, player: ongaku.Player = arc.inject()
 ) -> None:
     """Основная информация о плеере."""
     guild = ctx.get_guild()
