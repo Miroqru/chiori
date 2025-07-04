@@ -1,25 +1,23 @@
 """Библиотека работы с инвентарём.
 
-Предоставляем каждому пользователю инвернтарь.
+Предоставляем каждому пользователю инвентарь.
 Где он сможет хранить свои вещи.
-Подразуемавается что эти вещи будут типовыми и стакающимися.
+Подразумевается что эти вещи будут типовыми и исчисляемыми.
 
 Пока что в инвентаре не будет каких-либо ограничений на предметы.
 
-Version: 0.5 (11)
+Version: 0.6 (12)
 Author: Milinuri Nirvalen
 """
 
+from dataclasses import dataclass
 from random import choice
+from typing import Self
 
-import json
-from pathlib import Path
-from typing import NamedTuple, Iterable
+from asyncpg import Record
 
-import aiosqlite
+from chioricord.db import ChioDatabase, DBTable, ItemTable
 
-# Исключения в процессе работы с инвентарём
-# =========================================
 
 class ItemIndexError(Exception):
     """При неполадках в базе данных.
@@ -28,222 +26,230 @@ class ItemIndexError(Exception):
     не так, как должно.
     К примеру если указан неправильный ID в индекс предметов.
     """
+
     pass
 
 
-# Вспомогательные классы для хранения данных
-# ==========================================
+@dataclass(slots=True)
+class Item:
+    """Представление предмета в индексе.
 
-class Item(NamedTuple):
+    Содержит основную информацию о предмете:
+    - item_id: Уникальный идентификатор предмета.
+    - name: Название предмета.
+    - description: Краткое описание.
+    - rare: Редкость предмета.
+    """
+
     item_id: int
     name: str
     description: str
     rare: int
 
     @classmethod
-    def new(cls, name: str,
-        description: str = "Без описания",
-        rare: int = 0
-    ):
-        return Item(0, name, description, rare)
+    def new(
+        cls, name: str, description: str = "Без описания", rare: int = 0
+    ) -> Self:
+        """Возвращает предмет со значениями по умолчанию."""
+        return cls(0, name, description, rare)
 
     @classmethod
-    def from_row(cls, row: aiosqlite.Row):
-        return Item(int(row[0]), row[1], row[2], int(row[3]))
+    def from_row(cls, row: Record) -> Self:
+        """Возвращает предмет из строки базы данных."""
+        return cls(int(row[0]), row[1], row[2], int(row[3]))
 
-class InventoryItem(NamedTuple):
+
+@dataclass(slots=True)
+class InventoryItem:
+    """Представление предмета в инвентаре пользователя."""
+
     index: Item
     amount: int
 
 
-# Индекс предметов
-# ================
-
-class ItemIndex:
-    def __init__(self, index_path: Path):
-        self.index_path = index_path
-        self._index = None
-        self._db: aiosqlite.Connection = None
+# Определение таблиц базы данных
+# ==============================
 
 
-    # Работа с базой данных
-    # =====================
+class ItemIndex(ItemTable[Item]):
+    """Индекс предметов.
 
-    async def connect(self) -> None:
-        self._db = await aiosqlite.connect(self.index_path)
+    Хранит сведения о всех существующих предметах.
+    """
 
-    async def close(self) -> None:
-        if self._db is not None:
-            await self._db.close()
-            self._db = None
-
-    async def create_tanles(self) -> None:
-        await self._db.execute((
+    async def create_tables(self) -> None:
+        """Создаёт таблицы для базы данных."""
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS "index" ('
-                '"id"	INTEGER,'
-                '"name"	TEXT NOT NULL,'
-                '"description"	TEXT NOT NULL,'
-                '"rare"	INTEGER DEFAULT 0,'
-                'PRIMARY KEY("id" AUTOINCREMENT)'
-            ');'
-        ))
-
-    async def commit(self) -> None:
-        await self._db.commit()
-
-
-    # методы для получения данных
-    # ===========================
+            '"id"	INTEGER,'
+            '"name"	TEXT NOT NULL,'
+            '"description"	TEXT NOT NULL,'
+            '"rare"	INTEGER DEFAULT 0,'
+            'PRIMARY KEY("id" AUTOINCREMENT))'
+        )
 
     async def get_index(self, rare: int | None = None) -> list[Item]:
-        res = []
+        """Возвращает список предметов из индекса.
 
+        Дополнительно можно указать редкость, для которой подобрать
+        необходимо собрать список предметов.
+        """
         if rare is not None:
-            cur =  await self._db.execute(
-                "SELECT * FROM 'index' WHERE rare=?",
-                (rare,)
+            items = await self.conn.fetch(
+                "SELECT * FROM 'index' WHERE rare=?", (rare,)
             )
         else:
-            cur =  await self._db.execute("SELECT * FROM 'index'")
+            items = await self.conn.fetch("SELECT * FROM 'index'")
+        return [Item.from_row(row) for row in items]
 
-        for row in await cur.fetchall():
-            res.append(Item.from_row(row))
-        return res
+    async def get(self, id: int) -> Item | None:
+        """Получает информацию о предмете по его id.
 
-    async def get(self, item_id: int) -> Item | None:
-        cur = await self._db.execute(
-            "SELECT * FROM 'index' WHERE id=?", (item_id,)
-        )
-        row = await cur.fetchone()
-        return None if row is None else Item.from_row(row)
+        Если такого предмета нет. вернёт None.
+        """
+        cur = await self.conn.fetchrow("SELECT * FROM 'index' WHERE id=$1", id)
+        return None if cur is None else Item.from_row(cur)
+
+    async def get_or_create(self, id: int) -> Item:
+        """Получает информацию о предмете по его id.
+
+        Если такого предмета нет. вернёт None.
+        """
+        item = await self.get(id)
+        return Item.new("???") if item is None else item
 
     async def get_random(self, rare: int) -> Item | None:
-        cur: aiosqlite.Cursor = await self._db.execute(
-            "SELECT * FROM 'index' WHERE rare=?", (rare,)
-        )
-        items = await cur.fetchall()
-        if len(items) == 0:
+        """Получает случайные предметы по их редкости."""
+        cur = await self.conn.fetch("SELECT * FROM 'index' WHERE rare=$1", rare)
+        if len(cur) == 0:
             return None
-        return Item.from_row(choice(items))
+        return Item.from_row(choice(cur))
 
-    # Методы для работы с индексом предметов
-    # ======================================
-
-    async def add(self, item: Item) -> bool:
-        await self._db.execute(
-            "INSERT INTO 'index' (name,description,rare) VALUES(?,?,?)",
-            (item.name, item.description, item.rare)
+    async def add(self, item: Item) -> None:
+        """Добавляет новый предмет в индекс."""
+        await self.conn.execute(
+            "INSERT INTO 'index' (name,description,rare) VALUES($1,$2,$3)",
+            item.name,
+            item.description,
+            item.rare,
         )
 
-    async def remove(self, item_id: int) -> bool:
-        await self._db.execute(
-            "DELETE FROM 'index' WHERE id=?", (item_id,)
-        )
+    async def remove(self, item_id: int) -> None:
+        """удаляет предмет из индекса по его id."""
+        await self.conn.execute("DELETE FROM 'index' WHERE id=$1", item_id)
 
 
-# классы для работы с инвентарём пользователя
-# ===========================================
+class Inventory(DBTable):
+    """Представление инвентаря пользователя.
 
-class Inventory:
-    def __init__(self, inventory_path: Path, index: ItemIndex):
-        self.inventory_path = inventory_path
-        self.index = index
-        self._db: aiosqlite.Connection | None = None
+    Каждый пользователь может хранить несколько одинаковых предметов.
+    """
 
+    def __init__(self, db: ChioDatabase) -> None:
+        super().__init__(db)
+        self._index: ItemIndex | None = None
 
-    # Методы для работы с базой данных
-    # ================================
+    def set_index(self, index: ItemIndex) -> None:
+        """Устанавливает индекс для предметов."""
+        self._index = index
 
-    async def connect(self) -> None:
-        self._db = await aiosqlite.connect(self.inventory_path)
+    @property
+    def index(self) -> ItemIndex:
+        """Возвращает индекс предметов, если установлен."""
+        if self._index is None:
+            raise ValueError("You need to connect index before use it")
+        return self._index
 
-    async def close(self) -> None:
-        if self._db is not None:
-            await self._db.close()
-            self._db = None
-
-    async def create_tanles(self) -> None:
-        await self._db.execute((
+    async def create_tables(self) -> None:
+        """Создаёт таблицы для базы данных."""
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS "inventory" ('
-                '"user_id"	INTEGER,'
-                '"item_id"	INTEGER,'
-                '"amount"   INTEGER,'
-                'FOREIGN KEY("item_id") REFERENCES "index"("id")'
-                'ON UPDATE CASCADE'
-            ');'
-        ))
-
-    async def commit(self) -> None:
-        await self._db.commit()
-
+            '"user_id"	INTEGER,'
+            '"item_id"	INTEGER,'
+            '"amount"   INTEGER,'
+            'FOREIGN KEY("item_id") REFERENCES "index"("id")'
+            "ON UPDATE CASCADE"
+            ");"
+        )
 
     # Методы получения данных из инвентаря
     # ====================================
 
-    async def get_items(self, user_id: int) -> list[InventoryItem]:
-        res = []
-        cur = await self._db.execute(
-            "SELECT item_id, amount FROM inventory WHERE user_id=?",
-            (user_id,)
+    async def get(self, user_id: int) -> list[InventoryItem]:
+        """Получает инвентарь пользователя."""
+        items = await self.conn.fetch(
+            "SELECT item_id, amount FROM inventory WHERE user_id=$1", user_id
         )
-        for row in await cur.fetchall():
-            res.append(InventoryItem(
-                await self.index.get(int(row[0])),
-                int(row[1])
-            ))
-        return res
+        return [
+            InventoryItem(
+                await self.index.get_or_create(int(item[0])), int(item[1])
+            )
+            for item in items
+        ]
 
-    async def get(self, user_id: int, item_id: int) -> InventoryItem | None:
-        cur = await self._db.execute(
-            "SELECT item_id, amount FROM inventory WHERE user_id=? AND item_id=?",
-            (user_id, item_id)
+    async def get_item(
+        self, user_id: int, item_id: int
+    ) -> InventoryItem | None:
+        """получает информацию о предмете из инвентаря пользователя."""
+        cur = await self.conn.fetchrow(
+            "SELECT item_id, amount FROM inventory "
+            "WHERE user_id=$1 AND item_id=$2",
+            user_id,
+            item_id,
         )
-        row = await cur.fetchone()
-        if row is None:
+        if cur is None:
             return None
 
-        index_item = await self.index.get(int(row[0]))
+        index_item = await self.index.get(int(cur[0]))
         if index_item is None:
-            raise ItemIndexError(f"{row[0]} not found in Index DB.")
-        return InventoryItem(index_item, int(row[1]))
-
+            raise ItemIndexError(f"{cur[0]} not found in Index DB.")
+        return InventoryItem(index_item, int(cur[1]))
 
     # Примитивные методы
     # ==================
 
     async def add(self, user_id: int, item_id: int, amount: int) -> None:
-        await self._db.execute(
-            "INSERT INTO inventory VALUES(?, ?, ?)",
-            (user_id, item_id, amount)
+        """Добавляет предметы в инвентарь пользователю."""
+        await self.conn.execute(
+            "INSERT INTO inventory VALUES($1, $2, $3)", user_id, item_id, amount
         )
 
     async def remove(self, user_id: int, item_id: int) -> None:
-        await self._db.execute(
-            "DELETE FROM inventory WHERE user_id=? AND item_id=?",
-            (user_id, item_id)
+        """удаляет предметы из инвентаря пользователя."""
+        await self.conn.execute(
+            "DELETE FROM inventory WHERE user_id=$1 AND item_id=$2",
+            user_id,
+            item_id,
         )
 
     async def clear(self, user_id: int) -> None:
-        await self._db.execute(
-            "DELETE FROM inventory WHERE user_id=?", (user_id,)
+        """Очищает инвентарь пользователя."""
+        await self.conn.execute(
+            "DELETE FROM inventory WHERE user_id=$1", user_id
         )
-
 
     # Более высокоуровневые методы
     # ============================
 
     async def give(self, user_id: int, item_id: int, amount: int) -> None:
-        in_inventory = await self.get(user_id, item_id)
+        """Выдаёт пользователю предметы."""
+        in_inventory = await self.get_item(user_id, item_id)
         if in_inventory is None:
             await self.add(user_id, item_id, amount)
         else:
-            await self._db.execute(
-                "UPDATE inventory SET amount=? WHERE user_id=? AND item_id=?",
-                (in_inventory.amount+amount, user_id, item_id)
+            await self.conn.execute(
+                "UPDATE inventory SET amount=$1 "
+                "WHERE user_id=$2 AND item_id=$3",
+                in_inventory.amount + amount,
+                user_id,
+                item_id,
             )
 
-    async def take(self, user_id: int, item_id: int, amount: int) -> InventoryItem | None:
-        in_inventory = await self.get(user_id, item_id)
+    async def take(
+        self, user_id: int, item_id: int, amount: int
+    ) -> InventoryItem | None:
+        """Забирает предметы из инвентаря пользователя."""
+        in_inventory = await self.get_item(user_id, item_id)
         if in_inventory is None:
             return None
         elif amount > in_inventory.amount:
@@ -252,52 +258,21 @@ class Inventory:
             await self.remove(user_id, item_id)
             return in_inventory
         else:
-            await self._db.execute(
-                "UPDATE inventory SET amount=? WHERE user_id=? AND item_id=?",
-                (in_inventory.amount-amount, user_id, item_id)
+            await self.conn.execute(
+                "UPDATE inventory SET amount=$1 "
+                "WHERE user_id=$2 AND item_id=$3",
+                in_inventory.amount - amount,
+                user_id,
+                item_id,
             )
             return InventoryItem(in_inventory.index, amount)
 
-
-    # Работа с несколькими инвентарями
-    # ================================
-
-    async def move(self, item_id: int, amount: int, from_user: int, to_user: int) -> bool:
+    async def move(
+        self, item_id: int, amount: int, from_user: int, to_user: int
+    ) -> bool:
+        """Передаёт предметы между инвентарями."""
         take_item = await self.take(from_user, item_id, amount)
         if take_item is None:
             return False
         await self.give(to_user, item_id, amount)
-
-
-class UserInventory:
-
-    def __init__(self, user_id: int, inventory: Inventory):
-        self.user_id = user_id
-        self.inventory = inventory
-
-
-    # Получение данных из инвентаря
-    # =============================
-
-    async def get_items(self) -> list[InventoryItem]:
-        return await self.inventory.get_items(self.user_id)
-
-    async def get(self, item_id: int) -> InventoryItem | None:
-        return await self.inventory.get(self.user_id, item_id)
-
-
-    # Работа с инвентарём пользователя
-    # ================================
-
-    async def give(self, item_id: int, amount: int) -> None:
-        await self.inventory.give(self.user_id, item_id, amount)
-
-    async def take(self, item_id: int, amount: int) -> InventoryItem | None:
-        return await self.inventory.take(self.user_id, item_id, amount)
-
-
-    # Работа с несколькими инвентарями
-    # ================================
-
-    async def move(self, to_user: int, item_id: int, amount: int) -> bool:
-        return await self.inventory.move(item_id, amount, self.user_id, to_user)
+        return True
