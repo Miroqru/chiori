@@ -5,19 +5,16 @@ Lingua — это помощник, который помогает вам с р
 Он всегда готов ответить на ваши вопросы и сделать общение
 персонализированным и приятным.
 
-TODO: Сделать нормальное хранилище для настроек.
-
 Предоставляет
 -------------
 
-Version: v0.10.1 (7)
+Version: v0.10.2 (8)
 Maintainer: atarwn
 Source: https://github.com/atarwn/Lingua
 """
 
 from collections import deque
 from collections.abc import Iterator
-from typing import cast
 
 import arc
 import hikari
@@ -217,8 +214,7 @@ def loader(client: arc.GatewayClient) -> None:
     cm.register("lingua", LinguaConfig)
 
     logger.info("Init AI message storage")
-    # FIXME: Выглядит как костыль какой-то. по сути возможно так и есть.
-    config = cast(LinguaConfig, cm.get_group("lingua"))
+    config = cm.get_group("lingua", LinguaConfig)
     storage = MessageStorage(config)
     client.set_type_dependency(MessageStorage, storage)
 
