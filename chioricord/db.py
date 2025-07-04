@@ -4,6 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
 
 import arc
 import asyncpg
@@ -80,4 +81,17 @@ class DBTable(ABC):
 
     @abstractmethod
     async def create_table(self) -> None:
+        """Создаёт таблицу в базе данных, если ещё не была создана."""
+
+
+_I = TypeVar("_I")
+
+
+class ItemTable(DBTable, Generic[_I]):
+    @abstractmethod
+    async def get(self, id: int) -> _I | None:
+        """Создаёт таблицу в базе данных, если ещё не была создана."""
+
+    @abstractmethod
+    async def get_or_create(self, id: int) -> _I:
         """Создаёт таблицу в базе данных, если ещё не была создана."""
