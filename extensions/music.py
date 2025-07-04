@@ -9,13 +9,11 @@ TODO для релиза
     - [ ] Player
         - [ ] set position
         - [ ] set filters
-    - [ ] Events
-        - [ ] StartTrackEvent
-        - [ ] EndTrackEvent
-        - [ ] PlayerUpdateEvent
-        - [ ] StatisticsEvent
-    - [ ] Rest
 - [ ] Обработка событий.
+    - [ ] StartTrackEvent
+    - [ ] EndTrackEvent
+    - [ ] PlayerUpdateEvent
+    - [ ] StatisticsEvent
 - [ ] PlayerView.
 - [ ] Портировать говнокод.
 
@@ -23,14 +21,28 @@ TODO для релиза
 -------------
 
 - /play <query>: Сыграть песню.
-- /add <query>: Добавить песню в очередь.
+- /np: Что сейчас играет.
 - /pause: Поставить плеер на паузу/возобновить произведение.
-- /queue: Очередь воспроизведения.
+- /autoplay: Автоматически играть следующую песню.
+- /loop: Циклическое воспроизведение.
 - /volume <1-100>: Установить громкость плеера.
 - /skip [1]: Пропустить песни в очереди.
 - /stop: Остановить воспроизведение.
+- /leave: Завершить воспроизведение.
 
-Version: v2.3 (28)
+Плеер:
+- /player status: Состояние плеера.
+- /player info: Информация о плеере.
+- /player stats: Статистика плеера.
+
+Очередь:
+- /queue list: Очередь воспроизведения.
+- /queue add: Добавить трек в очередь.
+- /queue remove: Удалить трек из очереди.
+- /queue clear: Очистить очередь.
+- /queue shuffle: Перемешать очередь.
+
+Version: v2.4 (30)
 Author: Milinuri Nirvalen
 """
 
@@ -469,10 +481,16 @@ async def leave_player(
     await ctx.respond("Увидимся позже.")
 
 
-@plugin.include
+# Информация о плеере
+# ===================
+
+player_group = plugin.include_slash_group("player", "Информация о плеере")
+
+
+@player_group.include
 @arc.with_hook(arc_ensure_player)
-@arc.slash_command("player", "Состояние плеера.")
-async def player_info(
+@arc.slash_subcommand("status", "Состояние плеера.")
+async def player_status(
     ctx: arc.GatewayContext, player: ongaku.Player = arc.inject()
 ) -> None:
     """Основная информация о плеере."""
@@ -503,6 +521,81 @@ async def player_info(
         ),
         color=hikari.Color(0x66FFCC),
     )
+    await ctx.respond(emb)
+
+
+@player_group.include
+@arc.slash_subcommand("info", "Информация о плеере.")
+async def player_info(
+    ctx: arc.GatewayContext, ongaku_client: ongaku.Client = arc.inject()
+) -> None:
+    """Основная информация о плеере."""
+    info = await ongaku_client.rest.fetch_info()
+    emb = hikari.Embed(
+        title="О плеере",
+        description=(
+            f"версия: `{info.version.semver}`\n"
+            f"Собран: `{info.build_time}`\n"
+            f"Jvm: {info.jvm}\n"
+            f"Lavaplayer: {info.lavaplayer}\n"
+        ),
+        color=hikari.Color(0x66FFCC),
+    )
+    emb.add_field(
+        "Git",
+        f"[{info.git.branch}]: `{info.git.commit}\nОт: {info.git.commit_time}",
+    )
+    emb.add_field("Источники", ", ".join(info.source_managers))
+    emb.add_field("Фильтры", ", ".join(info.source_managers))
+
+    plugins_list = ""
+    for plugin in info.plugins:
+        plugins_list += f"\n- {plugin.name}: `{plugin.version}`"
+    emb.add_field("Плагины", plugins_list)
+    await ctx.respond(emb)
+
+
+@player_group.include
+@arc.slash_subcommand("stats", "Статистика плеера.")
+async def player_stats(
+    ctx: arc.GatewayContext, ongaku_client: ongaku.Client = arc.inject()
+) -> None:
+    """Основная информация о плеере."""
+    stats = await ongaku_client.rest.fetch_stats()
+    emb = hikari.Embed(
+        title="Статистика плеера",
+        description=(
+            f"Плееров:  {stats.playing_players}/{stats.players}\n"
+            f"Время работы: {format_time(stats.uptime)}\n"
+        ),
+        color=hikari.Color(0x66FFCC),
+    )
+    emb.add_field(
+        "Память",
+        (
+            f"Свободно: {stats.memory.free}\n"
+            f"Использовано: {stats.memory.used}\n"
+            f"Выделено: {stats.memory.allocated}\n"
+            f"Зарезервировано: {stats.memory.reservable}\n"
+        ),
+    )
+    emb.add_field(
+        "Процессор",
+        (
+            f"Ядер: {stats.cpu.cores}\n"
+            f"Загрузка: {stats.cpu.system_load}\n"
+            f"Плеером: {stats.cpu.lavalink_load}\n"
+        ),
+    )
+    if stats.frame_stats is not None:
+        emb.add_field(
+            "Frames",
+            (
+                f"Sent: {stats.frame_stats.sent}\n"
+                f"Nulled: {stats.frame_stats.nulled}\n"
+                f"Deficit: {stats.frame_stats.deficit}\n"
+            ),
+        )
     await ctx.respond(emb)
 
 
@@ -580,6 +673,18 @@ async def clear_queue(
     """Удаляет трек из очереди проигрывания."""
     await player.clear()
     await ctx.respond("Очередь очищена.")
+
+
+@queue.include
+@arc.with_hook(arc_ensure_player)
+@arc.slash_subcommand("shuffle", description="Перемещать очередь.")
+async def shuffle_queue(
+    ctx: arc.GatewayContext,
+    player: ongaku.Player = arc.inject(),
+) -> None:
+    """Удаляет трек из очереди проигрывания."""
+    player.shuffle()
+    await ctx.respond("Очередь перемешана.")
 
 
 # Загрузчики и выгрузчики плагина
