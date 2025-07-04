@@ -19,7 +19,7 @@
 - @MemberDeleteEvent
 - @voiceStateUpdateEvent
 
-Version: v1.0 (12)
+Version: v1.1 (13)
 Author: Milinuri Nirvalen
 """
 
@@ -375,8 +375,19 @@ async def on_member_leave(
 # ==============================
 
 
-def voice_status(state: hikari.VoiceState) -> str:
-    """Информация о статусе голосового канала."""
+def _get_channel(channel_id: int) -> str:
+    channel = plugin.client.cache.get_guild_channel(channel_id)
+    if channel is not None:
+        return channel.mention
+    return f"`{channel_id}`"
+
+
+async def _voice_status(state: hikari.VoiceState, app: hikari.RESTAware) -> str:
+    if state.channel_id is not None:
+        in_channel = _get_channel(state.channel_id)
+    else:
+        in_channel = "< без канала >"
+
     flags = "Flags:"
     if state.is_self_muted:
         flags += " mute;"
@@ -392,48 +403,93 @@ def voice_status(state: hikari.VoiceState) -> str:
         flags += " suppress;"
     if state.is_video_enabled:
         flags += " video;"
+    if state.requested_to_speak_at is not None:
+        flags += f"\nTo speak: {state.requested_to_speak_at}\n"
 
-    return (
-        f"Channel: {state.channel_id}\n"
-        f"To speak: {state.requested_to_speak_at}\n"
-        f"{flags}\n"
-        f"id: `{state.session_id}`\n"
+    return f"{flags}\nChannel: {in_channel}"
+
+
+async def voice_status(event: hikari.VoiceStateUpdateEvent) -> hikari.Embed:
+    """Информация о статусе голосового канала."""
+    return hikari.Embed(
+        title="🔊 Join voice channel",
+        description=await _voice_status(event.state, event.app),
+        color=hikari.Color(0x6699FF),
     )
 
 
-def _flag(old: bool, new: bool, name: str) -> str:
-    if new:
-        sym = "✅"
+async def leave_from_channel(
+    event: hikari.VoiceStateUpdateEvent,
+) -> hikari.Embed:
+    """Embed о выходе из голосового канала."""
+    if event.old_state is None:
+        status = None
     else:
-        sym = "❌"
+        status = await _voice_status(event.old_state, event.app)
 
-    if old != new:
-        if new:
-            return f"{sym} now {name}"
-        return f"{sym} disable {name}"
-    return f"⚡ {name}: {sym}"
-
-
-def voice_compare(old: hikari.VoiceState | None, new: hikari.VoiceState) -> str:
-    """Сопоставляет информацию о двух состояниях."""
-    if old is None:
-        return voice_status(new)
-
-    if new.channel_id is None:
-        return "Leave from channel"
-
-    return (
-        f"Channel: {new.channel_id}\n"
-        f"ID: `{new.session_id}`\n"
-        f"{old.requested_to_speak_at} -> {new.requested_to_speak_at}\n"
-        f"{_flag(old.is_self_muted, new.is_self_muted, 'muted')}\n"
-        f"{_flag(old.is_self_deafened, new.is_self_deafened, 'def')}\n"
-        f"{_flag(old.is_guild_muted, new.is_guild_muted, 'server muted')}\n"
-        f"{_flag(old.is_guild_deafened, new.is_guild_deafened, 'server def')}\n"
-        f"{_flag(old.is_streaming, new.is_streaming, 'streaming')}\n"
-        f"{_flag(old.is_suppressed, new.is_suppressed, 'suppressed')}\n"
-        f"{_flag(old.is_video_enabled, new.is_video_enabled, 'video')}\n"
+    return hikari.Embed(
+        title="🔊 Leave voice channel",
+        description=status,
+        color=hikari.Color(0xFF6699),
     )
+
+
+async def voice_compare(event: hikari.VoiceStateUpdateEvent) -> hikari.Embed:
+    """Сопоставляет информацию о двух состояниях."""
+    old = event.old_state
+    new = event.state
+
+    if old is None or old.channel_id is None:
+        return await voice_status(event)
+    if new.channel_id is None:
+        return await leave_from_channel(event)
+
+    updates: list[str] = []
+    status: list[str] = []
+
+    # Переход по каналам
+    new_channel = _get_channel(old.channel_id)
+    if old.channel_id == new.channel_id:
+        status.append(f"Channel: {new_channel}")
+    else:
+        updates.append(f"{_get_channel(new.channel_id)} -> {new_channel}")
+
+    if new.requested_to_speak_at is not None:
+        if old.requested_to_speak_at == new.requested_to_speak_at:
+            status.append(f"👋 {new.requested_to_speak_at}")
+        else:
+            updates.append(
+                f"👋 {old.requested_to_speak_at} -> {new.requested_to_speak_at}"
+            )
+
+    flags = [
+        (old.is_self_muted, new.is_self_muted, "muted"),
+        (old.is_self_deafened, new.is_self_deafened, "def"),
+        (old.is_guild_muted, new.is_guild_muted, "server muted"),
+        (old.is_guild_deafened, new.is_guild_deafened, "server def"),
+        (old.is_streaming, new.is_streaming, "streaming"),
+        (old.is_suppressed, new.is_suppressed, "suppressed"),
+        (old.is_video_enabled, new.is_video_enabled, "video"),
+    ]
+
+    status += "Flags: "
+    for old_flag, new_flag, name in flags:
+        if old_flag == new_flag:
+            if new_flag:
+                status[-1] += f" {name};"
+        elif new_flag:
+            updates.append(f"✅ Now {name}")
+        else:
+            updates.append(f"❌ Disable {name}")
+
+    emb = hikari.Embed(
+        title="🔊 Update voice",
+        description="\n".join(updates),
+        color=hikari.Color(0x66FF99),
+        timestamp=datetime.now(UTC),
+    )
+    emb.add_field("Status", "\n".join(status))
+    return emb
 
 
 @plugin.listen(hikari.VoiceStateUpdateEvent)
@@ -442,12 +498,7 @@ async def on_voice_update(
     event: hikari.VoiceStateUpdateEvent, config: LoggerConfig = arc.inject()
 ) -> None:
     """Изменение состояние голосового канала."""
-    emb = hikari.Embed(
-        title="💎 Voice state update",
-        description=voice_compare(event.old_state, event.state),
-        color=hikari.Color(0x66FF99),
-        timestamp=datetime.now(UTC),
-    )
+    emb = await voice_compare(event)
 
     guild = plugin.client.cache.get_guild(event.guild_id)
     if guild is not None:
