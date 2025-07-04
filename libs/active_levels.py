@@ -1,12 +1,12 @@
 """База данных активности участников.
 
-Version: v2.0 (5)
+Version: v2.1 (6)
 Author: Milinuri Nirvalen
 """
 
-from collections.abc import Awaitable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Self
+from typing import Any, Self
 
 from asyncpg import Record
 from loguru import logger
@@ -49,7 +49,9 @@ class UserActive:
         return (self.level**2 * 15) + (self.level * 5) + 10
 
 
-Handler = Awaitable
+LevelUpHandler = Callable[
+    [ChioDatabase, int, UserActive], Coroutine[Any, Any, None]
+]
 
 
 class ActiveTable(DBTable):
@@ -64,9 +66,9 @@ class ActiveTable(DBTable):
 
     def __init__(self, db: ChioDatabase) -> None:
         super().__init__(db)
-        self._level_up_handlers: list[Handler] = []
+        self._level_up_handlers: list[LevelUpHandler] = []
 
-    def add_level_up_handler(self, func: Handler) -> None:
+    def add_level_up_handler(self, func: LevelUpHandler) -> None:
         """Добавляет обработчик на событие поднятия уровня."""
         self._level_up_handlers.append(func)
 
@@ -99,6 +101,15 @@ class ActiveTable(DBTable):
             f"SELECT * FROM active ORDER BY {active} DESC LIMIT 10"
         )
         return [(row[0], UserActive.from_row(row)) for row in cur]
+
+    async def get_position(self, active: str, user_id: int) -> int | None:
+        """Таблица лидеров по сообщениям."""
+        cur = await self.conn.fetch(
+            "SELECT COUNT(*) + 1 AS position FROM active "
+            f"WHERE {active} > (SELECT {active} FROM active WHERE user_id = $1)",
+            user_id,
+        )
+        return int(cur[0][0]) if len(cur) > 0 else None
 
     async def get_user(self, user_id: int) -> UserActive | None:
         """Получает пользователя по ID."""

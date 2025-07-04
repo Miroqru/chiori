@@ -9,7 +9,7 @@
 - /top [category]: Таблица лидеров по активности на сервере.
 - /active: Активность участника на сервере.
 
-Version: v1.3.1 (12)
+Version: v1.5 (15)
 Author: Milinuri Nirvalen
 """
 
@@ -49,13 +49,21 @@ class LevelsConfig(PluginConfig):
     Именно сюда будут отправляться уведомлений о поднятии уровня.
     """
 
+    send_notify_after: int = 10
+    """
+    Через сколько минут в голосовом канале отправлять сообщение с поздравление
+    за проведённое время.
+    """
+
 
 def format_duration(minutes: int) -> str:
     """Преобразует количество секунд в более точное время."""
     logger.debug(minutes)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
-    return f"{days:02d} д. {hours:02d}:{minutes:02d}"
+    if days > 0:
+        return f"{days} д. {hours:02d} ч. {minutes:02d} м."
+    return f"{hours:02d} ч. {minutes:02d} м."
 
 
 def count_modifier(state: hikari.VoiceState) -> float:
@@ -74,6 +82,48 @@ def count_modifier(state: hikari.VoiceState) -> float:
         base += 0.5
 
     return base
+
+
+def _pretty_pos(pos: int | None) -> str:
+    if pos is None:
+        return "0"
+    if pos == 1:
+        return "🥇"
+    if pos == 2:  # noqa: PLR2004
+        return "🥈"
+    if pos == 3:  # noqa: PLR2004
+        return "🥉"
+    return str(pos)
+
+
+def _get_points(active: UserActive, group: str) -> str:
+    if group == "level":
+        target_xp = active.count_xp()
+        return f"`{active.level}` уровень `{active.xp}/{target_xp}` опыта."
+    if group == "voice":
+        return f"`{format_duration(active.voice)}`"
+    if group == "bumps":
+        return f"`{active.bumps}` бампов"
+    return f"`{active.words}` слов / `{active.messages}` сообщений"
+
+
+def _voice_stats(
+    user: hikari.User, duration: int, xp: int, active: UserActive
+) -> hikari.Embed:
+    to_next_level = format_duration(active.count_xp() // 5)
+
+    emb = hikari.Embed(
+        title="😺 Голосовая активность",
+        description=(
+            f"{user.display_name}, вы мурлыкали в канале "
+            f"`{format_duration(duration)}`\n"
+            f"и получаете за это {xp * 5}✨\n\n"
+            f"**До нового уровня**: `{to_next_level}`"
+        ),
+        color=hikari.Color(0xFF66B2),
+    )
+    emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
+    return emb
 
 
 # Отслеживание событий
@@ -146,7 +196,9 @@ async def on_message(
 @plugin.listen(hikari.VoiceStateUpdateEvent)
 @plugin.inject_dependencies()
 async def on_voice_update(
-    event: hikari.VoiceStateUpdateEvent, active: ActiveTable = arc.inject()
+    event: hikari.VoiceStateUpdateEvent,
+    active: ActiveTable = arc.inject(),
+    config: LevelsConfig = arc.inject(),
 ) -> None:
     """Отслеживаем активность в голосовом канале."""
     before = event.old_state
@@ -186,6 +238,17 @@ async def on_voice_update(
         if duration > 0:
             await active.add_voice(member.id, duration, user_voice.xp_buffer)
 
+        if duration > config.send_notify_after:
+            await plugin.client.rest.create_message(
+                config.channel_id,
+                _voice_stats(
+                    member,
+                    duration,
+                    user_voice.xp_buffer,
+                    await active.get_or_default(member.id),
+                ),
+            )
+
 
 @plugin.inject_dependencies
 async def on_level_up(
@@ -193,16 +256,45 @@ async def on_level_up(
     user_id: int,
     active: UserActive,
     config: LevelsConfig = arc.inject(),
+    at: ActiveTable = arc.inject(),
 ) -> None:
     """Когда пользователь повышает свой уровень."""
     user = db.client.cache.get_user(user_id) or await db.client.rest.fetch_user(
         user_id
     )
+
+    level_pos = _pretty_pos(await at.get_position("level", user_id))
+    words_pos = _pretty_pos(await at.get_position("words", user_id))
+    voice_pos = _pretty_pos(await at.get_position("voice", user_id))
+    bumps_pos = _pretty_pos(await at.get_position("bumps", user_id))
+
     emb = hikari.Embed(
-        title="Повышение уровня",
-        description=f"{user.mention} повышает свой уровень до {active.level}",
-        color=hikari.Color(0xFFCC99),
+        title="Повышение уровня 🎉",
+        description=(
+            f"🌷 Дорогой {user.mention}.\n"
+            f"поздравляем с повышением до {active.level} уровня.\n\n"
+            f"**Место в рейтинге**: {level_pos}\n"
+            f"**Опыт**: {active.xp} / {active.count_xp()}."
+        ),
+        color=hikari.Color(0xFF66B2),
     )
+    emb.add_field(
+        "Ваша статистика",
+        (
+            f"**Слов** {active.words} ({active.messages} сообщений\n"
+            f"**Общался голосом**: `{format_duration(active.voice)}`\n"
+            f"**Бампов**: {active.bumps}"
+        ),
+    )
+    emb.add_field(
+        "место в рейтинге",
+        (
+            f"{words_pos} - по словам\n"
+            f"{voice_pos} - по голосу\n"
+            f"{bumps_pos} - по бампам"
+        ),
+    )
+
     emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
     await db.client.rest.create_message(config.channel_id, emb)
 
@@ -222,10 +314,10 @@ async def message_top(
             choices=["words", "level", "voice", "bumps"],
         ),
     ] = "level",
-    active: ActiveTable = arc.inject(),
+    at: ActiveTable = arc.inject(),
 ) -> None:
     """Таблица лидеров по сообщениям."""
-    leaders = await active.get_top(group)
+    leaders = await at.get_top(group)
 
     header = "словам"
     if group == "level":
@@ -236,7 +328,7 @@ async def message_top(
         header = "Бампам"
 
     leaderboard = ""
-    for i, (user_id, user_active) in enumerate(leaders):
+    for i, (user_id, active) in enumerate(leaders):
         user = ctx.client.cache.get_user(user_id)
         if user is not None:
             name = user.display_name
@@ -244,24 +336,19 @@ async def message_top(
             user = await ctx.client.rest.fetch_user(user_id)
             name = user.display_name
 
-        points = (
-            f"`{user_active.words}` слов / `{user_active.messages}` сообщений"
-        )
-        if group == "level":
-            target_xp = user_active.count_xp()
-            points = f"`{user_active.level}` уровень `{user_active.xp}/{target_xp}` опыта."
-        if group == "voice":
-            points = f"`{format_duration(user_active.voice)}`"
-        if group == "bumps":
-            points = f"`{user_active.bumps}` бампов"
-
-        leaderboard += f"\n{i + 1}. **{name}**: {points}"
+        points = _get_points(active, group)
+        leaderboard += f"\n{_pretty_pos(i + 1)}: **{name}**: {points}"
 
     emb = hikari.Embed(
         title=f"Таблица лидеров по {header}",
         description=leaderboard,
         color=hikari.Color(0xFFCC99),
     )
+
+    my_pos = _pretty_pos(await at.get_position(group, ctx.user.id))
+    my_active = await at.get_or_default(ctx.user.id)
+    points = _get_points(my_active, group)
+    emb.add_field("Моя позиция", f"{my_pos}: {ctx.user.display_name} {points}")
     await ctx.respond(emb)
 
 
@@ -272,29 +359,44 @@ async def user_active(
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Для какого пользователя.")
     ] = None,
-    active: ActiveTable = arc.inject(),
+    at: ActiveTable = arc.inject(),
 ) -> None:
     """Таблица лидеров по сообщениям."""
     if user is None:
         user = ctx.author
 
-    user_active = await active.get_or_default(user.id)
+    active = await at.get_or_default(user.id)
     emb = hikari.Embed(
         title="Активность",
         description=(
-            f"**Уровень:** {user_active.level} / 100\n"
-            f"**Сообщений:** {user_active.messages}\n"
-            f"**Слов:** {user_active.words}\n"
-            f"**В голосовом канале:** {format_duration(user_active.voice)}\n"
-            f"**Бампов:** {user_active.bumps}\n"
+            f"**Уровень**: {active.level} / 100\n"
+            f"**Слов**: {active.words} ({active.messages} сообщений)\n"
+            f"**В голосовом канале**: {format_duration(active.voice)}\n"
+            f"**Бампов**: {active.bumps}\n"
         ),
-        color=user.accent_color,
+        color=hikari.Color(0x5C991F),
     )
 
-    target_xp = user_active.count_xp()
-    pr = round((user_active.xp / target_xp) * 100, 2)
-    emb.add_field("Опыт", f"{user_active.xp}/{target_xp} ({pr}%)")
+    target_xp = active.count_xp()
+    pr = round((active.xp / target_xp) * 100, 2)
+    emb.add_field("Опыт", f"{active.xp}/{target_xp} ({pr}%)")
     emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
+
+    level_pos = _pretty_pos(await at.get_position("level", user.id))
+    words_pos = _pretty_pos(await at.get_position("words", user.id))
+    voice_pos = _pretty_pos(await at.get_position("voice", user.id))
+    bumps_pos = _pretty_pos(await at.get_position("bumps", user.id))
+
+    emb.add_field(
+        "Место в рейтинге",
+        (
+            f"{level_pos} - по уровню.\n"
+            f"{words_pos} - по словам.\n"
+            f"{voice_pos} - по голосу.\n"
+            f"{bumps_pos} - по бампам."
+        ),
+    )
+
     await ctx.respond(emb)
 
 
@@ -302,14 +404,28 @@ async def user_active(
 # ===============================
 
 
-@plugin.listen(arc.events.StoppingEvent)
+@plugin.listen(arc.StartedEvent)
+async def check_voice_state(event: arc.StartedEvent[arc.GatewayClient]) -> None:
+    """Записывает участников в голосовые каналы."""
+    states = event.client.cache.get_voice_states_view()
+    now = int(time())
+    for guild_states in states.values():
+        for user_id, state in guild_states.items():
+            logger.debug("Add {} to listener", user_id)
+            voice_start_times[user_id] = UserVoice(
+                now, now, 0, count_modifier(state)
+            )
+
+
+@plugin.listen(arc.StoppingEvent)
 @plugin.inject_dependencies
-async def disconnect(
-    event: arc.events.StoppingEvent[arc.GatewayClient],
+async def clear_voice_state(
+    event: arc.StoppingEvent[arc.GatewayClient],
     active: ActiveTable = arc.inject(),
+    config: LevelsConfig = arc.inject(),
 ) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
-    logger.info("Close connect to active DB")
+    logger.info("Close connect to active DB {}")
 
     now = int(time())
     for k, v in voice_start_times.items():
@@ -317,6 +433,19 @@ async def disconnect(
         duration = round((now - v.start) / 60)
         if duration > 0:
             await active.add_voice(k, duration, v.xp_buffer)
+
+        user = event.client.cache.get_user(k)
+        logger.debug("{} {} {}", user, k, duration)
+        if user is not None and duration > config.send_notify_after:
+            await plugin.client.rest.create_message(
+                config.channel_id,
+                _voice_stats(
+                    user,
+                    duration,
+                    v.xp_buffer,
+                    await active.get_or_default(k),
+                ),
+            )
 
 
 @arc.loader
