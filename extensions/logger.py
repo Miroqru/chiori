@@ -19,7 +19,7 @@
 - @MemberDeleteEvent
 - @voiceStateUpdateEvent
 
-Version: v1.1 (13)
+Version: v1.1.1 (14)
 Author: Milinuri Nirvalen
 """
 
@@ -472,7 +472,7 @@ async def voice_compare(event: hikari.VoiceStateUpdateEvent) -> hikari.Embed:
         (old.is_video_enabled, new.is_video_enabled, "video"),
     ]
 
-    status += "Flags: "
+    status.append("Flags: ")
     for old_flag, new_flag, name in flags:
         if old_flag == new_flag:
             if new_flag:
