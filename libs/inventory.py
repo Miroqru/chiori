@@ -77,15 +77,14 @@ class ItemIndex(ItemTable[Item]):
     Хранит сведения о всех существующих предметах.
     """
 
-    async def create_tables(self) -> None:
+    async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
         await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS "index" ('
-            '"id"	INTEGER,'
+            '"id"	SERIAL PRIMARY KEY,'
             '"name"	TEXT NOT NULL,'
             '"description"	TEXT NOT NULL,'
-            '"rare"	INTEGER DEFAULT 0,'
-            'PRIMARY KEY("id" AUTOINCREMENT))'
+            '"rare"	INTEGER DEFAULT 0)'
         )
 
     async def get_index(self, rare: int | None = None) -> list[Item]:
@@ -160,16 +159,15 @@ class Inventory(DBTable):
             raise ValueError("You need to connect index before use it")
         return self._index
 
-    async def create_tables(self) -> None:
+    async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
         await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS "inventory" ('
-            '"user_id"	INTEGER,'
+            '"user_id"	BIGINT,'
             '"item_id"	INTEGER,'
             '"amount"   INTEGER,'
             'FOREIGN KEY("item_id") REFERENCES "index"("id")'
-            "ON UPDATE CASCADE"
-            ");"
+            "ON UPDATE CASCADE)"
         )
 
     # Методы получения данных из инвентаря

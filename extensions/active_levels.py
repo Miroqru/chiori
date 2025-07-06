@@ -9,7 +9,7 @@
 - /top [category]: Таблица лидеров по активности на сервере.
 - /active: Активность участника на сервере.
 
-Version: v1.5 (15)
+Version: v1.6 (17)
 Author: Milinuri Nirvalen
 """
 
@@ -110,7 +110,7 @@ def _get_points(active: UserActive, group: str) -> str:
 def _voice_stats(
     user: hikari.User, duration: int, xp: int, active: UserActive
 ) -> hikari.Embed:
-    to_next_level = format_duration(active.count_xp() // 5)
+    to_next_level = format_duration((active.count_xp() - active.xp) // 5)
 
     emb = hikari.Embed(
         title="😺 Голосовая активность",
@@ -398,6 +398,33 @@ async def user_active(
     )
 
     await ctx.respond(emb)
+
+@plugin.include
+@arc.slash_command("voice", description="Активность в голосовом канале.")
+async def voice_active(
+    ctx: arc.GatewayContext,
+    user: arc.Option[  # type: ignore
+        hikari.User | None, arc.UserParams("Для какого пользователя.")
+    ] = None,
+    at: ActiveTable = arc.inject(),
+) -> None:
+    """Активность пользователя в голосовом канале."""
+    if user is None:
+        user = ctx.author
+
+    active = await at.get_or_default(user.id)
+    now = int(time())
+    user_voice = voice_start_times.get(user.id, UserVoice(now, 0, 0, 0))
+    duration = round((now - user_voice.start) / 60)
+    emb = _voice_stats(user, duration, user_voice.xp_buffer, active)
+    emb.color = hikari.Color(0x5C991F)
+    if user_voice.xp_buffer > 0:
+        emb.add_field("Подсказка", (
+            "- Xp зависит от типа активности в голосовом канале.\n"
+            "- Опыт начисляется после выхода из голосового канала."
+        ))
+    await ctx.respond(emb)
+
 
 
 # Загрузчики и выгрузчики плагина

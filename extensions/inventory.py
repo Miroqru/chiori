@@ -7,25 +7,24 @@
 - /index [item_id]: Детальную информацию о предмете.
 - /inventory: Предметы в ваших карманах.
 
-Version: v0.1.2 (5)
+Version: v0.2 (6)
 Author: Milinuri Nirvalen
 """
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 import arc
 import hikari
 from loguru import logger
 
+from chioricord.db import ChioDatabase
 from libs import inventory
 
 # Глобальные переменные
 # =====================
 
 DB_PATH = Path("bot_data/items.db")
-item_index = inventory.ItemIndex(DB_PATH)
-inv = inventory.Inventory(DB_PATH, item_index)
 plugin = arc.GatewayPlugin("Inventory")
 
 
@@ -33,7 +32,8 @@ plugin = arc.GatewayPlugin("Inventory")
 # ===================================
 
 
-class RareInfo(NamedTuple):
+@dataclass(slots=True, frozen=True)
+class RareInfo:
     """Информация о редкости предмета.
 
     - tier: Какого класса предмет.
@@ -154,7 +154,7 @@ async def user_inventory(
     ctx: arc.GatewayContext, inv: inventory.Inventory = arc.inject()
 ) -> None:
     """Содержимое инвентаря пользователя."""
-    items = await inv.get_items(ctx.user.id)
+    items = await inv.get(ctx.user.id)
     items_list = ""
     for item in items:
         items_list += f"\n- {item_status(item.index)} (x{item.amount})"
@@ -167,30 +167,15 @@ async def user_inventory(
 
 
 @plugin.listen(arc.events.StartedEvent)
+@plugin.inject_dependencies
 async def start_plugin(
     event: arc.events.StartedEvent[arc.GatewayClient],
+    index: inventory.ItemIndex = arc.inject(),
+    inv: inventory.Inventory = arc.inject(),
 ) -> None:
     """Подключаемся к базам данных при запуске бота."""
-    logger.info("Connect to index/inventory DB")
-    await item_index.connect()
-    await inv.connect()
-
-    logger.info("Create missing tables")
-    await item_index.create_tables()
-    await inv.create_tables()
-
-
-@plugin.listen(arc.events.StoppingEvent)
-async def stop_plugin(
-    event: arc.events.StoppingEvent[arc.GatewayClient],
-) -> None:
-    """Время отключаться от баз данных, вместе с отключением бота."""
-    logger.info("Close connect to index/inventory DB")
-    await inv.commit()
-    await inv.close()
-
-    await item_index.commit()
-    await item_index.close()
+    logger.info("Set index to inventory")
+    inv.set_index(index)
 
 
 @arc.loader
@@ -200,8 +185,9 @@ def loader(client: arc.GatewayClient) -> None:
     Подключаем базу данных индекса предметов и инвентаря.
     """
     client.add_plugin(plugin)
-    client.set_type_dependency(inventory.ItemIndex, item_index)
-    client.set_type_dependency(inventory.Inventory, inv)
+    db = client.get_type_dependency(ChioDatabase)
+    db.register("index", inventory.ItemIndex)
+    db.register("inventory", inventory.Inventory)
 
 
 @arc.unloader
