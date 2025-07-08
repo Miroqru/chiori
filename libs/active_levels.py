@@ -1,6 +1,6 @@
 """База данных активности участников.
 
-Version: v2.1 (6)
+Version: v2.2 (8)
 Author: Milinuri Nirvalen
 """
 
@@ -8,8 +8,9 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any, Self
 
+import arc
+import hikari
 from asyncpg import Record
-from loguru import logger
 
 from chioricord.db import ChioDatabase, DBTable
 
@@ -54,6 +55,42 @@ LevelUpHandler = Callable[
 ]
 
 
+class LevelUpEvent(hikari.Event):
+    """Когда участник повышает свой уровень."""
+
+    def __init__(
+        self, db: ChioDatabase, user_id: int, active: UserActive
+    ) -> None:
+        self._db = db
+        self._user_id = user_id
+        self._active = active
+
+    @property
+    def app(self) -> hikari.RESTAware:
+        """App instance for this application."""
+        return self._db.client.app
+
+    @property
+    def client(self) -> arc.GatewayClient:
+        """App instance for this application."""
+        return self._db.client
+
+    @property
+    def db(self) -> ChioDatabase:
+        """Возвращает подключение к базе данных."""
+        return self._db
+
+    @property
+    def user_id(self) -> int:
+        """Возвращает пользователя, получившего повышение."""
+        return self._user_id
+
+    @property
+    def active(self) -> UserActive:
+        """Возвращает статистику активности пользователя."""
+        return self._active
+
+
 class ActiveTable(DBTable):
     """База данных активности пользователе.
 
@@ -63,23 +100,6 @@ class ActiveTable(DBTable):
     за накопленный опыт будут выдаваться уровни.
     Это будет стимулом для участников больше заниматься активностям.
     """
-
-    def __init__(self, db: ChioDatabase) -> None:
-        super().__init__(db)
-        self._level_up_handlers: list[LevelUpHandler] = []
-
-    def add_level_up_handler(self, func: LevelUpHandler) -> None:
-        """Добавляет обработчик на событие поднятия уровня."""
-        self._level_up_handlers.append(func)
-
-    async def dispatch_level_up(self, user_id: int, user: UserActive) -> None:
-        """Вызывает событие поднятия уровня."""
-        logger.info("Dispatch level up handlers {} {}", user_id, user)
-        for handler in self._level_up_handlers:
-            await handler(self._db, user_id, user)
-
-    # Работа с базой данных
-    # =====================
 
     async def create_table(self) -> None:
         """Создаёт недостающие таблицы для базы данных."""
@@ -164,9 +184,9 @@ class ActiveTable(DBTable):
     # =================================
 
     async def add_xp(
-        self, user_id: int, user: UserActive, xp: int
+        self, user: UserActive, user_id: int, xp: int
     ) -> UserActive:
-        """Добавляет опыт пользователю."""
+        """Добавляет опыт пользователю и сохраняет его."""
         user.xp += xp
 
         start_level = user.level
@@ -176,8 +196,11 @@ class ActiveTable(DBTable):
             user.xp -= next_level
             next_level = user.count_xp()
 
+        await self.set_user(user_id, user)
         if user.level != start_level:
-            await self.dispatch_level_up(user_id, user)
+            self._db.client.app.event_manager.dispatch(
+                LevelUpEvent(self._db, user_id, user)
+            )
         return user
 
     async def add_messages(self, user_id: int, amount: int) -> UserActive:
@@ -188,9 +211,7 @@ class ActiveTable(DBTable):
         user = await self.get_or_default(user_id)
         user.messages += 1
         user.words += amount
-        user = await self.add_xp(user_id, user, amount)
-        await self.set_user(user_id, user)
-        return user
+        return await self.add_xp(user, user_id, amount)
 
     async def add_voice(
         self, user_id: int, amount: int, xp: int
@@ -201,9 +222,7 @@ class ActiveTable(DBTable):
         """
         user = await self.get_or_default(user_id)
         user.voice += amount
-        user = await self.add_xp(user_id, user, xp * 5)
-        await self.set_user(user_id, user)
-        return user
+        return await self.add_xp(user, user_id, xp * 5)
 
     async def add_bump(self, user_id: int, amount: int) -> UserActive | None:
         """ТОбновляет список бампов сервера.
@@ -212,6 +231,4 @@ class ActiveTable(DBTable):
         """
         user = await self.get_or_default(user_id)
         user.bumps += amount
-        user = await self.add_xp(user_id, user, amount * 5)
-        await self.set_user(user_id, user)
-        return user
+        return await self.add_xp(user, user_id, amount * 5)

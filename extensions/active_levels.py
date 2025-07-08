@@ -9,7 +9,7 @@
 - /top [category]: Таблица лидеров по активности на сервере.
 - /active: Активность участника на сервере.
 
-Version: v1.6 (17)
+Version: v1.7 (18)
 Author: Milinuri Nirvalen
 """
 
@@ -22,7 +22,7 @@ from loguru import logger
 
 from chioricord.config import PluginConfig, PluginConfigManager
 from chioricord.db import ChioDatabase
-from libs.active_levels import ActiveTable, UserActive
+from libs.active_levels import ActiveTable, LevelUpEvent, UserActive
 
 plugin = arc.GatewayPlugin("Active levels")
 
@@ -250,40 +250,39 @@ async def on_voice_update(
             )
 
 
+@plugin.listen(LevelUpEvent)
 @plugin.inject_dependencies
 async def on_level_up(
-    db: ChioDatabase,
-    user_id: int,
-    active: UserActive,
+    event: LevelUpEvent,
     config: LevelsConfig = arc.inject(),
     at: ActiveTable = arc.inject(),
 ) -> None:
     """Когда пользователь повышает свой уровень."""
-    user = db.client.cache.get_user(user_id) or await db.client.rest.fetch_user(
-        user_id
-    )
+    user = event.client.cache.get_user(
+        event.user_id
+    ) or await event.client.rest.fetch_user(event.user_id)
 
-    level_pos = _pretty_pos(await at.get_position("level", user_id))
-    words_pos = _pretty_pos(await at.get_position("words", user_id))
-    voice_pos = _pretty_pos(await at.get_position("voice", user_id))
-    bumps_pos = _pretty_pos(await at.get_position("bumps", user_id))
+    level_pos = _pretty_pos(await at.get_position("level", event.user_id))
+    words_pos = _pretty_pos(await at.get_position("words", event.user_id))
+    voice_pos = _pretty_pos(await at.get_position("voice", event.user_id))
+    bumps_pos = _pretty_pos(await at.get_position("bumps", event.user_id))
 
     emb = hikari.Embed(
         title="Повышение уровня 🎉",
         description=(
             f"🌷 Дорогой {user.mention}.\n"
-            f"поздравляем с повышением до {active.level} уровня.\n\n"
+            f"поздравляем с повышением до {event.active.level} уровня.\n\n"
             f"**Место в рейтинге**: {level_pos}\n"
-            f"**Опыт**: {active.xp} / {active.count_xp()}."
+            f"**Опыт**: {event.active.xp} / {event.active.count_xp()}."
         ),
         color=hikari.Color(0xFF66B2),
     )
     emb.add_field(
         "Ваша статистика",
         (
-            f"**Слов** {active.words} ({active.messages} сообщений\n"
-            f"**Общался голосом**: `{format_duration(active.voice)}`\n"
-            f"**Бампов**: {active.bumps}"
+            f"**Слов** {event.active.words} ({event.active.messages} сообщений\n"
+            f"**Общался голосом**: `{format_duration(event.active.voice)}`\n"
+            f"**Бампов**: {event.active.bumps}"
         ),
     )
     emb.add_field(
@@ -296,7 +295,7 @@ async def on_level_up(
     )
 
     emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
-    await db.client.rest.create_message(config.channel_id, emb)
+    await event.client.rest.create_message(config.channel_id, emb)
 
 
 # определение команд
@@ -399,6 +398,7 @@ async def user_active(
 
     await ctx.respond(emb)
 
+
 @plugin.include
 @arc.slash_command("voice", description="Активность в голосовом канале.")
 async def voice_active(
@@ -416,15 +416,22 @@ async def voice_active(
     now = int(time())
     user_voice = voice_start_times.get(user.id, UserVoice(now, 0, 0, 0))
     duration = round((now - user_voice.start) / 60)
-    emb = _voice_stats(user, duration, user_voice.xp_buffer, active)
+    total_xp = (
+        user_voice.xp_buffer
+        + round((now - user_voice.start_buffer) / 60) * user_voice.modifier
+    )
+
+    emb = _voice_stats(user, duration, total_xp, active)
     emb.color = hikari.Color(0x5C991F)
     if user_voice.xp_buffer > 0:
-        emb.add_field("Подсказка", (
-            "- Xp зависит от типа активности в голосовом канале.\n"
-            "- Опыт начисляется после выхода из голосового канала."
-        ))
+        emb.add_field(
+            "Подсказка",
+            (
+                "- Xp зависит от типа активности в голосовом канале.\n"
+                "- Опыт начисляется после выхода из голосового канала."
+            ),
+        )
     await ctx.respond(emb)
-
 
 
 # Загрузчики и выгрузчики плагина
@@ -482,8 +489,6 @@ def loader(client: arc.GatewayClient) -> None:
 
     db = client.get_type_dependency(ChioDatabase)
     db.register("active", ActiveTable)
-    active = client.get_type_dependency(ActiveTable)
-    active.add_level_up_handler(on_level_up)
 
     cm = client.get_type_dependency(PluginConfigManager)
     cm.register("levels", LevelsConfig)
