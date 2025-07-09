@@ -16,7 +16,7 @@ import miru
 from loguru import logger
 
 from chioricord.config import PluginConfigManager, config
-from chioricord.db import ChioDatabase
+from chioricord.db import ChioDB
 
 # Глобальные переменные
 # =====================
@@ -77,7 +77,7 @@ async def on_command(ctx: arc.GatewayContext) -> None:
 @dp.add_startup_hook
 @dp.inject_dependencies
 async def on_startup(
-    client: arc.GatewayClient, db: ChioDatabase = arc.inject()
+    client: arc.GatewayClient, db: ChioDB = arc.inject()
 ) -> None:
     """Производим подключение к базе данных."""
     await db.connect()
@@ -124,10 +124,10 @@ def start_bot() -> None:
 
     logger.info("Setup config and database")
     cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
-    db = ChioDatabase(str(config.DB_DSN), dp)
+    db = ChioDB(str(config.DB_DSN), dp)
 
     dp.set_type_dependency(PluginConfigManager, cm)
-    dp.set_type_dependency(ChioDatabase, db)
+    dp.set_type_dependency(ChioDB, db)
 
     # Простой загрузчик расширений
     logger.info("Load plugins from {} ...", EXT_PATH)
