@@ -39,7 +39,7 @@ import arc
 import hikari
 from loguru import logger
 
-from chioricord.db import ChioDatabase
+from chioricord.db import ChioDB
 from libs.coinengine import CoinsTable, OrderBy, UserCoins
 
 # Глобальные переменные
@@ -377,8 +377,8 @@ def loader(client: arc.GatewayClient) -> None:
     Подключаем базу данных монетного хранилища.
     """
     client.add_plugin(plugin)
-    db = client.get_type_dependency(ChioDatabase)
-    db.register("coins", CoinsTable)
+    db = client.get_type_dependency(ChioDB)
+    db.register(CoinsTable)
 
 
 @arc.unloader

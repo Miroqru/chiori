@@ -1,18 +1,17 @@
 """База данных активности участников.
 
-Version: v2.2 (8)
+Version: v2.2.1 (9)
 Author: Milinuri Nirvalen
 """
 
-from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Self
 
 import arc
 import hikari
 from asyncpg import Record
 
-from chioricord.db import ChioDatabase, DBTable
+from chioricord.db import ChioDB, DBTable
 
 
 @dataclass(slots=True)
@@ -26,6 +25,7 @@ class UserActive:
     - xp: Сколько опыта накоплено в текущем уровне.
     """
 
+    user_id: int
     messages: int
     words: int
     voice: int
@@ -33,10 +33,15 @@ class UserActive:
     level: int
     xp: int
 
+    def count_xp(self) -> int:
+        """Сколько xp надо для достижения следующего уровня."""
+        return (self.level**2 * 15) + (self.level * 5) + 10
+
     @classmethod
     def from_row(cls, row: Record) -> Self:
         """Собирает значение из строки базы данных."""
         return cls(
+            user_id=int(row[0]),
             messages=int(row[1]),
             words=int(row[2]),
             voice=int(row[3]),
@@ -45,22 +50,11 @@ class UserActive:
             xp=int(row[6]),
         )
 
-    def count_xp(self) -> int:
-        """Сколько xp надо для достижения следующего уровня."""
-        return (self.level**2 * 15) + (self.level * 5) + 10
-
-
-LevelUpHandler = Callable[
-    [ChioDatabase, int, UserActive], Coroutine[Any, Any, None]
-]
-
 
 class LevelUpEvent(hikari.Event):
     """Когда участник повышает свой уровень."""
 
-    def __init__(
-        self, db: ChioDatabase, user_id: int, active: UserActive
-    ) -> None:
+    def __init__(self, db: ChioDB, user_id: int, active: UserActive) -> None:
         self._db = db
         self._user_id = user_id
         self._active = active
@@ -76,7 +70,7 @@ class LevelUpEvent(hikari.Event):
         return self._db.client
 
     @property
-    def db(self) -> ChioDatabase:
+    def db(self) -> ChioDB:
         """Возвращает подключение к базе данных."""
         return self._db
 
@@ -101,9 +95,11 @@ class ActiveTable(DBTable):
     Это будет стимулом для участников больше заниматься активностям.
     """
 
+    __tablename__ = "active"
+
     async def create_table(self) -> None:
         """Создаёт недостающие таблицы для базы данных."""
-        await self.conn.execute(
+        await self.pool.execute(
             "CREATE TABLE IF NOT EXISTS active ("
             "user_id	BIGINT NOT NULL,"
             "messages	INTEGER NOT NULL DEFAULT 0,"
@@ -115,42 +111,48 @@ class ActiveTable(DBTable):
             "PRIMARY KEY(user_id));"
         )
 
-    async def get_top(self, active: str) -> list[tuple[int, UserActive]]:
+    async def get_top(self, active: str) -> list[UserActive]:
         """Таблица лидеров по сообщениям."""
-        cur = await self.conn.fetch(
+        cur = await self.pool.fetch(
             f"SELECT * FROM active ORDER BY {active} DESC LIMIT 10"
         )
-        return [(row[0], UserActive.from_row(row)) for row in cur]
+        return [UserActive.from_row(row) for row in cur]
+
+    async def get_user(self, user_id: int) -> UserActive | None:
+        """Получает пользователя по ID."""
+        cur = await self.pool.fetchrow(
+            "SELECT * FROM active WHERE user_id=$1", user_id
+        )
+        if cur is None:
+            return None
+        return UserActive.from_row(cur)
+
+    async def get_or_default(self, user_id: int) -> UserActive:
+        """Получает пользователя или значение по умолчанию."""
+        user = await self.get_user(user_id)
+        if user is not None:
+            return user
+        return UserActive(user_id, 0, 0, 0, 0, 0, 0)
 
     async def get_position(self, active: str, user_id: int) -> int | None:
         """Таблица лидеров по сообщениям."""
-        cur = await self.conn.fetch(
+        cur = await self.pool.fetch(
             "SELECT COUNT(*) + 1 AS position FROM active "
-            f"WHERE {active} > (SELECT {active} FROM active WHERE user_id = $1)",
+            f"WHERE {active} > (SELECT {active} FROM active "
+            "WHERE user_id = $1)",
             user_id,
         )
         return int(cur[0][0]) if len(cur) > 0 else None
 
-    async def get_user(self, user_id: int) -> UserActive | None:
+    async def set_user(self, user: UserActive) -> UserActive | None:
         """Получает пользователя по ID."""
-        cur = await self.conn.fetch(
-            "SELECT * FROM active WHERE user_id=$1", user_id
+        cur = await self.pool.fetch(
+            "SELECT * FROM active WHERE user_id=$1", user.user_id
         )
         if len(cur) == 0:
-            return None
-        return UserActive.from_row(cur[0])
-
-    async def set_user(
-        self, user_id: int, user: UserActive
-    ) -> UserActive | None:
-        """Получает пользователя по ID."""
-        cur = await self.conn.fetch(
-            "SELECT * FROM active WHERE user_id=$1", user_id
-        )
-        if len(cur) == 0:
-            await self.conn.execute(
+            await self.pool.execute(
                 "INSERT INTO active VALUES($1, $2, $3, $4, $5, $6, $7)",
-                user_id,
+                user.user_id,
                 user.messages,
                 user.words,
                 user.voice,
@@ -158,9 +160,9 @@ class ActiveTable(DBTable):
                 user.level,
                 user.xp,
             )
-            return await self.get_user(user_id)
+            return await self.get_user(user.user_id)
         else:
-            await self.conn.execute(
+            await self.pool.execute(
                 "UPDATE active SET messages=$1, words=$2, voice=$3, "
                 "bumps=$4, level=$5, xp=$6 WHERE user_id=$7",
                 user.messages,
@@ -169,19 +171,9 @@ class ActiveTable(DBTable):
                 user.bumps,
                 user.level,
                 user.xp,
-                user_id,
+                user.user_id,
             )
             return user
-
-    async def get_or_default(self, user_id: int) -> UserActive:
-        """Получает пользователя или значение по умолчанию."""
-        user = await self.get_user(user_id)
-        if user is not None:
-            return user
-        return UserActive(0, 0, 0, 0, 0, 0)
-
-    # Высокоуровневое обновление данных
-    # =================================
 
     async def add_xp(
         self, user: UserActive, user_id: int, xp: int
@@ -196,7 +188,7 @@ class ActiveTable(DBTable):
             user.xp -= next_level
             next_level = user.count_xp()
 
-        await self.set_user(user_id, user)
+        await self.set_user(user)
         if user.level != start_level:
             self._db.client.app.event_manager.dispatch(
                 LevelUpEvent(self._db, user_id, user)

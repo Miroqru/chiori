@@ -7,7 +7,7 @@
 - /index [item_id]: Детальную информацию о предмете.
 - /inventory: Предметы в ваших карманах.
 
-Version: v0.2 (6)
+Version: v0.2.1 (7)
 Author: Milinuri Nirvalen
 """
 
@@ -18,7 +18,7 @@ import arc
 import hikari
 from loguru import logger
 
-from chioricord.db import ChioDatabase
+from chioricord.db import ChioDB
 from libs import inventory
 
 # Глобальные переменные
@@ -185,9 +185,9 @@ def loader(client: arc.GatewayClient) -> None:
     Подключаем базу данных индекса предметов и инвентаря.
     """
     client.add_plugin(plugin)
-    db = client.get_type_dependency(ChioDatabase)
-    db.register("index", inventory.ItemIndex)
-    db.register("inventory", inventory.Inventory)
+    db = client.get_type_dependency(ChioDB)
+    db.register(inventory.ItemIndex)
+    db.register(inventory.Inventory)
 
 
 @arc.unloader

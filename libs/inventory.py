@@ -6,7 +6,7 @@
 
 Пока что в инвентаре не будет каких-либо ограничений на предметы.
 
-Version: 0.6 (12)
+Version: 0.6.1 (13)
 Author: Milinuri Nirvalen
 """
 
@@ -16,7 +16,7 @@ from typing import Self
 
 from asyncpg import Record
 
-from chioricord.db import ChioDatabase, DBTable, ItemTable
+from chioricord.db import ChioDB, DBTable
 
 
 class ItemIndexError(Exception):
@@ -71,15 +71,17 @@ class InventoryItem:
 # ==============================
 
 
-class ItemIndex(ItemTable[Item]):
+class ItemIndex(DBTable):
     """Индекс предметов.
 
     Хранит сведения о всех существующих предметах.
     """
 
+    __tablename__ = "index"
+
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
-        await self.conn.execute(
+        await self.pool.execute(
             'CREATE TABLE IF NOT EXISTS "index" ('
             '"id"	SERIAL PRIMARY KEY,'
             '"name"	TEXT NOT NULL,'
@@ -94,11 +96,11 @@ class ItemIndex(ItemTable[Item]):
         необходимо собрать список предметов.
         """
         if rare is not None:
-            items = await self.conn.fetch(
+            items = await self.pool.fetch(
                 "SELECT * FROM 'index' WHERE rare=?", (rare,)
             )
         else:
-            items = await self.conn.fetch("SELECT * FROM 'index'")
+            items = await self.pool.fetch("SELECT * FROM 'index'")
         return [Item.from_row(row) for row in items]
 
     async def get(self, id: int) -> Item | None:
@@ -106,7 +108,7 @@ class ItemIndex(ItemTable[Item]):
 
         Если такого предмета нет. вернёт None.
         """
-        cur = await self.conn.fetchrow("SELECT * FROM 'index' WHERE id=$1", id)
+        cur = await self.pool.fetchrow("SELECT * FROM 'index' WHERE id=$1", id)
         return None if cur is None else Item.from_row(cur)
 
     async def get_or_create(self, id: int) -> Item:
@@ -119,14 +121,14 @@ class ItemIndex(ItemTable[Item]):
 
     async def get_random(self, rare: int) -> Item | None:
         """Получает случайные предметы по их редкости."""
-        cur = await self.conn.fetch("SELECT * FROM 'index' WHERE rare=$1", rare)
+        cur = await self.pool.fetch("SELECT * FROM 'index' WHERE rare=$1", rare)
         if len(cur) == 0:
             return None
         return Item.from_row(choice(cur))
 
     async def add(self, item: Item) -> None:
         """Добавляет новый предмет в индекс."""
-        await self.conn.execute(
+        await self.pool.execute(
             "INSERT INTO 'index' (name,description,rare) VALUES($1,$2,$3)",
             item.name,
             item.description,
@@ -135,7 +137,7 @@ class ItemIndex(ItemTable[Item]):
 
     async def remove(self, item_id: int) -> None:
         """удаляет предмет из индекса по его id."""
-        await self.conn.execute("DELETE FROM 'index' WHERE id=$1", item_id)
+        await self.pool.execute("DELETE FROM 'index' WHERE id=$1", item_id)
 
 
 class Inventory(DBTable):
@@ -144,7 +146,7 @@ class Inventory(DBTable):
     Каждый пользователь может хранить несколько одинаковых предметов.
     """
 
-    def __init__(self, db: ChioDatabase) -> None:
+    def __init__(self, db: ChioDB) -> None:
         super().__init__(db)
         self._index: ItemIndex | None = None
 
@@ -161,7 +163,7 @@ class Inventory(DBTable):
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
-        await self.conn.execute(
+        await self.pool.execute(
             'CREATE TABLE IF NOT EXISTS "inventory" ('
             '"user_id"	BIGINT,'
             '"item_id"	INTEGER,'
@@ -175,7 +177,7 @@ class Inventory(DBTable):
 
     async def get(self, user_id: int) -> list[InventoryItem]:
         """Получает инвентарь пользователя."""
-        items = await self.conn.fetch(
+        items = await self.pool.fetch(
             "SELECT item_id, amount FROM inventory WHERE user_id=$1", user_id
         )
         return [
@@ -189,7 +191,7 @@ class Inventory(DBTable):
         self, user_id: int, item_id: int
     ) -> InventoryItem | None:
         """получает информацию о предмете из инвентаря пользователя."""
-        cur = await self.conn.fetchrow(
+        cur = await self.pool.fetchrow(
             "SELECT item_id, amount FROM inventory "
             "WHERE user_id=$1 AND item_id=$2",
             user_id,
@@ -208,13 +210,13 @@ class Inventory(DBTable):
 
     async def add(self, user_id: int, item_id: int, amount: int) -> None:
         """Добавляет предметы в инвентарь пользователю."""
-        await self.conn.execute(
+        await self.pool.execute(
             "INSERT INTO inventory VALUES($1, $2, $3)", user_id, item_id, amount
         )
 
     async def remove(self, user_id: int, item_id: int) -> None:
         """удаляет предметы из инвентаря пользователя."""
-        await self.conn.execute(
+        await self.pool.execute(
             "DELETE FROM inventory WHERE user_id=$1 AND item_id=$2",
             user_id,
             item_id,
@@ -222,7 +224,7 @@ class Inventory(DBTable):
 
     async def clear(self, user_id: int) -> None:
         """Очищает инвентарь пользователя."""
-        await self.conn.execute(
+        await self.pool.execute(
             "DELETE FROM inventory WHERE user_id=$1", user_id
         )
 
@@ -235,7 +237,7 @@ class Inventory(DBTable):
         if in_inventory is None:
             await self.add(user_id, item_id, amount)
         else:
-            await self.conn.execute(
+            await self.pool.execute(
                 "UPDATE inventory SET amount=$1 "
                 "WHERE user_id=$2 AND item_id=$3",
                 in_inventory.amount + amount,
@@ -256,7 +258,7 @@ class Inventory(DBTable):
             await self.remove(user_id, item_id)
             return in_inventory
         else:
-            await self.conn.execute(
+            await self.pool.execute(
                 "UPDATE inventory SET amount=$1 "
                 "WHERE user_id=$2 AND item_id=$3",
                 in_inventory.amount - amount,

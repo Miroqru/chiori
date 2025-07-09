@@ -21,7 +21,7 @@ import hikari
 from loguru import logger
 
 from chioricord.config import PluginConfig, PluginConfigManager
-from chioricord.db import ChioDatabase
+from chioricord.db import ChioDB
 from libs.active_levels import ActiveTable, LevelUpEvent, UserActive
 
 plugin = arc.GatewayPlugin("Active levels")
@@ -327,12 +327,12 @@ async def message_top(
         header = "Бампам"
 
     leaderboard = ""
-    for i, (user_id, active) in enumerate(leaders):
-        user = ctx.client.cache.get_user(user_id)
+    for i, active in enumerate(leaders):
+        user = ctx.client.cache.get_user(active.user_id)
         if user is not None:
             name = user.display_name
         else:
-            user = await ctx.client.rest.fetch_user(user_id)
+            user = await ctx.client.rest.fetch_user(active.user_id)
             name = user.display_name
 
         points = _get_points(active, group)
@@ -416,7 +416,7 @@ async def voice_active(
     now = int(time())
     user_voice = voice_start_times.get(user.id, UserVoice(now, 0, 0, 0))
     duration = round((now - user_voice.start) / 60)
-    total_xp = (
+    total_xp = round(
         user_voice.xp_buffer
         + round((now - user_voice.start_buffer) / 60) * user_voice.modifier
     )
@@ -487,8 +487,8 @@ def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
 
-    db = client.get_type_dependency(ChioDatabase)
-    db.register("active", ActiveTable)
+    db = client.get_type_dependency(ChioDB)
+    db.register(ActiveTable)
 
     cm = client.get_type_dependency(PluginConfigManager)
     cm.register("levels", LevelsConfig)

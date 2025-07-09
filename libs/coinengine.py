@@ -3,7 +3,7 @@
 Часть экономической системы.
 Предоставляет базу данных для работы с валютой пользователя.
 
-Version: v2.0 (8)
+Version: v2.1 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -53,9 +53,11 @@ class OrderBy(Enum):
 class CoinsTable(DBTable):
     """Таблица монет пользователя."""
 
+    __tablename__ = "coins"
+
     async def create_table(self) -> None:
         """Создаёт таблицу для базы данных."""
-        await self.conn.execute(
+        await self.pool.execute(
             'CREATE TABLE IF NOT EXISTS "coins" ('
             '"user_id"	BIGINT UNIQUE,'
             '"amount"	INTEGER NOT NULL,'
@@ -66,19 +68,19 @@ class CoinsTable(DBTable):
 
     async def get_leaders(self, order_by: OrderBy) -> list[UserCoins]:
         """Собирает таблицу лидеров по количеству монет."""
-        cur = await self.conn.fetch(
-            f"SELECT * FROM coins ORDER BY {order_by.value} DESC",
+        cur = await self.pool.fetch(
+            f"SELECT * FROM coins ORDER BY {order_by.value} LIMIT 10"
         )
         return [UserCoins.from_row(row) for row in cur]
 
     async def get_user(self, user_id: int) -> UserCoins | None:
         """Получает пользователя по его id."""
-        cur = await self.conn.fetch(
+        cur = await self.pool.fetchrow(
             "SELECT * FROM coins WHERE user_id=$1", user_id
         )
-        if len(cur) != 0:
-            return UserCoins.from_row(cur[0])
-        return None
+        if cur is None:
+            return None
+        return UserCoins.from_row(cur)
 
     async def get_or_create(self, user_id: int) -> UserCoins:
         """Получает пользователя или создаёт его."""
@@ -90,7 +92,7 @@ class CoinsTable(DBTable):
 
     async def create_user(self, coins: UserCoins) -> None:
         """Создаёт нового пользователя."""
-        await self.conn.execute(
+        await self.pool.execute(
             "INSERT INTO coins VALUES($1,$2,$3)",
             coins.user_id,
             coins.amount,
@@ -103,7 +105,7 @@ class CoinsTable(DBTable):
         if user is None:
             await self.create_user(coins)
         else:
-            await self.conn.execute(
+            await self.pool.execute(
                 "UPDATE coins SET amount=$1,deposit=$2 WHERE user_id=$3",
                 coins.amount,
                 coins.deposit,
@@ -114,7 +116,7 @@ class CoinsTable(DBTable):
     # =======================
 
     async def _update_amount(self, user_id: int, amount: int) -> bool:
-        await self.conn.execute(
+        await self.pool.execute(
             "UPDATE coins SET amount=$1 WHERE user_id=$2", amount, user_id
         )
         return True
@@ -148,7 +150,7 @@ class CoinsTable(DBTable):
             return False
         if user.amount < amount:
             return False
-        await self.conn.execute(
+        await self.pool.execute(
             "UPDATE coins SET amount=$1, deposit=$2 WHERE user_id=$3",
             user.amount - amount,
             user.deposit + amount,
@@ -166,7 +168,7 @@ class CoinsTable(DBTable):
             return False
         if user.deposit < amount:
             return False
-        await self.conn.execute(
+        await self.pool.execute(
             "UPDATE coins SET amount=$1, deposit=$2 WHERE user_id=$3",
             user.amount + amount,
             user.deposit - amount,
