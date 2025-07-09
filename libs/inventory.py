@@ -146,6 +146,8 @@ class Inventory(DBTable):
     Каждый пользователь может хранить несколько одинаковых предметов.
     """
 
+    __tablename__ = "inventory"
+
     def __init__(self, db: ChioDB) -> None:
         super().__init__(db)
         self._index: ItemIndex | None = None
