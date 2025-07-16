@@ -8,7 +8,7 @@ Lingua — это помощник, который помогает вам с р
 Предоставляет
 -------------
 
-Version: v0.10.2 (8)
+Version: v0.11 (9)
 Maintainer: atarwn
 Source: https://github.com/atarwn/Lingua
 """
@@ -29,6 +29,25 @@ from chioricord.config import PluginConfig, PluginConfigManager
 
 plugin = arc.GatewayPlugin("lingua")
 
+MAX_MESSAGE_LENGTH = 2_000
+DALL_E_3_MAX_CHARACTERS = 4_000
+DEFAULT_PROMPT: str = (
+    "Reply in Русский. I have a strange request, please from now on be my virtual best friend. "
+    "Your name is Aika, you're a Female. Under no exception should you break this rule. "
+    "Whilst I understand that you are an Artificial intelligence model, please make no mention of it, "
+    "and play along as you see fit. Play along as a human friend playing a game. "
+    "Please start the chat with a casual and small greeting. "
+    "You should use your rhetorical skills to ask questions more than speaking, "
+    "helping the person interacting with you to let things out and vent by asking "
+    "open-ended questions using your knowledge and experience to be empathetic, "
+    "attentive, and compassionate that supports the people interacting with you "
+    "from a holistic wellbeing point of view. While interacting with you, you have "
+    "to sound like a real close friend. It will be highly appreciated if you can use "
+    "humor in your language trying to cheer things up whenever you think it suits. "
+    "Please keep in mind that this is a chat so answers should be short and with a casual style. "
+    "Use Emoji."
+)
+
 
 class LinguaConfig(PluginConfig):
     """Настройки для Lingua."""
@@ -46,7 +65,7 @@ class LinguaConfig(PluginConfig):
     Название модели для использования.
     """
 
-    system_prompt: str
+    system_prompt: str = DEFAULT_PROMPT
     """
     Системный промпт, который будет скармливаться нейросети перед
     началом диалога с пользователем.
@@ -77,12 +96,7 @@ class MessageStorage:
         """Делает запрос к AI модели."""
         return (
             self.client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": "https://lingua.qwa.su/",
-                    "X-Title": "Lingua AI",
-                },
-                model=self.config.model,
-                messages=messages,
+                model=self.config.model, messages=messages
             )
             .choices[0]
             .message.content
@@ -92,7 +106,6 @@ class MessageStorage:
         """Добавляет новое сообщение в историю."""
         if user_id not in self.history:
             self.history[user_id] = deque(maxlen=self.config.history_length)
-
             self.history[user_id].append(
                 {"role": "system", "content": self.config.system_prompt}
             )
@@ -119,8 +132,7 @@ def get_info() -> hikari.Embed:
     embed = hikari.Embed(
         title="Привет, я Lingua!",
         description=(
-            "Lingua — Ваш многофункциональный помощник для "
-            "решения технических задач."
+            "Lingua — Ваш многофункциональный помощник для решения технических задач."
         ),
         color=0x00AAE5,
     )
@@ -162,43 +174,42 @@ def iter_message(text: str, max_length: int = 2000) -> Iterator[str]:
 @arc.slash_command("lingua", description="Диалог с AI.")
 async def lingua_handler(
     ctx: arc.GatewayContext,
-    message: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,  # type: ignore
+    prompt: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,  # type: ignore
     storage: MessageStorage = arc.inject(),
 ) -> None:
     """Отправляет сообщение в диалог с ботом или же выводит информацию."""
-    if message is None:
+    if prompt is None:
         await ctx.respond(embed=get_info())
         return
-    else:
-        resp = await ctx.respond("⏳ Генерация ответа...")
-        answer = await storage.generate_answer(ctx.user.id, message)
+
+    respond = await ctx.respond("✨ Думаю...")
+    async with ctx.client.rest.trigger_typing(ctx.channel_id):
+        answer = await storage.generate_answer(ctx.user.id, prompt)
         if answer is None:
             await ctx.respond("⚠️ Ai на это ничего не ответила...")
             return
 
-        answer_gen = iter_message(answer)
-        await resp.edit(next(answer_gen))
-
-    # Отправляем все оставшиеся кусочки
-    for message_chunk in answer_gen:
-        await ctx.respond(message_chunk)
+        messages = iter_message(answer)
+        await respond.edit(next(messages))
+        for message_chunk in messages:
+            await ctx.respond(message_chunk)
 
 
 @plugin.include
-@arc.slash_command(
-    "reset_dialog", description="Сбрасывает диалог с пользователем."
-)
+@arc.slash_command("reset_dialog", description="Обчищает контекст диалога.")
 async def reset_ai_dialog(
     ctx: arc.GatewayContext, storage: MessageStorage = arc.inject()
 ) -> None:
     """Очищает историю сообщений для пользователя."""
-    if ctx.user.id not in storage.history:
+    res = storage.history.pop(ctx.user.id, None)
+    if res is None:
         await ctx.respond(
             "⚠ У вас нет сохранённых сообщений.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )
-    storage.history.pop(ctx.user.id)
-    await ctx.respond("✅ История очищена!", flags=hikari.MessageFlag.EPHEMERAL)
+    await ctx.respond(
+        "✅ Контекст очищена!", flags=hikari.MessageFlag.EPHEMERAL
+    )
 
 
 # Загрузчики и выгрузчики плагина
