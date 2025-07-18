@@ -8,13 +8,15 @@ Lingua — это помощник, который помогает вам с р
 Предоставляет
 -------------
 
-Version: v0.11 (9)
+Version: v0.12 (10)
 Maintainer: atarwn
 Source: https://github.com/atarwn/Lingua
 """
 
 from collections import deque
-from collections.abc import Iterator
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal, Self, cast
 
 import arc
 import hikari
@@ -22,7 +24,7 @@ from loguru import logger
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chiorium.config import PluginConfig, PluginConfigManager
 
 # Глобальные переменные
 # =====================
@@ -79,9 +81,116 @@ class LinguaConfig(PluginConfig):
     """
 
 
-# Немножечко типов
+# Дополнительные функции
+# ======================
+
+
+async def _get_channel(
+    client: arc.GatewayClient, channel_id: int
+) -> hikari.PartialChannel:
+    channel = client.cache.get_guild_channel(channel_id)
+    if channel is not None:
+        return channel
+    return await client.rest.fetch_channel(channel_id)
+
+
+async def _get_guild(client: arc.GatewayClient, guild_id: int) -> hikari.Guild:
+    guild = client.cache.get_guild(guild_id)
+    if guild is not None:
+        return guild
+    return await client.rest.fetch_guild(guild_id)
+
+
+@dataclass(slots=True, frozen=True)
+class ChatContext:
+    user: hikari.User
+    channel: hikari.PartialChannel
+    guild: hikari.Guild | None
+
+    @classmethod
+    def from_ctx(cls, ctx: arc.GatewayContext) -> Self:
+        return cls(ctx.user, ctx.channel, ctx.get_guild())
+
+    @classmethod
+    async def from_event(
+        cls, client: arc.GatewayClient, event: hikari.MessageCreateEvent
+    ) -> Self:
+        return cls(
+            event.author,
+            await _get_channel(client, event.channel_id),
+            await _get_guild(client, event.message.guild_id)
+            if event.message.guild_id is not None
+            else None,
+        )
+
+    @property
+    def chat_prompt(self) -> str:
+        now = datetime.now().strftime("%Y/%m/%d")
+        if self.guild is None:
+            location = "Do you communicate in private messages."
+        else:
+            location = f"you are communicating on the {self.guild.name} discord server in the {self.channel.name} channel"
+        return f"You're talking to {self.user.display_name} with the username {self.user.username}. Today is {now}. {location}"
+
+
+def get_info() -> hikari.Embed:
+    """Немного информации о расширении."""
+    embed = hikari.Embed(
+        title="Привет, я Aika!",
+        description=(
+            "Ваш многофункциональный помощник для решения технических задач.\n"
+            "Для начала общения напиши мне личное сообщение, упомяните меня или "
+            "ответьте на одно из моих сообщений."
+        ),
+        color=0x00AAE5,
+    )
+    embed.set_thumbnail(
+        "https://raw.githubusercontent.com/atarwn/Lingua/refs/heads/main/assets/lingua.png"
+    )
+    embed.set_footer(
+        text="Lingua v0.13 © Milinuri, 2024-2025", icon="https://miroq.ru/ava.jpg"
+    )
+    return embed
+
+
+# Контекст переписки
+# ==================
+
+
 MessagesT = deque[ChatCompletionMessageParam]
-HistoryT = dict[int, MessagesT]
+RoleT = Literal["user"] | Literal["system"] | Literal["assistant"]
+
+
+@dataclass(slots=True)
+class UserContext:
+    """Пользовательский контекст переписки."""
+
+    model: str
+    chat: hikari.Snowflake | None
+    messages: MessagesT
+    system_prompt: str
+    chat_prompt: str
+
+    def add_message(self, content: str, role: RoleT = "user") -> None:
+        """Добавляет сообщение в историю."""
+        self.messages.append({"role": role, "content": content})  # type: ignore
+
+    @property
+    def history(self) -> list[ChatCompletionMessageParam]:
+        res: list[ChatCompletionMessageParam] = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": self.chat_prompt},
+        ]
+        res.extend(self.messages)
+        return res
+
+    def update_chat(self, ctx: ChatContext) -> None:
+        """Обновляет информацию о текущем чате."""
+        self.chat = ctx.channel.id
+        self.chat_prompt = ctx.chat_prompt
+
+
+HistoryT = dict[int, UserContext]
 
 
 class MessageStorage:
@@ -92,78 +201,97 @@ class MessageStorage:
         self.history: HistoryT = {}
         self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
 
-    async def get_completion(self, messages: MessagesT) -> str | None:
+    async def create_context(self, ctx: ChatContext) -> UserContext:
+        """Создаёт новый контекст переписки с пользователем."""
+        return UserContext(
+            self.config.model,
+            ctx.channel.id,
+            deque(maxlen=self.config.history_length),
+            self.config.system_prompt,
+            ctx.chat_prompt,
+        )
+
+    async def set_model(self, ctx: ChatContext, model: str) -> None:
+        """Устанавливает модель для AI."""
+        context = self.history.get(ctx.user.id)
+        if context is None:
+            context = await self.create_context(ctx)
+        context.model = model
+
+    async def get_completion(self, context: UserContext) -> str | None:
         """Делает запрос к AI модели."""
         return (
             self.client.chat.completions.create(
-                model=self.config.model, messages=messages
+                model=context.model, messages=context.history
             )
             .choices[0]
             .message.content
         )
 
-    async def add_to_history(self, user_id: int, message: str) -> None:
-        """Добавляет новое сообщение в историю."""
-        if user_id not in self.history:
-            self.history[user_id] = deque(maxlen=self.config.history_length)
-            self.history[user_id].append(
-                {"role": "system", "content": self.config.system_prompt}
-            )
-        self.history[user_id].append({"role": "user", "content": message})
-
-    async def generate_answer(self, user_id: int, message: str) -> str | None:
+    async def generate_answer(self, content: str, ctx: ChatContext) -> str | None:
         """Генерирует некоторый ответ от AI."""
-        await self.add_to_history(user_id, message)
-        completion = await self.get_completion(self.history[user_id])
+        context = self.history.get(ctx.user.id)
+        if context is None:
+            context = await self.create_context(ctx)
+        elif ctx.channel.id != context.chat:
+            context.update_chat(ctx)
+
+        context.add_message(content)
+        completion = await self.get_completion(context)
         if completion is None:
             return None
-        self.history[user_id].append(
-            {"role": "assistant", "content": completion}
-        )
+
+        context.add_message(completion, "assistant")
         return completion
 
 
-# Дополнительные функции
-# ======================
+# Обработка событий
+# =================
 
 
-def get_info() -> hikari.Embed:
-    """Немного информации о расширении."""
-    embed = hikari.Embed(
-        title="Привет, я Lingua!",
-        description=(
-            "Lingua — Ваш многофункциональный помощник для решения технических задач."
-        ),
-        color=0x00AAE5,
-    )
-    embed.set_thumbnail(
-        "https://raw.githubusercontent.com/atarwn/Lingua/refs/heads/main/assets/lingua.png"
-    )
-    embed.set_footer(text="Lingua v0.10 © Qwaderton Labs, 2024-2025")
-    return embed
+@plugin.listen(hikari.MessageCreateEvent)
+@plugin.inject_dependencies
+async def on_message(
+    event: hikari.MessageCreateEvent, storage: MessageStorage = arc.inject()
+) -> None:
+    """Ответ на сообщения пользователей."""
+    if not event.is_human or event.message.content is None:
+        return
 
+    app = cast(hikari.GatewayBotAware, event.app)
+    me = app.get_me()
+    if me is None:
+        raise ValueError("OwnUser can`t be None")
 
-def iter_message(text: str, max_length: int = 2000) -> Iterator[str]:
-    """Разбивает больше сообщение на кусочки по 2000 символов."""
-    while len(text) > 0:
-        if len(text) <= max_length:
-            yield text
-            break
+    is_dm = event.message.guild_id is None
+    if is_dm:
+        content = event.message.content
+    elif me.id in (event.message.user_mentions_ids or []):
+        content = event.message.content[len(me.mention) + 1 :]
+    else:
+        return
 
-        split_at = text.rfind(" ", 0, max_length)
+    context = await ChatContext.from_event(plugin.client, event)
 
-        # Не найдено пробелов, вынужденно разбиваем по max_length
-        if split_at == -1:
-            chunk = text[:max_length]
-            remaining = text[max_length:]
+    # attachment = event.message.attachments[0] if event.message.attachments else None
+    async with app.rest.trigger_typing(event.channel_id):
+        # message = await app.chats.get(event.author_id).send(
+        #     app.open_ai_client,
+        #     content=content,
+        #     image_url=attachment.url if attachment else None,
+        # )
 
-        # Разбиваем после пробела
+        answer = await storage.generate_answer(content, context)
+        if answer is None:
+            await event.message.respond("⚠️ Ai на это ничего не ответила...")
+        elif len(answer) <= MAX_MESSAGE_LENGTH:
+            await event.message.respond(answer, reply=not is_dm)
         else:
-            chunk = text[: split_at + 1]
-            remaining = text[split_at + 1 :]
-
-        yield chunk
-        text = remaining
+            await event.message.respond(
+                "Сообщение оказалось слишком длинным, держите `.txt` файл.",
+                attachment=hikari.Bytes(memoryview(answer.encode()), "message.txt"),
+                reply=True,
+            )
 
 
 # определение команд
@@ -171,7 +299,7 @@ def iter_message(text: str, max_length: int = 2000) -> Iterator[str]:
 
 
 @plugin.include
-@arc.slash_command("lingua", description="Диалог с AI.")
+@arc.slash_command("chat", description="Диалог с AI.")
 async def lingua_handler(
     ctx: arc.GatewayContext,
     prompt: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,  # type: ignore
@@ -182,21 +310,23 @@ async def lingua_handler(
         await ctx.respond(embed=get_info())
         return
 
+    chat_ctx = ChatContext.from_ctx(ctx)
     respond = await ctx.respond("✨ Думаю...")
     async with ctx.client.rest.trigger_typing(ctx.channel_id):
-        answer = await storage.generate_answer(ctx.user.id, prompt)
+        answer = await storage.generate_answer(prompt, chat_ctx)
         if answer is None:
             await ctx.respond("⚠️ Ai на это ничего не ответила...")
-            return
-
-        messages = iter_message(answer)
-        await respond.edit(next(messages))
-        for message_chunk in messages:
-            await ctx.respond(message_chunk)
+        elif len(answer) <= MAX_MESSAGE_LENGTH:
+            await respond.edit(answer)
+        else:
+            await respond.edit(
+                "Сообщение оказалось слишком длинным, держите `.txt` файл.",
+                attachment=hikari.Bytes(memoryview(answer.encode()), "message.txt"),
+            )
 
 
 @plugin.include
-@arc.slash_command("reset_dialog", description="Обчищает контекст диалога.")
+@arc.slash_command("clear_context", description="Обчищает контекст диалога.")
 async def reset_ai_dialog(
     ctx: arc.GatewayContext, storage: MessageStorage = arc.inject()
 ) -> None:
@@ -207,8 +337,21 @@ async def reset_ai_dialog(
             "⚠ У вас нет сохранённых сообщений.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )
+    await ctx.respond("✅ Контекст очищена!", flags=hikari.MessageFlag.EPHEMERAL)
+
+
+@plugin.include
+@arc.slash_command("model", description="Выбрать AI модель для диалога.")
+async def set_ai_model(
+    ctx: arc.GatewayContext,
+    model: arc.Option[str, arc.StrParams("Желаемая модель")],  # type: ignore
+    storage: MessageStorage = arc.inject(),
+) -> None:
+    """Очищает историю сообщений для пользователя."""
+    context = ChatContext.from_ctx(ctx)
+    await storage.set_model(context, model)
     await ctx.respond(
-        "✅ Контекст очищена!", flags=hikari.MessageFlag.EPHEMERAL
+        f"✅ Выбрана модель `{model}`!", flags=hikari.MessageFlag.EPHEMERAL
     )
 
 
@@ -234,3 +377,4 @@ def loader(client: arc.GatewayClient) -> None:
 def unloader(client: arc.GatewayClient) -> None:
     """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
+
