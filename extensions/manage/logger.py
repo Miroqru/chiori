@@ -7,11 +7,26 @@
 Предоставляет
 -------------
 
+- Channel:
+    - @GuildChannelCreateEvent
+    - @GuildChannelDeleteEvent
+    - @GuildChannelUpdateEvent
+    - @GuildPinsUpdateEvent
+
+- Threads:
+    - @GuildThreadCreateEvent
+    - @GuildThreadDeleteEvent
+    - @GuildThreadUpdateEvent
+
+- Invites
+    - @InviteCreateEvent
+    - @InviteDeleteEvent
+
+- Webhooks:
+    - @WebhookUpdateEvent
+
 - @GuildMessageDeleteEvent
 - @GuildMessageUpdateEvent
-- @GuildChannelCreateEvent
-- @GuildChannelUpdateEvent
-- @GuildChannelDeleteEvent
 - @RoleCreateEvent
 - @RoleUpdateEvent
 - @RoleDeleteEvent
@@ -19,7 +34,7 @@
 - @MemberDeleteEvent
 - @voiceStateUpdateEvent
 
-Version: v1.1.1 (14)
+Version: v1.2 (18)
 Author: Milinuri Nirvalen
 """
 
@@ -42,6 +57,467 @@ class LoggerConfig(PluginConfig):
     ID канала для отправки событий.
     Именно сюда будут отправляться все события бота.
     """
+
+    async def send(self, emb: hikari.Embed) -> None:
+        """Отправляет сообщение в канал."""
+        await plugin.client.rest.create_message(self.channel_id, emb)
+
+
+_COLOR_CREATE = hikari.Color(0x33FFCC)
+_COLOR_UPDATE = hikari.Color(0x66CCFF)
+_COLOR_DELETE = hikari.Color(0xFF66CC)
+
+# Общее форматирование
+# ====================
+
+
+def _format_duration(seconds: int) -> str:
+    """Преобразует количество секунд в более точное время."""
+    minutes = seconds // 60
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    if days > 0:
+        return f"{days} д. {hours:02d} ч. {minutes:02d} м."
+    return f"{hours:02d} ч. {minutes:02d} м."
+
+
+def _format_time(time: datetime, now: datetime | None = None) -> str:
+    tf = time.strftime("%d/%m/%Y, %H:%M:%S")
+    if now is not None:
+        seconds = int((now - time).total_seconds())
+        tf += f" ({_format_duration(seconds)})"
+    return tf
+
+
+# Получение данных из кеша
+# ========================
+
+
+def _get_channel(channel_id: int) -> str:
+    channel = plugin.client.cache.get_guild_channel(channel_id)
+    if channel is not None:
+        return channel.mention
+    return f"`{channel_id}`"
+
+
+async def _get_guild(guild_id: int) -> hikari.Guild:
+    return plugin.client.cache.get_guild(
+        guild_id
+    ) or await plugin.client.rest.fetch_guild(guild_id)
+
+
+# Отслеживание каналов
+# ====================
+
+
+def channel_info(
+    channel: hikari.PermissibleGuildChannel, now: datetime | None = None
+) -> str:
+    """Возвращает краткую информацию о канале."""
+    nsfw = " 🔞" if channel.is_nsfw else ""
+    return (
+        f"`{channel.type}` {channel.name}{nsfw}\n\n"
+        f"Позиция: {channel.position}\n"
+    )
+
+
+def channel_compare(
+    old: hikari.PermissibleGuildChannel | None,
+    new: hikari.PermissibleGuildChannel,
+    now: datetime,
+) -> str:
+    """Сравнивает изменения двух каналов."""
+    if old is None:
+        return channel_info(new, now)
+
+    status: list[str] = []
+    items = (
+        ("name", old.name, new.name),
+        ("type", old.type, new.type),
+        ("position", old.position, new.position),
+        ("nsfw", old.is_nsfw, new.is_nsfw),
+    )
+
+    for name, old_attr, new_attr in items:
+        if old_attr != new_attr:
+            status.append(f"{name}: `{old_attr}` -> `{new_attr}`")
+        else:
+            status.append(f"{name}: `{new_attr}`")
+
+    status.append(f"Создан: {_format_time(new.created_at, now)}")
+    return "\n".join(status)
+
+
+@plugin.listen(hikari.GuildChannelCreateEvent)
+@plugin.inject_dependencies()
+async def on_channel_create(
+    event: hikari.GuildChannelCreateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """при создании нового канала."""
+    emb = hikari.Embed(
+        title="📁 Channel create",
+        description=channel_info(event.channel),
+        color=_COLOR_CREATE,
+        timestamp=datetime.now(UTC),
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Channel", event.channel.mention, inline=True)
+    await config.send(emb)
+
+
+@plugin.listen(hikari.GuildChannelDeleteEvent)
+@plugin.inject_dependencies()
+async def on_channel_delete(
+    event: hikari.GuildChannelDeleteEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """При удалении канала."""
+    now = datetime.now(tz=UTC)
+    emb = hikari.Embed(
+        title="📁 Channel delete",
+        description=channel_info(event.channel, now),
+        color=_COLOR_DELETE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Channel", event.channel.mention, inline=True)
+    await config.send(emb)
+
+
+@plugin.listen(hikari.GuildChannelUpdateEvent)
+@plugin.inject_dependencies()
+async def on_channel_update(
+    event: hikari.GuildChannelUpdateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """при создании новой роли."""
+    now = datetime.now(tz=UTC)
+    emb = hikari.Embed(
+        title="📁 Channel update",
+        description=channel_compare(event.old_channel, event.channel, now),
+        color=_COLOR_UPDATE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Channel", event.channel.mention, inline=True)
+    await plugin.client.rest.create_message(config.channel_id, emb)
+
+
+@plugin.listen(hikari.GuildPinsUpdateEvent)
+@plugin.inject_dependencies()
+async def on_pins_update(
+    event: hikari.GuildPinsUpdateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """Когда в канале прикрепляется/открепляется сообщение."""
+    now = datetime.now(tz=UTC)
+    if event.last_pin_timestamp is not None:
+        status = f"Last pin: {_format_time(event.last_pin_timestamp, now)}"
+    else:
+        status = "No pins in channel"
+
+    emb = hikari.Embed(
+        title="📌 Pins update",
+        description=status,
+        color=_COLOR_UPDATE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Channel", _get_channel(event.channel_id), inline=True)
+    await plugin.client.rest.create_message(config.channel_id, emb)
+
+
+# Отслеживание веток
+# ==================
+
+
+def thread_info(thread: hikari.GuildThreadChannel, now: datetime) -> str:
+    """Краткая информация о созданной ветке."""
+    status: list[str] = []
+
+    locked = " 🔒" if thread.is_locked else ""
+    status.append(f"`{thread.type}` {thread.name}{locked}")
+    status.append(f"~members `{thread.approximate_member_count}`")
+    status.append(f"~messages `{thread.approximate_message_count}`")
+    status.append(f"Owner id: `{thread.owner_id}`")
+    status.append(f"Auto archive: {thread.auto_archive_duration}")
+    status.append(f"Rate limit: {thread.rate_limit_per_user}")
+
+    if thread.thread_created_at is not None:
+        status.append(f"Created: {_format_time(thread.thread_created_at, now)}")
+
+    if thread.last_pin_timestamp is not None:
+        status.append(
+            f"Last pin: {_format_time(thread.last_pin_timestamp, now)}"
+        )
+
+    if thread.is_archived:
+        status.append(
+            f"Archived: {_format_time(thread.archive_timestamp, now)}"
+        )
+
+    return "\n".join(status)
+
+
+def thread_compare(
+    old: hikari.GuildThreadChannel | None,
+    new: hikari.GuildThreadChannel,
+    now: datetime,
+) -> str:
+    """Сравнивает изменения двух веток."""
+    if old is None:
+        return thread_info(new, now)
+
+    status: list[str] = []
+    items = (
+        ("Name", old.name, new.name),
+        ("Type", old.type, new.type),
+        ("Locked", old.is_locked, new.is_locked),
+        (
+            "~Members",
+            old.approximate_member_count,
+            new.approximate_member_count,
+        ),
+        (
+            "~Messages",
+            old.approximate_message_count,
+            new.approximate_message_count,
+        ),
+        ("Owner", old.owner_id, new.owner_id),
+        (
+            "Auto archive",
+            old.auto_archive_duration,
+            new.auto_archive_duration,
+        ),
+        (
+            "Rate limit",
+            old.rate_limit_per_user,
+            new.rate_limit_per_user,
+        ),
+    )
+
+    for name, old_attr, new_attr in items:
+        if old_attr != new_attr:
+            status.append(f"{name}: `{old_attr}` -> `{new_attr}`")
+        else:
+            status.append(f"{name}: `{new_attr}`")
+
+    if new.thread_created_at is not None:
+        status.append(f"Created: `{_format_time(new.thread_created_at, now)}`")
+
+    # Сравнение времени последнего закрепления
+    if old.last_pin_timestamp != new.last_pin_timestamp:
+        last_pin_old = (
+            _format_time(old.last_pin_timestamp, now)
+            if old.last_pin_timestamp
+            else "?"
+        )
+        last_pin_new = (
+            _format_time(new.last_pin_timestamp, now)
+            if new.last_pin_timestamp
+            else "?"
+        )
+        status.append(f"Last pin: `{last_pin_old}` -> `{last_pin_new}`")
+    elif new.last_pin_timestamp is not None:
+        status.append(
+            f"Last pin: `{_format_time(new.last_pin_timestamp, now)}`"
+        )
+
+    # Сравнение статуса архивирования
+    if old.is_archived != new.is_archived:
+        status.append(f"Archived: `{old.is_archived}` -> `{new.is_archived}`")
+    elif new.is_archived:
+        status.append("Archived")
+
+    return "\n".join(status)
+
+
+@plugin.listen(hikari.GuildThreadCreateEvent)
+@plugin.inject_dependencies()
+async def on_thread_create(
+    event: hikari.GuildThreadCreateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """при создании новой ветки."""
+    now = datetime.now(UTC)
+    emb = hikari.Embed(
+        title="🌱 Thread create",
+        description=thread_info(event.thread, now),
+        color=_COLOR_CREATE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Thread", event.thread.mention, inline=True)
+    await config.send(emb)
+
+
+@plugin.listen(hikari.GuildThreadDeleteEvent)
+@plugin.inject_dependencies()
+async def on_thread_delete(
+    event: hikari.GuildThreadDeleteEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """При удалении канала."""
+    now = datetime.now(tz=UTC)
+    thread = plugin.client.cache.get_thread(event.thread_id)
+    if thread is not None:
+        status = thread_info(thread, now)
+    else:
+        status = f"`{event.type}` {event.thread_id}"
+
+    emb = hikari.Embed(
+        title="🌱 Thread delete",
+        description=status,
+        color=_COLOR_DELETE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    await config.send(emb)
+
+
+@plugin.listen(hikari.GuildThreadUpdateEvent)
+@plugin.inject_dependencies()
+async def on_thread_update(
+    event: hikari.GuildThreadUpdateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """Когда обновляются данные ветки."""
+    now = datetime.now(tz=UTC)
+    emb = hikari.Embed(
+        title="🌱 Thread update",
+        description=thread_compare(event.old_thread, event.thread, now),
+        color=_COLOR_UPDATE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+    emb.add_field("Thread", event.thread.mention, inline=True)
+    await plugin.client.rest.create_message(config.channel_id, emb)
+
+
+# Отслеживание ссылок-приглашений
+# ===============================
+
+
+def invite_info(invite: hikari.InviteWithMetadata, now: datetime) -> str:
+    """Информация о ссылке-приглашении."""
+    temporary = " ⏳" if invite.is_temporary else ""
+    status = [
+        f"Code: `{invite.code}`{temporary}",
+        f"Uses: `{invite.uses}/{invite.max_uses or '?'}`",
+        f"Created: {_format_time(invite.created_at, now)}",
+    ]
+
+    if invite.expires_at is not None:
+        expired_delta = int((invite.expires_at - now).total_seconds())
+        status.append(f"Expired: {_format_duration(expired_delta)}")
+
+    if invite.max_age is not None:
+        status.append(f"Max age: {invite.max_age}")
+
+    return "\n".join(status)
+
+
+@plugin.listen(hikari.InviteCreateEvent)
+@plugin.inject_dependencies()
+async def on_invite_create(
+    event: hikari.InviteCreateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """Когда создаётся новая ссылка-приглашение на сервер.."""
+    now = datetime.now(tz=UTC)
+    emb = hikari.Embed(
+        title="📎 Invite create",
+        description=invite_info(event.invite, now),
+        color=_COLOR_CREATE,
+        timestamp=now,
+    )
+
+    inviter = event.invite.inviter
+    if inviter is not None:
+        emb.set_author(
+            name=inviter.display_name or inviter.global_name,
+            icon=inviter.make_avatar_url(),
+        )
+
+    guild = event.invite.guild or await _get_guild(event.guild_id)
+    emb.set_thumbnail(guild.make_icon_url())
+    emb.add_field("Guild", guild.name, inline=True)
+    emb.add_field("Channel", _get_channel(event.channel_id), inline=True)
+    await plugin.client.rest.create_message(config.channel_id, emb)
+
+
+@plugin.listen(hikari.InviteDeleteEvent)
+@plugin.inject_dependencies()
+async def on_invite_delete(
+    event: hikari.InviteDeleteEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """Когда удаляется ссылка-приглашение на сервер.."""
+    now = datetime.now(tz=UTC)
+    invite = event.old_invite
+    if invite is not None:
+        guild = invite.guild or await _get_guild(event.guild_id)
+        status = invite_info(invite, now)
+        inviter = invite.inviter
+    else:
+        guild = await _get_guild(event.guild_id)
+        status = f"Code: `{event.code}`"
+        inviter = None
+
+    emb = hikari.Embed(
+        title="📎 Invite delete",
+        description=status,
+        color=_COLOR_DELETE,
+        timestamp=now,
+    )
+
+    if inviter is not None:
+        emb.set_author(
+            name=inviter.display_name or inviter.global_name,
+            icon=inviter.make_avatar_url(),
+        )
+
+    emb.set_thumbnail(guild.make_icon_url())
+    emb.add_field("Guild", guild.name, inline=True)
+    emb.add_field("Channel", _get_channel(event.channel_id), inline=True)
+    await plugin.client.rest.create_message(config.channel_id, emb)
+
+
+# Отслеживание webhook
+# ====================
+
+
+@plugin.listen(hikari.WebhookUpdateEvent)
+@plugin.inject_dependencies()
+async def on_webhook_update(
+    event: hikari.WebhookUpdateEvent, config: LoggerConfig = arc.inject()
+) -> None:
+    """Когда обновляются данные webhook."""
+    now = datetime.now(tz=UTC)
+    emb = hikari.Embed(
+        title="📻 Webhook update",
+        description=f"Channel: {_get_channel(event.channel_id)}",
+        color=_COLOR_UPDATE,
+        timestamp=now,
+    )
+
+    guild = await _get_guild(event.guild_id)
+    emb.set_author(name=guild.name, icon=guild.make_icon_url())
+
+    webhooks = await event.fetch_channel_webhooks()
+    for hook in webhooks:
+        emb.add_field(
+            hook.name,
+            f"`{hook.type}` {_format_time(hook.created_at, now)}\n",
+        )
+
+    await plugin.client.rest.create_message(config.channel_id, emb)
 
 
 # Отслеживание сообщений
@@ -111,86 +587,6 @@ async def on_message_update(
     guild = event.get_guild()
     if guild is not None:
         emb.add_field("Guild", guild.name, inline=True)
-
-    await plugin.client.rest.create_message(config.channel_id, emb)
-
-
-# Отслеживание каналов
-# ====================
-
-
-def channel_info(channel: hikari.PermissibleGuildChannel) -> str:
-    """Возвращает краткую информацию о канале."""
-    return (
-        f"`{channel.type}` {channel.name}\n\n"
-        f"Создан: {channel.created_at}\n"
-        f"nsfw: {channel.is_nsfw}\n"
-        f"Позиция: {channel.position}\n"
-    )
-
-
-@plugin.listen(hikari.GuildChannelCreateEvent)
-@plugin.inject_dependencies()
-async def on_channel_create(
-    event: hikari.GuildChannelCreateEvent, config: LoggerConfig = arc.inject()
-) -> None:
-    """при создании новой роли."""
-    emb = hikari.Embed(
-        title="💎 Channel create",
-        description=channel_info(event.channel),
-        color=hikari.Color(0x6699FF),
-        timestamp=datetime.now(tz=UTC),
-    )
-
-    guild = plugin.client.cache.get_guild(event.guild_id)
-    if guild is not None:
-        emb.add_field("Guild", guild.name, inline=True)
-    emb.add_field("Channel", event.channel.mention, inline=True)
-
-    await plugin.client.rest.create_message(config.channel_id, emb)
-
-
-@plugin.listen(hikari.GuildChannelUpdateEvent)
-@plugin.inject_dependencies()
-async def on_channel_update(
-    event: hikari.GuildChannelUpdateEvent, config: LoggerConfig = arc.inject()
-) -> None:
-    """при создании новой роли."""
-    emb = hikari.Embed(
-        title="💎 Channel update",
-        description=channel_info(event.channel),
-        color=hikari.Color(0x66FF99),
-        timestamp=datetime.now(tz=UTC),
-    )
-
-    guild = plugin.client.cache.get_guild(event.guild_id)
-    if guild is not None:
-        emb.add_field("Guild", guild.name, inline=True)
-    emb.add_field("Channel", event.channel.mention, inline=True)
-
-    if event.old_channel is not None:
-        emb.add_field("Оригинал", channel_info(event.old_channel))
-
-    await plugin.client.rest.create_message(config.channel_id, emb)
-
-
-@plugin.listen(hikari.GuildChannelDeleteEvent)
-@plugin.inject_dependencies()
-async def on_channel_delete(
-    event: hikari.GuildChannelDeleteEvent, config: LoggerConfig = arc.inject()
-) -> None:
-    """при создании новой роли."""
-    emb = hikari.Embed(
-        title="💎 Channel delete",
-        description=channel_info(event.channel),
-        color=hikari.Color(0xFF6699),
-        timestamp=datetime.now(tz=UTC),
-    )
-
-    guild = plugin.client.cache.get_guild(event.guild_id)
-    if guild is not None:
-        emb.add_field("Guild", guild.name, inline=True)
-    emb.add_field("Channel", event.channel.mention, inline=True)
 
     await plugin.client.rest.create_message(config.channel_id, emb)
 
@@ -375,13 +771,6 @@ async def on_member_leave(
 # ==============================
 
 
-def _get_channel(channel_id: int) -> str:
-    channel = plugin.client.cache.get_guild_channel(channel_id)
-    if channel is not None:
-        return channel.mention
-    return f"`{channel_id}`"
-
-
 async def _voice_status(state: hikari.VoiceState, app: hikari.RESTAware) -> str:
     if state.channel_id is not None:
         in_channel = _get_channel(state.channel_id)
@@ -448,11 +837,11 @@ async def voice_compare(event: hikari.VoiceStateUpdateEvent) -> hikari.Embed:
     status: list[str] = []
 
     # Переход по каналам
-    new_channel = _get_channel(old.channel_id)
+    new_channel = _get_channel(new.channel_id)
     if old.channel_id == new.channel_id:
         status.append(f"Channel: {new_channel}")
     else:
-        updates.append(f"{_get_channel(new.channel_id)} -> {new_channel}")
+        updates.append(f"{_get_channel(old.channel_id)} -> {new_channel}")
 
     if new.requested_to_speak_at is not None:
         if old.requested_to_speak_at == new.requested_to_speak_at:
