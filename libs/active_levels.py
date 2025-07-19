@@ -101,14 +101,13 @@ class ActiveTable(DBTable):
         """Создаёт недостающие таблицы для базы данных."""
         await self.pool.execute(
             "CREATE TABLE IF NOT EXISTS active ("
-            "user_id	BIGINT NOT NULL,"
+            "user_id	BIGINT NOT NULL UNIQUE PRIMARY KEY,"
             "messages	INTEGER NOT NULL DEFAULT 0,"
             "words	INTEGER NOT NULL DEFAULT 0,"
             "voice	INTEGER NOT NULL DEFAULT 0,"
             "bumps	INTEGER NOT NULL DEFAULT 0,"
             "level	INTEGER NOT NULL DEFAULT 0,"
-            "xp	INTEGER NOT NULL DEFAULT 0,"
-            "PRIMARY KEY(user_id));"
+            "xp	INTEGER NOT NULL DEFAULT 0);"
         )
 
     async def get_top(self, active: str) -> list[UserActive]:

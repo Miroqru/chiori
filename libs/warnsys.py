@@ -1,16 +1,19 @@
 """Система предупреждения для бота.
 
-Version: 0.1 (2)
+Version: 0.2a1 (3)
 Author: Milinuri Nirvalen
 """
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 import aiosqlite
 
+from chioricord.db import DBTable
 
-class WarnInfo(NamedTuple):
+
+@dataclass(slots=True)
+class WarnInfo:
     """Информация о предупреждении для пользователя."""
 
     id: int
@@ -22,40 +25,18 @@ class WarnInfo(NamedTuple):
     reason: str
 
 
-class WarnSys:
+class WarnSys(DBTable):
     """Глобальная система предупреждений участником сервера."""
-
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self._db: aiosqlite.Connection = None
-
-    # Работа с файлом базы данных
-    # ===========================
-
-    async def connect(self) -> None:
-        """Подключается к базе данных."""
-        self._db = await aiosqlite.connect(self.db_path)
-
-    async def close(self) -> None:
-        """Закрывает соединение с базой данных."""
-        if self._db is not None:
-            await self._db.close()
-            self._db = None
 
     async def create_tables(self) -> None:
         """Создаёт таблицы для базы данных."""
-        await self._db.execute(
+        await self.pool.execute(
             'CREATE TABLE "warns" ('
-            '"id"	INTEGER,'
-            '"guild_id"	INTEGER,'
-            '"from_user"	INTEGER,'
-            '"to_user"	INTEGER,'
-            '"start_time"	INTEGER NOT NULL,'
-            '"end_time"	INTEGER NOT NULL,'
+            '"id"	SERIAL PRIMARY KEY,'
+            '"guild_id"	BIGINT,'
+            '"from_user"	BIGINT,'
+            '"to_user"	BIGINT,'
+            '"start_time"	TIMESTAMP NOT NULL,'
+            '"end_time"	TIMESTAMP NOT NULL,'
             '"reason"	TEXT,'
-            'PRIMARY KEY("id" AUTOINCREMENT)'
-            ");"
         )
-
-    # Работа с предупреждениями пользователей
-    # =======================================

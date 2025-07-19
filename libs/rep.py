@@ -48,11 +48,10 @@ class ReputationTable(DBTable):
         """Создаёт таблицу для базы данных."""
         await self.pool.execute(
             'CREATE TABLE IF NOT EXISTS "reputation" ('
-            '"user_id"	BIGINT UNIQUE,'
+            '"user_id"	BIGINT UNIQUE PRIMARY KEY,'
             '"positive"	INTEGER NOT NULL,'
             '"negative"	INTEGER NOT NULL,'
-            '"next_rep" TIMESTAMP NOT NULL DEFAULT NOW(),'
-            'PRIMARY KEY("user_id"));'
+            '"next_rep" TIMESTAMP NOT NULL DEFAULT NOW());'
         )
 
     async def get_leaders(self, order_by: OrderBy) -> list[UserReputation]:

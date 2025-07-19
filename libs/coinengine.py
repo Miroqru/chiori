@@ -59,11 +59,9 @@ class CoinsTable(DBTable):
         """Создаёт таблицу для базы данных."""
         await self.pool.execute(
             'CREATE TABLE IF NOT EXISTS "coins" ('
-            '"user_id"	BIGINT UNIQUE,'
+            '"user_id"	BIGINT UNIQUE PRIMARY KEY,'
             '"amount"	INTEGER NOT NULL,'
-            '"deposit"	INTEGER NOT NULL,'
-            'PRIMARY KEY("user_id")'
-            ");"
+            '"deposit"	INTEGER NOT NULL);'
         )
 
     async def get_leaders(self, order_by: OrderBy) -> list[UserCoins]:
