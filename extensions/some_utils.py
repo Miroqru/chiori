@@ -7,8 +7,9 @@
 
 - /delmsg [count] - Удаляет сообщения из канала.
 - /user [user] - Информация о пользователе.
+- /server - Информация о сервере.
 
-Version: v0.2.2 (14)
+Version: v0.3 (15)
 Author: Milinuri Nirvalen
 """
 
@@ -132,6 +133,32 @@ async def user_info(
         embed = get_user_info(user)
 
     await ctx.respond(embed=embed)
+
+
+@plugin.include
+@arc.slash_command("server", description="Информация о сервере")
+async def guild_info(ctx: arc.GatewayContext) -> None:
+    """Информация о сервер."""
+    guild = ctx.get_guild()
+    if guild is None:
+        await ctx.respond(
+            "Эта команда для сервера.", flags=hikari.MessageFlag.EPHEMERAL
+        )
+        return
+
+    owner = await guild.fetch_owner()
+    emb = hikari.Embed(
+        title=guild.name,
+        description=(
+            f"> {guild.description or 'без описания'}\n\n"
+            f"Участников: {guild.member_count}\n"
+            f"Владелец: {owner.mention}\n"
+            f"Создан: {guild.created_at}\n"
+        ),
+        color=hikari.Color(0xCC99FF),
+    )
+    emb.set_thumbnail(guild.make_icon_url())
+    await ctx.respond(emb)
 
 
 # Загрузчики и выгрузчики плагина
