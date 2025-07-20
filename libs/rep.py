@@ -1,7 +1,7 @@
 """Система репутации для Chioricord."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Literal, Self
 
 from asyncpg import Record
@@ -57,7 +57,7 @@ class ReputationTable(DBTable):
     async def get_leaders(self, order_by: OrderBy) -> list[UserReputation]:
         """Собирает таблицу лидеров по количеству монет."""
         cur = await self.pool.fetch(
-            f"SELECT * FROM coins ORDER BY {order_by} LIMIT 10"
+            f"SELECT * FROM reputation ORDER BY {order_by} LIMIT 10"
         )
         return [UserReputation.from_row(row) for row in cur]
 
@@ -65,7 +65,7 @@ class ReputationTable(DBTable):
         """Таблица лидеров по сообщениям."""
         cur = await self.pool.fetch(
             "SELECT COUNT(*) + 1 AS position FROM reputation "
-            "WHERE positive > (SELECT positive FROM active "
+            "WHERE positive > (SELECT positive FROM reputation "
             "WHERE user_id = $1)",
             user_id,
         )

@@ -14,7 +14,7 @@
 - /respect - Оказать уважение пользователю.
 - /disrespect - Оказать неуважение к пользователю.
 
-Version: v1.0 (8)
+Version: v1.0.1 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -214,7 +214,7 @@ async def reputation_top(
             name = user.display_name
 
         points = f"✨{rep.positive} ({rep.karma}%)"
-        leaderboard.append(f"\n{_pretty_pos(i + 1)}: **{name}**: ✨{points}")
+        leaderboard.append(f"{_pretty_pos(i + 1)}: **{name}**: {points}")
 
     emb = hikari.Embed(
         title="Таблица лидеров по репутации",
