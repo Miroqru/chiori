@@ -11,7 +11,6 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, TypeVar, overload
 
-import arc
 import toml
 from arc import GatewayClient
 from loguru import logger
@@ -51,6 +50,12 @@ class BotConfig(BaseSettings):
     """DSN для подключения к базе данных.
 
     Используется чтобы подключиться к главной базе данных Chiori.
+    """
+
+    LOG_LEVEL: str | int = "info"
+    """Уровень логов.
+
+    Отображает насколько много информации будет передавать в логи.
     """
 
     model_config = SettingsConfigDict(env_file=".env")

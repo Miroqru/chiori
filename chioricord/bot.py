@@ -5,10 +5,10 @@
 Динамически подгружает плагины.
 """
 
+import asyncio
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import arc
 import hikari
@@ -17,6 +17,16 @@ from loguru import logger
 
 from chioricord.config import PluginConfigManager, config
 from chioricord.db import ChioDB
+from chioricord.hooks import has_role
+from chioricord.roles import RoleLevel, RoleTable
+
+try:
+    import uvloop
+
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+except ModuleNotFoundError:
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
 
 # Глобальные переменные
 # =====================
@@ -54,16 +64,17 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     try:
         raise exc
     except Exception as e:
-        embed = hikari.Embed(
+        logger.exception(e)
+
+        emb = hikari.Embed(
             title="Что-то пошло не так!",
             description="Во время выполнения команды возникло исключение",
             color=hikari.Color(0xFF00BB),
-            timestamp=datetime.now(tz=ZoneInfo("Europe/Samara")),
+            timestamp=datetime.now(UTC),
         )
-        embed.add_field("Тип", str(type(e)))
-        embed.add_field("Исключение", str(e))
-        await ctx.respond(embed=embed)
-        logger.exception(e)
+        emb.add_field("Тип", str(type(e)), inline=True)
+        emb.add_field("Исключение", str(e))
+        await ctx.respond(emb)
 
 
 @dp.add_hook
@@ -117,7 +128,9 @@ def start_bot() -> None:
     Запускает самого бота.
     """
     logger.remove()
-    logger.add(sys.stdout, format=LOG_FORMAT)
+    logger.add(
+        sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL
+    )
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)
@@ -125,6 +138,8 @@ def start_bot() -> None:
     logger.info("Setup config and database")
     cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
     db = ChioDB(str(config.DB_DSN), dp)
+    db.register(RoleTable)
+    dp.add_hook(has_role(RoleLevel.USER))
 
     dp.set_type_dependency(PluginConfigManager, cm)
     dp.set_type_dependency(ChioDB, db)
