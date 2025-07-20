@@ -21,9 +21,12 @@ from pathlib import Path
 import arc
 import hikari
 
-from chioricord.hooks import owner_hook
+from chioricord.hooks import has_role
+from chioricord.roles import RoleLevel
 
 plugin = arc.GatewayPlugin("Extension manager")
+plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
+
 
 cmd_group = plugin.include_slash_group(
     name="ext", description="Управление загруженными расширениями."
@@ -60,7 +63,6 @@ async def ext_opts(
 
 
 @cmd_group.include
-@arc.with_hook(owner_hook)
 @arc.slash_subcommand("list", description="Список всех доступных расширений.")
 async def list_extension(ctx: arc.GatewayContext) -> None:
     """Список всех доступных расширений.
@@ -88,7 +90,6 @@ async def list_extension(ctx: arc.GatewayContext) -> None:
 
 
 @cmd_group.include
-@arc.with_hook(owner_hook)
 @arc.slash_subcommand("load", description="Загружает расширение по имени.")
 async def load_extension(
     ctx: arc.GatewayContext,
@@ -109,7 +110,6 @@ async def load_extension(
 
 
 @cmd_group.include
-@arc.with_hook(owner_hook)
 @arc.slash_subcommand("unload", description="Выгружает расширение по имени.")
 async def unload_extension(
     ctx: arc.GatewayContext,
@@ -130,7 +130,6 @@ async def unload_extension(
 
 
 @cmd_group.include
-@arc.with_hook(owner_hook)
 @arc.slash_subcommand("reload", description="Выгружает расширение по имени.")
 async def reload_extension(
     ctx: arc.GatewayContext,
@@ -152,7 +151,6 @@ async def reload_extension(
 
 
 @cmd_group.include
-@arc.with_hook(owner_hook)
 @arc.slash_subcommand("sync", description="Синхронизация список команд.")
 async def sync_commands(ctx: arc.GatewayContext) -> None:
     """Обновляет список команд на стороне Discord.

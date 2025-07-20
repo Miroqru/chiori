@@ -16,9 +16,11 @@ import arc
 import hikari
 
 from chioricord.config import PluginConfigManager
-from chioricord.hooks import owner_hook
+from chioricord.hooks import has_role
+from chioricord.roles import RoleLevel
 
 plugin = arc.GatewayPlugin("Config manager")
+plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
 
 
 @plugin.inject_dependencies()
@@ -83,7 +85,6 @@ def config_group(cm: PluginConfigManager, group: str) -> hikari.Embed:
 
 
 @plugin.include
-@arc.with_hook(owner_hook)
 @arc.slash_command("config", description="Настройки Chiori.")
 async def nya_handler(
     ctx: arc.GatewayContext,
