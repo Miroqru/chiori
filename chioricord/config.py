@@ -52,7 +52,7 @@ class BotConfig(BaseSettings):
     Используется чтобы подключиться к главной базе данных Chiori.
     """
 
-    LOG_LEVEL: str | int = "info"
+    LOG_LEVEL: str | int = "INFO"
     """Уровень логов.
 
     Отображает насколько много информации будет передавать в логи.
@@ -138,9 +138,7 @@ class PluginConfigManager:
     def get_group(self, key: str) -> PluginConfig:
         pass
 
-    def get_group(
-        self, key: str, type_: type[_C] | None = None
-    ) -> _C | PluginConfig:
+    def get_group(self, key: str, type_: type[_C] | None = None) -> _C | PluginConfig:
         """Получает настройки для плагина."""
         proto = self.get_proto(key)
         plugin_data = self.config.get(key)

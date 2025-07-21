@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -77,19 +78,9 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
         await ctx.respond(emb)
 
 
-@dp.add_hook
-async def on_command(ctx: arc.GatewayContext) -> None:
-    """Простой журнал вызовы команд."""
-    logger.debug(
-        "Use {} in {} by {}", ctx.command.name, ctx.guild_id, ctx.user.id
-    )
-
-
 @dp.add_startup_hook
 @dp.inject_dependencies
-async def on_startup(
-    client: arc.GatewayClient, db: ChioDB = arc.inject()
-) -> None:
+async def on_startup(client: arc.GatewayClient, db: ChioDB = arc.inject()) -> None:
     """Производим подключение к базе данных."""
     await db.connect()
     await db.create_tables()
@@ -127,10 +118,11 @@ def start_bot() -> None:
     Подгружает все плагины.
     Запускает самого бота.
     """
+    hikari_logger = logging.getLogger()
+    hikari_logger.setLevel(logging.DEBUG)
+
     logger.remove()
-    logger.add(
-        sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL
-    )
+    logger.add(sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL)
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)

@@ -6,14 +6,11 @@ from enum import IntEnum
 from typing import Self
 
 import arc
-import ongaku
 from asyncpg import Record
 from loguru import logger
 
 from chioricord.config import config
 from chioricord.db import ChioDB, DBTable
-
-ongaku.Client
 
 
 class RoleLevel(IntEnum):
@@ -79,16 +76,12 @@ class RoleTable(DBTable):
 
     async def get_roles(self, role: RoleLevel) -> list[UserRole]:
         """Получает всех заблокированных пользователей."""
-        cur = await self.pool.fetch(
-            "SELECT * FROM roles WHERE role=$1", role.value
-        )
+        cur = await self.pool.fetch("SELECT * FROM roles WHERE role=$1", role.value)
         return [UserRole.from_row(row) for row in cur]
 
     async def get_user(self, user_id: int) -> UserRole | None:
         """Retrieve user by ID from the database."""
-        cur = await self.pool.fetchrow(
-            "SELECT * FROM roles WHERE user_id=$1", user_id
-        )
+        cur = await self.pool.fetchrow("SELECT * FROM roles WHERE user_id=$1", user_id)
         return None if cur is None else UserRole.from_row(cur)
 
     async def get_or_create(self, user_id: int) -> UserRole:
@@ -172,14 +165,10 @@ class RoleTable(DBTable):
         self, user_id: int, from_id: int, reason: str | None = None
     ) -> UserRole:
         """Устанавливает роль MODERATOR пользователю."""
-        return await self.set_role(
-            user_id, from_id, RoleLevel.MODERATOR, reason
-        )
+        return await self.set_role(user_id, from_id, RoleLevel.MODERATOR, reason)
 
     async def set_administrator(
         self, user_id: int, from_id: int, reason: str | None = None
     ) -> UserRole:
         """Устанавливает роль ADMINISTRATOR пользователю."""
-        return await self.set_role(
-            user_id, from_id, RoleLevel.ADMINISTRATOR, reason
-        )
+        return await self.set_role(user_id, from_id, RoleLevel.ADMINISTRATOR, reason)
