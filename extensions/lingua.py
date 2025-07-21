@@ -8,23 +8,24 @@ Lingua — это помощник, который помогает вам с р
 Предоставляет
 -------------
 
-Version: v0.12 (10)
-Maintainer: atarwn
-Source: https://github.com/atarwn/Lingua
+Version: v0.13 (12)
+Author: Milinuri Nirvalen
 """
 
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Self, cast
+from typing import Self, cast
 
 import arc
 import hikari
 from loguru import logger
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from chiorium.config import PluginConfig, PluginConfigManager
+from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.db import ChioDB
+from libs.lingua import ChatGuild, ChatTable, RoleT
 
 # Глобальные переменные
 # =====================
@@ -55,29 +56,25 @@ class LinguaConfig(PluginConfig):
     """Настройки для Lingua."""
 
     api_url: str
-    """
-    Ссылка на OpenAI совместимый API для нейросети.
-    """
+    """Ссылка на OpenAI совместимый API для нейросети."""
+
     api_key: str
-    """
-    API ключ для взаимодействия с моделью.
-    """
+    """API ключ для взаимодействия с моделью."""
+
     model: str = "meta-llama/llama-4-maverick:free"
-    """
-    Название модели для использования.
-    """
+    """Название модели по умолчанию для использования."""
 
     system_prompt: str = DEFAULT_PROMPT
     """
-    Системный промпт, который будет скармливаться нейросети перед
+    Системное сообщение, который будет скармливаться нейросети перед
     началом диалога с пользователем.
     """
 
     history_length: int = 20
     """
     Размер истории сообщений.
-    Каждое сообщение попадает в хранилище, а после передаётся с каждым
-    новым промптом.
+    Каждое сообщение попадает в хранилище.
+    при переполнении, старые сообщение удаляются.
     """
 
 
@@ -158,7 +155,6 @@ def get_info() -> hikari.Embed:
 
 
 MessagesT = deque[ChatCompletionMessageParam]
-RoleT = Literal["user"] | Literal["system"] | Literal["assistant"]
 
 
 @dataclass(slots=True)
@@ -199,7 +195,7 @@ class MessageStorage:
     def __init__(self, config: LinguaConfig) -> None:
         self.config = config
         self.history: HistoryT = {}
-        self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
+        self.client = AsyncOpenAI(base_url=config.api_url, api_key=config.api_key)
 
     async def create_context(self, ctx: ChatContext) -> UserContext:
         """Создаёт новый контекст переписки с пользователем."""
@@ -211,6 +207,13 @@ class MessageStorage:
             ctx.chat_prompt,
         )
 
+    async def user_context(self, ctx: ChatContext) -> UserContext:
+        context = self.history.get(ctx.user.id)
+        if context is None:
+            context = await self.create_context(ctx)
+            self.history[ctx.user.id] = context
+        return context
+
     async def set_model(self, ctx: ChatContext, model: str) -> None:
         """Устанавливает модель для AI."""
         context = self.history.get(ctx.user.id)
@@ -221,8 +224,10 @@ class MessageStorage:
     async def get_completion(self, context: UserContext) -> str | None:
         """Делает запрос к AI модели."""
         return (
-            self.client.chat.completions.create(
-                model=context.model, messages=context.history
+            (
+                await self.client.chat.completions.create(
+                    model=context.model, messages=context.history
+                )
             )
             .choices[0]
             .message.content
@@ -230,10 +235,8 @@ class MessageStorage:
 
     async def generate_answer(self, content: str, ctx: ChatContext) -> str | None:
         """Генерирует некоторый ответ от AI."""
-        context = self.history.get(ctx.user.id)
-        if context is None:
-            context = await self.create_context(ctx)
-        elif ctx.channel.id != context.chat:
+        context = await self.user_context(ctx)
+        if ctx.channel.id != context.chat:
             context.update_chat(ctx)
 
         context.add_message(content)
@@ -252,7 +255,9 @@ class MessageStorage:
 @plugin.listen(hikari.MessageCreateEvent)
 @plugin.inject_dependencies
 async def on_message(
-    event: hikari.MessageCreateEvent, storage: MessageStorage = arc.inject()
+    event: hikari.MessageCreateEvent,
+    storage: MessageStorage = arc.inject(),
+    table: ChatTable = arc.inject(),
 ) -> None:
     """Ответ на сообщения пользователей."""
     if not event.is_human or event.message.content is None:
@@ -263,15 +268,36 @@ async def on_message(
     if me is None:
         raise ValueError("OwnUser can`t be None")
 
-    is_dm = event.message.guild_id is None
-    if is_dm:
+    if event.message.guild_id is None:
+        chat = None
+    else:
+        chat = await table.get_or_create(event.message.guild_id)
+
+    if chat is None:
         content = event.message.content
+
+    elif chat.chat_channel is not None and event.channel_id == chat.chat_channel:
+        content = event.message.content
+
+    elif (
+        event.message.referenced_message is not None
+        and event.message.referenced_message.author
+        and event.message.referenced_message.author.id == me.id
+    ):
+        content = event.message.content
+
     elif me.id in (event.message.user_mentions_ids or []):
         content = event.message.content[len(me.mention) + 1 :]
+
     else:
         return
 
-    context = await ChatContext.from_event(plugin.client, event)
+    chat_ctx = await ChatContext.from_event(plugin.client, event)
+    user = await storage.user_context(chat_ctx)
+    if event.message.referenced_message is not None and not len(user.messages):
+        user.add_message(
+            event.message.referenced_message.content or "No result", "assistant"
+        )
 
     # attachment = event.message.attachments[0] if event.message.attachments else None
     async with app.rest.trigger_typing(event.channel_id):
@@ -281,11 +307,11 @@ async def on_message(
         #     image_url=attachment.url if attachment else None,
         # )
 
-        answer = await storage.generate_answer(content, context)
+        answer = await storage.generate_answer(content, chat_ctx)
         if answer is None:
             await event.message.respond("⚠️ Ai на это ничего не ответила...")
         elif len(answer) <= MAX_MESSAGE_LENGTH:
-            await event.message.respond(answer, reply=not is_dm)
+            await event.message.respond(answer, reply=True)
         else:
             await event.message.respond(
                 "Сообщение оказалось слишком длинным, держите `.txt` файл.",
@@ -355,6 +381,59 @@ async def set_ai_model(
     )
 
 
+# Настройка чата для общения
+# ==========================
+
+
+@plugin.include
+@arc.slash_command("chat_status", description="Какой выбран ИИ чат.")
+async def chat_status_handler(
+    ctx: arc.GatewayContext, chat: ChatGuild = arc.inject()
+) -> None:
+    """Detailed command description"""
+    await ctx.respond(f"Talk channel is: {chat.chat_channel}.")
+
+
+@plugin.include
+@arc.slash_command(
+    "set_chat",
+    description="Удаляет чат для общения.",
+    default_permissions=hikari.Permissions.MANAGE_CHANNELS,
+)
+async def set_chat_handler(
+    ctx: arc.GatewayContext,
+    channel: arc.Option[
+        hikari.TextableChannel, arc.ChannelParams("В каком канале общаться.")
+    ],
+    table: ChatTable = arc.inject(),
+) -> None:
+    """Устанавливает чат для общения с ии."""
+    if ctx.guild_id is None:
+        await ctx.respond("Выберите канала на сервере.")
+        return
+
+    await table.set_chat(ctx.guild_id, channel.id)
+    await ctx.respond(f"Для общения с ИИ выбран канал {channel.mention}.")
+
+
+@plugin.include
+@arc.slash_command(
+    "reset_chat",
+    description="Устанавливает чат для общения.",
+    default_permissions=hikari.Permissions.MANAGE_CHANNELS,
+)
+async def reset_chat_handler(
+    ctx: arc.GatewayContext, table: ChatTable = arc.inject()
+) -> None:
+    """удаляет чат для общения с ии."""
+    if ctx.guild_id is None:
+        await ctx.respond("Выберите канала на сервере.")
+        return
+
+    await table.set_chat(ctx.guild_id, None)
+    await ctx.respond("Удалён канал для общения с ИИ.")
+
+
 # Загрузчики и выгрузчики плагина
 # ===============================
 
@@ -372,9 +451,11 @@ def loader(client: arc.GatewayClient) -> None:
     storage = MessageStorage(config)
     client.set_type_dependency(MessageStorage, storage)
 
+    db = client.get_type_dependency(ChioDB)
+    db.register(ChatTable)
+
 
 @arc.unloader
 def unloader(client: arc.GatewayClient) -> None:
     """Действия при выгрузке плагина."""
     client.remove_plugin(plugin)
-
