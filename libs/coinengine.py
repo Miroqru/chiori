@@ -3,13 +3,12 @@
 Часть экономической системы.
 Предоставляет базу данных для работы с валютой пользователя.
 
-Version: v2.1 (9)
+Version: v2.2 (11)
 Author: Milinuri Nirvalen
 """
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Self
+from typing import Literal, Self
 
 from asyncpg import Record
 
@@ -42,12 +41,7 @@ class UserCoins:
         return cls(int(row[0]), int(row[1]), int(row[2]))
 
 
-class OrderBy(Enum):
-    """По каким значениям можно сортировать таблицу лидеров."""
-
-    AMOUNT = "amount"
-    deposit = "deposit"
-    ALL = "amount+deposit"
+OrderBy = Literal["amount"] | Literal["deposit"] | Literal["amount+deposit"]
 
 
 class CoinsTable(DBTable):
@@ -67,9 +61,19 @@ class CoinsTable(DBTable):
     async def get_leaders(self, order_by: OrderBy) -> list[UserCoins]:
         """Собирает таблицу лидеров по количеству монет."""
         cur = await self.pool.fetch(
-            f"SELECT * FROM coins ORDER BY {order_by.value} LIMIT 10"
+            f"SELECT * FROM coins ORDER BY {order_by} DESC LIMIT 10"
         )
         return [UserCoins.from_row(row) for row in cur]
+
+    async def get_position(self, user_id: int) -> int | None:
+        """Таблица лидеров по сообщениям."""
+        cur = await self.pool.fetch(
+            "SELECT COUNT(*) + 1 AS position FROM coins "
+            "WHERE deposit > (SELECT deposit FROM active "
+            "WHERE user_id = $1)",
+            user_id,
+        )
+        return int(cur[0][0]) if len(cur) > 0 else None
 
     async def get_user(self, user_id: int) -> UserCoins | None:
         """Получает пользователя по его id."""
@@ -102,13 +106,13 @@ class CoinsTable(DBTable):
         user = await self.get_user(user_id=coins.user_id)
         if user is None:
             await self.create_user(coins)
-        else:
-            await self.pool.execute(
-                "UPDATE coins SET amount=$1,deposit=$2 WHERE user_id=$3",
-                coins.amount,
-                coins.deposit,
-                coins.user_id,
-            )
+            return
+        await self.pool.execute(
+            "UPDATE coins SET amount=$1,deposit=$2 WHERE user_id=$3",
+            coins.amount,
+            coins.deposit,
+            coins.user_id,
+        )
 
     # Методы изменения данных
     # =======================
