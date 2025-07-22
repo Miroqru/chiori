@@ -2,7 +2,7 @@
 
 Приветствует новых участников на сервере.
 
-Version: v1.0 (1)
+Version: v1.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -24,8 +24,49 @@ class WelcomeConfig(PluginConfig):
     welcome_role: int | None = None
 
 
+_WELCOME_TEXT = (
+    "Я **Chiori** (Шиори) - милый бот для вашего лампового сервера.\n"
+    "У меня есть множество замечательный функций для вас:\n"
+    "- Музыкальный плеер.\n"
+    "- Множество мини-игр.\n"
+    "- Поощрение активности участников.\n\n"
+    "🎉 И многое-многое другое!"
+)
+
+_FIRST_STEPS = (
+    "Что можно сделать для начала:\n\n"
+    "- Почитать документацию Шиори.\n"
+    "- Узнать список плагинов `/plugins` и доступных команд `/help`.\n\n"
+    "Желаю удачно провести время. 🩷"
+)
+
 # Обработка событий
 # =================
+
+
+@plugin.listen(hikari.GuildJoinEvent)
+@plugin.inject_dependencies()
+async def listener_name(event: hikari.GuildJoinEvent) -> None:
+    """Когда кто-то добавляет бота."""
+    emb = hikari.Embed(
+        title="🎀 Давайте знакомиться!",
+        description=_WELCOME_TEXT,
+        color=hikari.Color(0xFF9966),
+    )
+    emb.set_author(
+        name="Документация Chioricord",
+        url="https://miroq.ru/chio/",
+        icon="https://miroq.ru/logo.png",
+    )
+    emb.set_thumbnail("https://miroq.ru/chio/images/chio.png")
+    emb.add_field("Первые шаги", _FIRST_STEPS)
+
+    guild = event.get_guild() or await event.app.rest.fetch_guild(
+        event.guild_id
+    )
+    channel = guild.system_channel_id
+    if channel is not None:
+        await event.app.rest.create_message(channel, emb)
 
 
 @plugin.listen(hikari.MemberCreateEvent)
@@ -46,7 +87,11 @@ async def on_join(
         color=hikari.Color(0x99FFCC),
     )
     emb.set_thumbnail(event.member.make_avatar_url())
-    await event.app.rest.create_message(config.welcome_channel, emb)
+    guild = event.member.get_guild() or await event.app.rest.fetch_guild(
+        event.member.guild_id
+    )
+    channel = guild.system_channel_id or config.welcome_channel
+    await event.app.rest.create_message(channel, emb)
 
 
 # Загрузчики и выгрузчики плагина
