@@ -42,7 +42,7 @@ TODO для релиза
 - /queue clear: Очистить очередь.
 - /queue shuffle: Перемешать очередь.
 
-Version: v2.4 (30)
+Version: v2.5 (32)
 Author: Milinuri Nirvalen
 """
 
@@ -51,7 +51,9 @@ from collections.abc import Sequence
 import arc
 import hikari
 import ongaku
+import ongaku.errors
 from loguru import logger
+from ongaku.client import Client
 from ongaku.ext.injection import arc_ensure_player
 
 from chioricord.config import PluginConfig, PluginConfigManager
@@ -313,6 +315,33 @@ async def on_next_track(
     )
 
 
+@plugin.set_error_handler()
+@plugin.inject_dependencies()
+async def error_handler(
+    ctx: arc.GatewayContext, exc: Exception, client: Client = arc.inject()
+) -> None:
+    """Если плеер упал."""
+    if isinstance(exc, arc.GuildOnlyError):
+        await ctx.respond(
+            "Может я на сервере вам спою?..",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
+
+    if isinstance(exc, ongaku.PlayerMissingError):
+        await ctx.respond(
+            "Для начала нам нужен плеер.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
+
+    if isinstance(exc, ongaku.errors.RestRequestError):
+        logger.exception(exc)
+        logger.error(client.session_handler.sessions)
+
+    raise exc
+
+
 # определение команд
 # ==================
 
@@ -334,7 +363,7 @@ async def play_song(
     state = guild.get_voice_state(ctx.author)
     if state is None or state.channel_id is None:
         await ctx.respond(
-            "Вам бы в голосовой канал зайти, или где мне играть?",
+            "Пожалуйста зайдите в голосовой канал чтобы я смогла спеть.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )
         return
@@ -357,9 +386,12 @@ async def play_song(
 
     if not player.connected:
         await player.connect(state.channel_id)
+        await player.play(requestor=ctx.author)
+
+    if player.is_paused:
+        await player.pause(False)
 
     emb = query_track_embed(res, ctx.author)
-    await player.play(requestor=ctx.author)
     await ctx.respond(emb)
 
 
@@ -372,7 +404,7 @@ async def now_playing(
 ) -> None:
     """Какая песня сейчас играет."""
     if len(player.queue) == 0:
-        await ctx.respond("Я сейчас ничего не играю.")
+        await ctx.respond("Сейчас я отдыхаю.")
         return
     await ctx.respond(now_playing_embed(player.queue[0]))
 
@@ -386,7 +418,6 @@ async def player_pause(
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
     await player.pause()
-
     if player.is_paused:
         await ctx.respond("Музыка приостановлена.")
     else:
@@ -402,7 +433,6 @@ async def player_aytoplay(
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
     status = player.set_autoplay()
-
     if status:
         await ctx.respond("✅ Авто-проигрывание включено.")
     else:
@@ -418,7 +448,6 @@ async def player_loop(
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
     status = player.set_loop()
-
     if status:
         await ctx.respond("✅ Зацикливание включено.")
     else:
@@ -466,7 +495,7 @@ async def stop_player(
 ) -> None:
     """Останавливает воспроизведение в канале."""
     await player.stop()
-    await ctx.respond("Останавливаю воспроизведение.")
+    await ctx.respond("Буду рада ещё спеть.")
 
 
 @plugin.include
