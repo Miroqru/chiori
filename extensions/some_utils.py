@@ -9,7 +9,7 @@
 - /user [user] - Информация о пользователе.
 - /server - Информация о сервере.
 
-Version: v0.3 (15)
+Version: v0.4 (17)
 Author: Milinuri Nirvalen
 """
 
@@ -158,6 +158,169 @@ async def guild_info(ctx: arc.GatewayContext) -> None:
         color=hikari.Color(0xCC99FF),
     )
     emb.set_thumbnail(guild.make_icon_url())
+    await ctx.respond(emb)
+
+
+# Управление ролями участника
+# ===========================
+
+
+@plugin.include
+@arc.slash_command(
+    "member_roles",
+    description="Роли участника",
+    default_permissions=hikari.Permissions.MANAGE_ROLES,
+)
+async def list_roles_handler(
+    ctx: arc.GatewayContext,
+    member: arc.Option[
+        hikari.Member | None, arc.MemberParams("Для какого участника")
+    ] = None,
+) -> None:
+    """Отображает полный список ролей участника."""
+    member = member or ctx.member
+    if member is None:
+        raise ValueError("Where is member")
+
+    member_roles = await member.fetch_roles()
+    roles_list: list[str] = []
+    for role in member_roles:
+        roles_list.append(f"- {role.mention}")
+
+    emb = hikari.Embed(
+        title=f"Роли {member.mention} ({len(member_roles)})",
+        description="\n".join(roles_list),
+        color=hikari.Color(0x66CC99),
+    )
+    emb.set_thumbnail(member.make_avatar_url())
+    await ctx.respond(emb)
+
+
+@plugin.include
+@arc.slash_command(
+    "add_role",
+    description="Добавляет роль участнику",
+    default_permissions=hikari.Permissions.MANAGE_ROLES,
+)
+async def add_role_handler(
+    ctx: arc.GatewayContext,
+    role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
+    member: arc.Option[
+        hikari.Member | None, arc.MemberParams("Для какого участника")
+    ] = None,
+    reason: arc.Option[
+        str, arc.StrParams("По какой причине")
+    ] = "Used /add_role command",
+) -> None:
+    """Добавляет новую роль участнику."""
+    member = member or ctx.member
+    if member is None:
+        raise ValueError("Where is member")
+
+    await member.add_role(role, reason=reason)
+    emb = hikari.Embed(
+        title="Добавлена роль",
+        description=f"{member.mention} получил роль {role.mention}",
+        color=hikari.Color(0x66CC99),
+    )
+    emb.set_thumbnail(member.make_avatar_url())
+    await ctx.respond(emb)
+
+
+@plugin.include
+@arc.slash_command(
+    "add_role_all",
+    description="Добавляет роль всем участникам",
+    default_permissions=hikari.Permissions.MANAGE_ROLES,
+)
+async def add_role_all_handler(
+    ctx: arc.GatewayContext,
+    role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
+    reason: arc.Option[
+        str, arc.StrParams("По какой причине")
+    ] = "Used /add_role_all command",
+) -> None:
+    """Добавляет новую роль участнику."""
+    if ctx.guild_id is None:
+        await ctx.respond(
+            "Вам нужно выполнить эту команду на сервере.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
+
+    members = ctx.client.cache.get_members_view_for_guild(ctx.guild_id)
+    for member in members.values():
+        await member.add_role(role)
+
+    emb = hikari.Embed(
+        title="Добавлена роль",
+        description=f"Всем участникам добавлена роль {role.mention}!",
+        color=hikari.Color(0x66CC99),
+    )
+    await ctx.respond(emb)
+
+
+@plugin.include
+@arc.slash_command(
+    "remove_role",
+    description="Удалить роль участника",
+    default_permissions=hikari.Permissions.MANAGE_ROLES,
+)
+async def remove_role_handler(
+    ctx: arc.GatewayContext,
+    role: arc.Option[hikari.Role, arc.RoleParams("Какую роль удалить")],
+    member: arc.Option[
+        hikari.Member | None, arc.MemberParams("Для какого участника")
+    ] = None,
+    reason: arc.Option[
+        str, arc.StrParams("По какой причине")
+    ] = "Used /remove_role command",
+) -> None:
+    """Добавляет новую роль участнику."""
+    member = member or ctx.member
+    if member is None:
+        raise ValueError("Where is member")
+
+    await member.remove_role(role, reason=reason)
+    emb = hikari.Embed(
+        title="Удалена роль",
+        description=f"{member.mention} лишился роли {role.mention}",
+        color=hikari.Color(0xCC6699),
+    )
+    emb.set_thumbnail(member.make_avatar_url())
+    await ctx.respond(emb)
+
+
+@plugin.include
+@arc.slash_command(
+    "remove_role_all",
+    description="Удаляет роль всем участникам",
+    default_permissions=hikari.Permissions.MANAGE_ROLES,
+)
+async def remove_role_all_handler(
+    ctx: arc.GatewayContext,
+    role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
+    reason: arc.Option[
+        str, arc.StrParams("По какой причине")
+    ] = "Used /add_role command",
+) -> None:
+    """Добавляет новую роль участнику."""
+    if ctx.guild_id is None:
+        await ctx.respond(
+            "Вам нужно выполнить эту команду на сервере.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
+
+    members = ctx.client.cache.get_members_view_for_guild(ctx.guild_id)
+    for member in members.values():
+        await member.remove_role(role)
+
+    emb = hikari.Embed(
+        title="Удалена роль",
+        description=f"Всем участникам удален роль {role.mention}!",
+        color=hikari.Color(0xCC6699),
+    )
     await ctx.respond(emb)
 
 
