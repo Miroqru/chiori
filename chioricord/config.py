@@ -60,7 +60,7 @@ class BotConfig(BaseSettings):
     загружаются вместе с загрузкой бота.
     """
 
-    DB_DSN: PostgresDsn
+    DB_DSN: PostgresDsn | str
     """DSN для подключения к базе данных.
 
     Используется чтобы подключиться к главной базе данных Chiori.
