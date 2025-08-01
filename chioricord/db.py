@@ -3,6 +3,7 @@
 предоставляет методы для работы с общей базой данных Postgres.
 """
 
+import time
 from abc import ABC, abstractmethod
 
 import arc
@@ -42,6 +43,13 @@ class ChioDB:
 
         self._pool: asyncpg.Pool | None = None
         self._tables: dict[str, DBTable] = {}
+
+    async def ping(self) -> float:
+        """просчитывает пинг до базы данных."""
+        start = time.monotonic()
+        await self.pool.execute("SELECT 1")
+        ping = (time.monotonic() - start) * 1000
+        return ping
 
     @property
     def pool(self) -> asyncpg.Pool:
