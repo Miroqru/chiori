@@ -7,12 +7,11 @@
 - /index [item_id]: Детальную информацию о предмете.
 - /inventory: Предметы в ваших карманах.
 
-Version: v0.2.1 (7)
+Version: v0.2.2 (8)
 Author: Milinuri Nirvalen
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import arc
 import hikari
@@ -21,15 +20,7 @@ from loguru import logger
 from chioricord.db import ChioDB
 from libs import inventory
 
-# Глобальные переменные
-# =====================
-
-DB_PATH = Path("bot_data/items.db")
 plugin = arc.GatewayPlugin("Inventory")
-
-
-# Вспомогательное определение редкости
-# ===================================
 
 
 @dataclass(slots=True, frozen=True)
