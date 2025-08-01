@@ -2,7 +2,7 @@
 
 Приветствует новых участников на сервере.
 
-Version: v1.1 (3)
+Version: v1.1.1 (4)
 Author: Milinuri Nirvalen
 """
 
@@ -87,6 +87,9 @@ async def on_join(
         color=hikari.Color(0x99FFCC),
     )
     emb.set_thumbnail(event.member.make_avatar_url())
+    emb.set_footer(
+        text="С любовью команда Salormoon", icon="https://miroq.ru/ava.jpg"
+    )
     guild = event.member.get_guild() or await event.app.rest.fetch_guild(
         event.member.guild_id
     )
