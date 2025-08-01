@@ -62,25 +62,37 @@ async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
     Если обработчики сами не реализуют обработчики ошибок, то все
     исключения будут попадать сюда.
     """
+    if isinstance(exc, hikari.ForbiddenError):
+        emb = hikari.Embed(
+            title="⚠️ Недостаточно прав",
+            description="Для выполнения данной команды.",
+            color=hikari.Color(0xFF9966),
+        )
+        emb.add_field("status", f"[`{exc.status}`] {exc.message}")
+        return
+
     try:
         raise exc
     except Exception as e:
         logger.exception(e)
-
         emb = hikari.Embed(
-            title="Что-то пошло не так!",
-            description="Во время выполнения команды возникло исключение",
-            color=hikari.Color(0xFF00BB),
+            title="⚡ Что-то пошло не так!",
+            description=(
+                "Во время выполнения команды..\n\n"
+                f"`{type(e)}`: {e}\n\n"
+                "🌱 Обратитесь в поддержку за помощью."
+            ),
+            color=hikari.Color(0xFF6699),
             timestamp=datetime.now(UTC),
         )
-        emb.add_field("Тип", str(type(e)), inline=True)
-        emb.add_field("Исключение", str(e))
         await ctx.respond(emb)
 
 
 @dp.add_startup_hook
 @dp.inject_dependencies
-async def on_startup(client: arc.GatewayClient, db: ChioDB = arc.inject()) -> None:
+async def on_startup(
+    client: arc.GatewayClient, db: ChioDB = arc.inject()
+) -> None:
     """Производим подключение к базе данных."""
     await db.connect()
     await db.create_tables()
@@ -97,16 +109,6 @@ async def shutdown_client(
     # cm.dump_config()
 
 
-# if isinstance(error, commands.errors.MissingPermissions):
-#     await ctx.send(embed=discord.Embed(
-#         title="❌ **Ошибка**",
-#         description=(
-#             f"**{ctx.author}**, у вас недостаточно прав для использования"
-#             "данной команды."
-#          ),
-#         color=0xff2b20
-#     ))
-
 # Запуск бота
 # ===========
 
@@ -122,7 +124,9 @@ def start_bot() -> None:
     hikari_logger.setLevel(logging.DEBUG)
 
     logger.remove()
-    logger.add(sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL)
+    logger.add(
+        sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL
+    )
 
     logger.info("Check data folder {}", BOT_DATA_PATH)
     BOT_DATA_PATH.mkdir(exist_ok=True)
