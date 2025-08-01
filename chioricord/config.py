@@ -39,6 +39,19 @@ class BotConfig(BaseSettings):
     Указывать владельца бота не обязательно, но желательно.
     """
 
+    ADMIN_GUILD: int
+    """Сервер администраторов.
+
+    на этом сервере администраторы смогут пользоваться административными
+    командами, которые не доступны на обычных серверах.
+    """
+
+    MAIN_GUILD: int
+    """Главный сервер.
+
+    Это главный сервер бота, где происходит основное общение с участниками.
+    """
+
     PLUGINS_CONFIG: Path = Path("bot_data/plugins.toml")
     """Путь к настройкам плагинов.
 
@@ -52,10 +65,10 @@ class BotConfig(BaseSettings):
     Используется чтобы подключиться к главной базе данных Chiori.
     """
 
-    LOG_LEVEL: str | int = "INFO"
-    """Уровень логов.
+    DEBUG: bool = False
+    """Режим отладки.
 
-    Отображает насколько много информации будет передавать в логи.
+    В режиме отладки бот сообщает больше логов о происходящем.
     """
 
     model_config = SettingsConfigDict(env_file=".env")
@@ -138,7 +151,9 @@ class PluginConfigManager:
     def get_group(self, key: str) -> PluginConfig:
         pass
 
-    def get_group(self, key: str, type_: type[_C] | None = None) -> _C | PluginConfig:
+    def get_group(
+        self, key: str, type_: type[_C] | None = None
+    ) -> _C | PluginConfig:
         """Получает настройки для плагина."""
         proto = self.get_proto(key)
         plugin_data = self.config.get(key)
