@@ -52,6 +52,7 @@ class BotConfig(BaseSettings):
     Это главный сервер бота, где происходит основное общение с участниками.
     """
 
+    # TODO: Начать использовать составной подход
     PLUGINS_CONFIG: Path = Path("bot_data/plugins.toml")
     """Путь к настройкам плагинов.
 
@@ -69,6 +70,12 @@ class BotConfig(BaseSettings):
     """Режим отладки.
 
     В режиме отладки бот сообщает больше логов о происходящем.
+    """
+
+    EXTENSIONS_PATH: str = "extensions/"
+    """Путь до расширений.
+
+    Откуда боту загружать необходимые расширения.
     """
 
     model_config = SettingsConfigDict(env_file=".env")

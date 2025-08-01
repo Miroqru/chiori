@@ -42,8 +42,6 @@ LOG_FORMAT = (
 )
 
 # Директория откуда будут грузиться все расширения
-EXT_PATH = Path("extensions/")
-BOT_DATA_PATH = Path("bot_data/")
 bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
 dp = arc.GatewayClient(bot)
 miru_client = miru.Client.from_arc(dp)
@@ -117,19 +115,27 @@ def start_bot() -> None:
     """Функция для запуска бота.
 
     Устанавливает запись логов.
+    Проверяет наличие необходимых директорий.
     Подгружает все плагины.
     Запускает самого бота.
     """
-    hikari_logger = logging.getLogger()
-    hikari_logger.setLevel(logging.DEBUG)
+    # logger.info("Load bot config")
+    # config = BotConfig()  # type: ignore
+
+    if config.DEBUG:
+        hikari_logger = logging.getLogger()
+        hikari_logger.setLevel(logging.DEBUG)
+        level = "DEBUG"
+    else:
+        level = "INFO"
 
     logger.remove()
-    logger.add(
-        sys.stdout, format=LOG_FORMAT, enqueue=True, level=config.LOG_LEVEL
-    )
+    logger.add(sys.stdout, format=LOG_FORMAT, enqueue=True, level=level)
 
-    logger.info("Check data folder {}", BOT_DATA_PATH)
-    BOT_DATA_PATH.mkdir(exist_ok=True)
+    # TODO: Переместить в переменную окружения
+    bot_data = Path("bot_data/")
+    logger.info("Check data folder {}", bot_data)
+    bot_data.mkdir(exist_ok=True)
 
     logger.info("Setup config and database")
     cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
@@ -141,8 +147,8 @@ def start_bot() -> None:
     dp.set_type_dependency(ChioDB, db)
 
     # Простой загрузчик расширений
-    logger.info("Load plugins from {} ...", EXT_PATH)
-    dp.load_extensions_from(EXT_PATH)
+    logger.info("Load plugins from {} ...", config.EXTENSIONS_PATH)
+    dp.load_extensions_from(config.EXTENSIONS_PATH)
 
     activity = hikari.Activity(
         name="для справки /help", type=hikari.ActivityType.STREAMING
