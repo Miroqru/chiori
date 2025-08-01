@@ -1,23 +1,34 @@
 """таблица с чатами для общения ии.
 
 До тех пор, пока не появится нормальная поддержка хранилища сервера.
+
+Version: v1.0 (8)
+Author: Milinuri Nirvalen
 """
 
+from collections import Counter
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal, Self
 
 import arc
+import hikari
 from asyncpg import Record
 from loguru import logger
 
 from chioricord.db import ChioDB, DBTable
 
-RoleT = Literal["user"] | Literal["system"] | Literal["assistant"]
+RoleT = Literal["user", "system", "assistant", "imagine"]
 
 
 @dataclass(frozen=True, slots=True)
 class ChatGuild:
+    """Настройки для серверов.
+
+    Пользователь может выбрать чат, в котором будет общаться ИИ.
+    """
+
     guild_id: int
     chat_channel: int | None
 
@@ -29,7 +40,7 @@ class ChatGuild:
 
 @dataclass(frozen=True, slots=True)
 class UserContext:
-    """Контекст пользователя в ии."""
+    """Контекст пользователя для переписки с ИИ."""
 
     user_id: int
     reg_date: datetime
@@ -43,9 +54,11 @@ class UserContext:
 
 @dataclass(frozen=True, slots=True)
 class UserMessage:
-    """Сообщение пользователя."""
+    """Сообщение пользователя из истории."""
 
     user_id: int
+    guild_id: int | None
+    channel_id: int | None
     message: str
     role: RoleT
     attachment_url: str | None
@@ -54,7 +67,56 @@ class UserMessage:
     @classmethod
     def from_row(cls, row: Record) -> Self:
         """Собирает сообщение пользователя из базы данных."""
-        return cls(row[0], row[1], row[2], row[3], row[4])
+        return cls(row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+
+
+@dataclass(frozen=True, slots=True)
+class MessageStats:
+    """Статистика истории сообщений.
+
+    Содержит счётчик количества сообщений, ролей, серверов.
+    """
+
+    users: Counter[int]
+    roles: Counter[RoleT]
+    guilds: Counter[int]
+
+
+# События
+# =======
+
+
+class CreateUserEvent(hikari.Event):
+    """Когда пользователь создаёт учётную запись."""
+
+    def __init__(self, db: ChioDB, user: UserContext) -> None:
+        self._db = db
+        self._user = user
+
+    @property
+    def app(self) -> hikari.RESTAware:
+        """App instance for this application."""
+        return self._db.client.app
+
+    @property
+    def client(self) -> arc.GatewayClient:
+        """App instance for this application."""
+        return self._db.client
+
+    @property
+    def db(self) -> ChioDB:
+        """Возвращает подключение к базе данных."""
+        return self._db
+
+    @property
+    def user_id(self) -> int:
+        """Возвращает пользователя, получившего повышение."""
+        return self._user.user_id
+
+    @property
+    def user(self) -> UserContext:
+        """Возвращает статистику активности пользователя."""
+        return self._user
 
 
 # Таблицы для базы данных
@@ -97,10 +159,16 @@ class ChatTable(DBTable):
     async def _set_chat(self, chat: ChatGuild) -> None:
         """Update user record in the database."""
         await self.pool.execute(
-            f"UPDATE {self.__tablename__} SET chat_channel=$1 WHERE guild_id=$2",
+            f"UPDATE {self.__tablename__} SET chat_channel=$1 "
+            "WHERE guild_id=$2",
             chat.chat_channel,
             chat.guild_id,
         )
+
+    async def get_chats(self) -> list[ChatGuild]:
+        """Retrieve items by parameter from the database."""
+        cur = await self.pool.fetch(f"SELECT * FROM {self.__tablename__}")
+        return [ChatGuild.from_row(row) for row in cur]
 
     async def get_chat(self, guild_id: int) -> ChatGuild | None:
         """Retrieve user by ID from the database."""
@@ -119,6 +187,7 @@ class ChatTable(DBTable):
     async def set_chat(
         self, guild_id: int, chat_channel: int | None = None
     ) -> ChatGuild:
+        """Устанавливает чат для общения."""
         chat = await self.get_chat(guild_id)
         new_chat = ChatGuild(guild_id, chat_channel)
         if chat is None:
@@ -150,6 +219,9 @@ class UsersTable(DBTable):
             user.reg_date,
             user.model,
         )
+        self._db.client.app.event_manager.dispatch(
+            CreateUserEvent(self._db, user)
+        )
 
     async def _set_user(self, user: UserContext) -> None:
         """Update user record in the database."""
@@ -173,7 +245,9 @@ class UsersTable(DBTable):
             return user
         return UserContext(user_id, datetime.now(), None)
 
-    async def set_model(self, user_id: int, model: str | None = None) -> UserContext:
+    async def set_model(
+        self, user_id: int, model: str | None = None
+    ) -> UserContext:
         """Устанавливает новую AI модель."""
         user = await self.get_user(user_id)
         new_user = UserContext(user_id, datetime.now(), model)
@@ -193,8 +267,10 @@ class MessagesTable(DBTable):
         """Создаёт таблицы для базы данных."""
         await self.pool.execute(
             "CREATE TABLE IF NOT EXISTS lingua_messages ("
-            "id SERIAL NOT NULL PRIMARY KEY."
+            "id SERIAL NOT NULL PRIMARY KEY,"
             "user_id BIGINT NOT NULL,"
+            "guild_id BIGINT,"
+            "channel_id BIGINT,"
             "message TEXT NOT NULL,"
             "role TEXT NOT NULL,"
             "attachment_url TEXT,"
@@ -208,12 +284,96 @@ class MessagesTable(DBTable):
         )
         return [UserMessage.from_row(row) for row in cur]
 
-    async def add_message(self, message: UserMessage) -> None:
+    async def _iter_messages(self) -> AsyncIterator[UserMessage]:
+        cur = await self.pool.fetch(f"SELECT * FROM {self.__tablename__}")
+        for row in cur:
+            yield UserMessage.from_row(row)
+
+    async def last_week_messages(self) -> AsyncIterator[UserMessage]:
+        """Возвращает сообщения пользователей за последнюю неделю."""
+        now = datetime.now() - timedelta(days=7)
+        cur = await self.pool.fetch(
+            f"SELECT * FROM {self.__tablename__} "
+            "WHERE role='user' and created_at > $1",
+            now,
+        )
+        for row in cur:
+            yield UserMessage.from_row(row)
+
+    async def get_stats(self) -> MessageStats:
+        """Статистика сообщений."""
+        user_counter: Counter[int] = Counter()
+        guild_counter: Counter[int] = Counter()
+        role_counter: Counter[RoleT] = Counter()
+
+        async for message in self._iter_messages():
+            role_counter[message.role] += 1
+
+            if message.role != "user":
+                continue
+
+            user_counter[message.user_id] += 1
+            if message.guild_id is not None:
+                guild_counter[message.guild_id] += 1
+
+        return MessageStats(user_counter, role_counter, guild_counter)
+
+    async def _create_message(self, message: UserMessage) -> None:
         """Create a new user record in the database."""
         await self.pool.execute(
-            f"INSERT INTO {self.__tablename__}(user_id,message,role,attachment_url) VALUES($1,$2,$3,$4)",
+            f"INSERT INTO {self.__tablename__}"
+            "(user_id,guild_id,channel_id,message,role,attachment_url) "
+            "VALUES($1,$2,$3,$4,$5,$6)",
             message.user_id,
+            message.guild_id,
+            message.channel_id,
             message.message,
             message.role,
             message.attachment_url,
         )
+
+    async def add_message(
+        self,
+        user_id: int,
+        guild_id: int | None,
+        channel_id: int | None,
+        message: str,
+        role: RoleT = "user",
+        attachment_url: str | None = None,
+    ) -> None:
+        """Добавляет новое сообщение в историю."""
+        user_message = UserMessage(
+            user_id,
+            guild_id,
+            channel_id,
+            message,
+            role,
+            attachment_url,
+            datetime.now(),
+        )
+        await self._create_message(user_message)
+
+    async def get_last_messages(
+        self,
+        user_id: int,
+        guild_id: int | None,
+        channel_id: int | None,
+    ) -> list[UserMessage]:
+        """получает последние несколько сообщений для формирования контекста."""
+        if guild_id is not None and channel_id is not None:
+            cur = await self.pool.fetch(
+                f"SELECT * FROM {self.__tablename__} WHERE user_id=$1 "
+                "ORDER BY create_at DESC LIMIT 10",
+                user_id,
+            )
+        else:
+            cur = await self.pool.fetch(
+                f"SELECT * FROM {self.__tablename__} "
+                "WHERE user_id=$1, guild_id=$2, channel_id=$5 "
+                "ORDER BY create_at DESC LIMIT 10",
+                user_id,
+                guild_id,
+                channel_id,
+            )
+
+        return [UserMessage.from_row(row) for row in cur]
