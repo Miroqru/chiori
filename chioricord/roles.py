@@ -6,6 +6,7 @@ from enum import IntEnum
 from typing import Self
 
 import arc
+import hikari
 from asyncpg import Record
 from loguru import logger
 
@@ -38,6 +39,45 @@ class UserRole:
     def from_row(cls, row: Record) -> Self:
         """Собирает значение базы данных из строки."""
         return cls(row[0], row[1], RoleLevel(row[2]), row[3], row[4])
+
+
+class ChangeRoleEvent(hikari.Event):
+    """Когда изменяется роль пользователя.."""
+
+    def __init__(
+        self, db: ChioDB, old_role: UserRole | None, role: UserRole
+    ) -> None:
+        self._db = db
+        self._old_role = old_role
+        self._role = role
+
+    @property
+    def app(self) -> hikari.RESTAware:
+        """App instance for this application."""
+        return self._db.client.app
+
+    @property
+    def client(self) -> arc.GatewayClient:
+        """App instance for this application."""
+        return self._db.client
+
+    @property
+    def db(self) -> ChioDB:
+        """Возвращает подключение к базе данных."""
+        return self._db
+
+    @property
+    def old_role(self) -> UserRole | None:
+        """Возвращает прошлую роль пользователя.
+
+        Вернёт None если ранее у пользователя не было роли.
+        """
+        return self._old_role
+
+    @property
+    def role(self) -> UserRole:
+        """Возвращает текущую роль пользователя."""
+        return self._role
 
 
 class RoleTable(DBTable):
@@ -76,12 +116,16 @@ class RoleTable(DBTable):
 
     async def get_roles(self, role: RoleLevel) -> list[UserRole]:
         """Получает всех заблокированных пользователей."""
-        cur = await self.pool.fetch("SELECT * FROM roles WHERE role=$1", role.value)
+        cur = await self.pool.fetch(
+            "SELECT * FROM roles WHERE role=$1", role.value
+        )
         return [UserRole.from_row(row) for row in cur]
 
     async def get_user(self, user_id: int) -> UserRole | None:
         """Retrieve user by ID from the database."""
-        cur = await self.pool.fetchrow("SELECT * FROM roles WHERE user_id=$1", user_id)
+        cur = await self.pool.fetchrow(
+            "SELECT * FROM roles WHERE user_id=$1", user_id
+        )
         return None if cur is None else UserRole.from_row(cur)
 
     async def get_or_create(self, user_id: int) -> UserRole:
@@ -106,7 +150,7 @@ class RoleTable(DBTable):
         """Update user record in the database."""
         await self.pool.execute(
             f"UPDATE {self.__tablename__} SET from_id=$1, start_time=$2, "
-            "role=$3 reason=$4 WHERE user_id=$5",
+            "role=$3, reason=$4 WHERE user_id=$5",
             user.from_id,
             user.start_time,
             user.role,
@@ -138,6 +182,10 @@ class RoleTable(DBTable):
             await self._create_user(user)
         else:
             await self._set_user(user)
+
+        self._db.app.event_manager.dispatch(
+            ChangeRoleEvent(self._db, db_user, user)
+        )
         return user
 
     # Role aliases
@@ -165,10 +213,14 @@ class RoleTable(DBTable):
         self, user_id: int, from_id: int, reason: str | None = None
     ) -> UserRole:
         """Устанавливает роль MODERATOR пользователю."""
-        return await self.set_role(user_id, from_id, RoleLevel.MODERATOR, reason)
+        return await self.set_role(
+            user_id, from_id, RoleLevel.MODERATOR, reason
+        )
 
     async def set_administrator(
         self, user_id: int, from_id: int, reason: str | None = None
     ) -> UserRole:
         """Устанавливает роль ADMINISTRATOR пользователю."""
-        return await self.set_role(user_id, from_id, RoleLevel.ADMINISTRATOR, reason)
+        return await self.set_role(
+            user_id, from_id, RoleLevel.ADMINISTRATOR, reason
+        )
