@@ -7,12 +7,7 @@ from collections.abc import Callable
 
 import arc
 
-from chioricord.config import config
 from chioricord.roles import RoleLevel, UserRole
-
-
-class NotOwnerError(arc.HookAbortError):
-    """Если другой пользователь пытается получить доступ к командам."""
 
 
 class MissingRoleError(arc.HookAbortError):
@@ -21,12 +16,6 @@ class MissingRoleError(arc.HookAbortError):
 
 class UserBannedError(arc.HookAbortError):
     """Если пользователь с блокировкой пытается использовать команду."""
-
-
-def owner_hook(ctx: arc.GatewayContext) -> None:
-    """Проверка на администратора бота."""
-    if config.BOT_OWNER != ctx.author.id:
-        raise NotOwnerError("This command can use only bot owner,")
 
 
 def _role_hook(ctx: arc.GatewayContext, role: RoleLevel) -> None:
