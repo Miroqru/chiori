@@ -16,7 +16,7 @@ import hikari
 import miru
 from loguru import logger
 
-from chioricord.config import PluginConfigManager, config
+from chioricord.config import BotConfig, PluginConfigManager
 from chioricord.db import ChioDB
 from chioricord.hooks import has_role
 from chioricord.roles import RoleLevel, RoleTable
@@ -119,8 +119,9 @@ def start_bot() -> None:
     Подгружает все плагины.
     Запускает самого бота.
     """
-    # logger.info("Load bot config")
-    # config = BotConfig()  # type: ignore
+    logger.info("Load bot config")
+    config = BotConfig()  # type: ignore
+    dp.set_type_dependency(BotConfig, config)
 
     if config.DEBUG:
         hikari_logger = logging.getLogger()

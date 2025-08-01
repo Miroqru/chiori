@@ -10,7 +10,7 @@ import hikari
 from asyncpg import Record
 from loguru import logger
 
-from chioricord.config import config
+from chioricord.config import BotConfig
 from chioricord.db import ChioDB, DBTable
 
 
@@ -94,6 +94,7 @@ class RoleTable(DBTable):
     ) -> None:
         """Предоставляет роль пользователя в arc inject."""
         logger.debug("Try to get user from {}", ctx)
+        config = ctx.get_type_dependency(BotConfig)
         if ctx.user.id == config.BOT_OWNER:
             user = UserRole(
                 ctx.user.id, None, RoleLevel.OWNER, None, "From core config"
