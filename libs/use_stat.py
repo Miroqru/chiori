@@ -1,5 +1,10 @@
-"""Статистика использования команд в боте."""
+"""Статистика использования команд в боте.
 
+Version: v1.1 (4)
+Author: Milinuri Nirvalen
+"""
+
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Self
@@ -21,7 +26,7 @@ class CommandUsage:
     @classmethod
     def from_row(cls, row: Record) -> Self:
         """Собирает команду из базы данных."""
-        return cls(row[0], row[1], row[2], row[3])
+        return cls(row[1], row[2], row[3], row[4])
 
 
 class CommandsTable(DBTable):
@@ -40,12 +45,18 @@ class CommandsTable(DBTable):
             "used_at TIMESTAMP NOT NULL DEFAULT NOW())"
         )
 
+    async def count_commands(self) -> Counter[str]:
+        """Retrieve items by parameter from the database."""
+        cur = await self.pool.fetch(f"SELECT command FROM {self.__tablename__}")
+        return Counter(row[0] for row in cur)
+
     async def add_command(
         self, user_id: int, guild_id: int | None, command: str
     ) -> None:
         """Create a new user record in the database."""
         await self.pool.execute(
-            f"INSERT INTO {self.__tablename__}(user_id, guild_id, command) VALUES($1,$2,$3)",
+            f"INSERT INTO {self.__tablename__}(user_id, guild_id, command) "
+            "VALUES($1,$2,$3)",
             user_id,
             guild_id,
             command,
