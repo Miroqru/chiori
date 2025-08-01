@@ -53,7 +53,7 @@ class BotConfig(BaseSettings):
     """
 
     # TODO: Начать использовать составной подход
-    PLUGINS_CONFIG: Path = Path("bot_data/plugins.toml")
+    PLUGINS_CONFIG: Path = Path("plugins.toml")
     """Путь к настройкам плагинов.
 
     Здесь хранятся динамические настройки для плагинов, которые
@@ -72,16 +72,19 @@ class BotConfig(BaseSettings):
     В режиме отладки бот сообщает больше логов о происходящем.
     """
 
-    EXTENSIONS_PATH: str = "extensions/"
+    EXTENSIONS_PATH: Path = Path("extensions/")
     """Путь до расширений.
 
     Откуда боту загружать необходимые расширения.
     """
 
+    DATA_PATH: Path = Path("bot_data/")
+    """Путь до хранилища данных плагинов.
+
+    Плагины смогут записывать или читать данные зи данный директории.
+    """
+
     model_config = SettingsConfigDict(env_file=".env")
-
-
-config = BotConfig()  # type: ignore
 
 
 class PluginConfig(BaseModel):

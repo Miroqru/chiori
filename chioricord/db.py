@@ -52,7 +52,6 @@ class ChioDB:
 
     async def connect(self) -> None:
         """Подключение к базе данных."""
-        logger.info("Connect to Chio database")
         self._pool = await asyncpg.create_pool(self.dsn)
 
     async def close(self) -> None:

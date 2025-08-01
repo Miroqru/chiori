@@ -8,8 +8,6 @@
 import asyncio
 import logging
 import sys
-from datetime import UTC, datetime
-from pathlib import Path
 
 import arc
 import hikari
@@ -18,6 +16,7 @@ from loguru import logger
 
 from chioricord.config import BotConfig, PluginConfigManager
 from chioricord.db import ChioDB
+from chioricord.errors import client_error_handler
 from chioricord.hooks import has_role
 from chioricord.roles import RoleLevel, RoleTable
 
@@ -29,86 +28,55 @@ except ModuleNotFoundError:
     asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
 
-# Глобальные переменные
-# =====================
-
 # Настраиваем формат отображения логов loguru
 # Обратите внимание что в проекте помимо loguru используется logging
-LOG_FORMAT = (
+_LOG_FORMAT = (
     "<lvl>{level.icon}</> "
     "<light-black>{time:YYYY-MM-DD HH:mm:ss.SSS}</> "
     "{file}:{function} "
     "<lvl>{message}</>"
 )
 
-# Директория откуда будут грузиться все расширения
-bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
-dp = arc.GatewayClient(bot)
-miru_client = miru.Client.from_arc(dp)
 
-
-# Обработка событий
-# =================
-
-
-@dp.set_error_handler
-async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
-    """Отлавливаем исключение если что-то  пошло не по плану.
-
-    К примеру это могут быть ошибки внутри обработчиков.
-    Неправильно переданные команды.
-    Если обработчики сами не реализуют обработчики ошибок, то все
-    исключения будут попадать сюда.
-    """
-    if isinstance(exc, hikari.ForbiddenError):
-        emb = hikari.Embed(
-            title="⚠️ Недостаточно прав",
-            description="Для выполнения данной команды.",
-            color=hikari.Color(0xFF9966),
-        )
-        emb.add_field("status", f"[`{exc.status}`] {exc.message}")
-        return
-
-    try:
-        raise exc
-    except Exception as e:
-        logger.exception(e)
-        emb = hikari.Embed(
-            title="⚡ Что-то пошло не так!",
-            description=(
-                "Во время выполнения команды..\n\n"
-                f"`{type(e)}`: {e}\n\n"
-                "🌱 Обратитесь в поддержку за помощью."
-            ),
-            color=hikari.Color(0xFF6699),
-            timestamp=datetime.now(UTC),
-        )
-        await ctx.respond(emb)
-
-
-@dp.add_startup_hook
-@dp.inject_dependencies
-async def on_startup(
-    client: arc.GatewayClient, db: ChioDB = arc.inject()
-) -> None:
+async def _connect_db(client: arc.GatewayClient) -> None:
     """Производим подключение к базе данных."""
+    logger.info("Connect to chio database")
+    db = client.get_type_dependency(ChioDB)
     await db.connect()
     await db.create_tables()
 
 
-@dp.add_shutdown_hook
-@dp.inject_dependencies
-async def shutdown_client(
-    client: arc.GatewayClient, cm: PluginConfigManager = arc.inject()
-) -> None:
-    """Действия для корректного завершения работы бота."""
-    logger.info("Shutdown chiori")
-    # TODO: Пока не совсем ясно как стоит сохранять настройки
-    # cm.dump_config()
+def _setup_logger(config: BotConfig) -> None:
+    if config.DEBUG:
+        hikari_logger = logging.getLogger()
+        hikari_logger.setLevel(logging.DEBUG)
+        level = "DEBUG"
+    else:
+        level = "INFO"
+
+    logger.remove()
+    logger.add(sys.stdout, format=_LOG_FORMAT, enqueue=True, level=level)
 
 
-# Запуск бота
-# ===========
+def _check_folders(config: BotConfig) -> None:
+    logger.info("Check needed bot folders")
+    config.EXTENSIONS_PATH.mkdir(exist_ok=True)
+    config.DATA_PATH.mkdir(exist_ok=True)
+
+
+def _setup_db(client: arc.GatewayClient, config: BotConfig) -> None:
+    logger.info("Setup config and database")
+    cm = PluginConfigManager(config.DATA_PATH / config.PLUGINS_CONFIG, client)
+    db = ChioDB(str(config.DB_DSN), client)
+    db.register(RoleTable)
+
+    # Установка DI
+    client.set_type_dependency(PluginConfigManager, cm)
+    client.set_type_dependency(ChioDB, db)
+
+    # Настройка хуков
+    client.add_hook(has_role(RoleLevel.USER))
+    client.add_startup_hook(_connect_db)
 
 
 def start_bot() -> None:
@@ -121,37 +89,22 @@ def start_bot() -> None:
     """
     logger.info("Load bot config")
     config = BotConfig()  # type: ignore
-    dp.set_type_dependency(BotConfig, config)
 
-    if config.DEBUG:
-        hikari_logger = logging.getLogger()
-        hikari_logger.setLevel(logging.DEBUG)
-        level = "DEBUG"
-    else:
-        level = "INFO"
+    bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
+    client = arc.GatewayClient(bot)
+    miru.Client.from_arc(client)
 
-    logger.remove()
-    logger.add(sys.stdout, format=LOG_FORMAT, enqueue=True, level=level)
+    client.set_type_dependency(BotConfig, config)
+    client.set_error_handler(client_error_handler)
 
-    # TODO: Переместить в переменную окружения
-    bot_data = Path("bot_data/")
-    logger.info("Check data folder {}", bot_data)
-    bot_data.mkdir(exist_ok=True)
-
-    logger.info("Setup config and database")
-    cm = PluginConfigManager(config.PLUGINS_CONFIG, dp)
-    db = ChioDB(str(config.DB_DSN), dp)
-    db.register(RoleTable)
-    dp.add_hook(has_role(RoleLevel.USER))
-
-    dp.set_type_dependency(PluginConfigManager, cm)
-    dp.set_type_dependency(ChioDB, db)
+    _setup_logger(config)
+    _check_folders(config)
+    _setup_db(client, config)
 
     # Простой загрузчик расширений
     logger.info("Load plugins from {} ...", config.EXTENSIONS_PATH)
-    dp.load_extensions_from(config.EXTENSIONS_PATH)
+    client.load_extensions_from(config.EXTENSIONS_PATH)
 
-    activity = hikari.Activity(
-        name="для справки /help", type=hikari.ActivityType.STREAMING
-    )
+    # Запуск бота
+    activity = hikari.Activity(name="/help", type=hikari.ActivityType.PLAYING)
     bot.run(activity=activity)
