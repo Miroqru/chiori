@@ -1,4 +1,4 @@
-"""Обработчик для nekos.life.
+"""Милые картинки из nekos.life.
 
 Отправляет различные весёлые анимешные картиночки.
 
@@ -6,21 +6,8 @@
 репозитории было несколько лет назад.
 Однако сервис продолжает работать, так что продолжаем.
 
-Предоставляет
--------------
-
-- /neko image <group> - Милая аниме картиночка.
-- /neko cat - Кошачья мордочка.
-- /neko fact - Случайный факт.
-- /neko name - Случайное имя.
-- /neko why - Вопрос дня.
-- /neko owofy <text> - Owo ваш текст.
-- /neko spoiler <text> - Спрятать текст под спойлером.
-
-Plugin:
-Version: v1.2 (3)
+Version: v1.3 (5)
 Author: Milinuri Nirvalen
-Repo: https://github.com/Nekos-life
 """
 
 from dataclasses import dataclass
@@ -32,7 +19,6 @@ import hikari
 from aiohttp import ClientSession
 
 plugin = arc.GatewayPlugin("Nekos life")
-
 neko = plugin.include_slash_group(
     name="nekos", description="Различные милые команды."
 )
@@ -103,7 +89,11 @@ async def neko_image(
         hikari.Member | None, arc.MemberParams("к кому применить действие")
     ] = None,
 ) -> None:
-    """Отправляет фото вайфу."""
+    """Отправляет аниме картинку.
+
+    Одну из выбранной группы.
+    Можно указать участника и тогда действие применится к нему.
+    """
     image = _IMAGE_TYPES[group]
     async with aiohttp.ClientSession() as session:
         desc = ""
@@ -146,28 +136,6 @@ async def neko_nya(ctx: arc.GatewayContext) -> None:
     """Отправляет случайный вопрос."""
     async with aiohttp.ClientSession() as session:
         await ctx.respond(await fetch(session, "/why", "why"))
-
-
-@neko.include
-@arc.slash_subcommand("owoify", description="owoify your text.")
-async def neko_owoify(
-    ctx: arc.GatewayContext,
-    text: arc.Option[str, arc.StrParams("Текст для перевода")],  # type: ignore
-) -> None:
-    """Отправляет весёлый текст."""
-    async with aiohttp.ClientSession() as session:
-        await ctx.respond(await fetch(session, "/owoify", "owo"))
-
-
-@neko.include
-@arc.slash_subcommand(name="spoiler", description="Прячет текст под спойлером.")
-async def neko_spoiler(
-    ctx: arc.GatewayContext,
-    text: arc.Option[str, arc.StrParams("Текст для спойлера")],  # type: ignore
-) -> None:
-    """Прячет текст под спойлером."""
-    async with aiohttp.ClientSession() as session:
-        await ctx.respond(await fetch(session, "/spoiler", "owo"))
 
 
 # Загрузчики и выгрузчики плагина

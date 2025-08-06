@@ -1,12 +1,7 @@
-"""Обработчик для nekos.best.
+"""Милые аниме картинки с сайта nekos.best.
 
 Отправляет различные весёлые анимешные картиночки.
 В отличие от собрата nekos.life выглядит более презентабельно.
-
-Предоставляет
--------------
-
-- /neko <group> - Милая аниме картинка.
 
 Version: v1.1 (3)
 Author: Milinuri Nirvalen
@@ -115,7 +110,7 @@ async def neko_image(
         str, arc.StrParams("Тип картинки", autocomplete_with=category_opts)
     ],
     member: arc.Option[  # type: ignore
-        hikari.Member | None, arc.MemberParams("к кому применить действие")
+        hikari.Member | None, arc.MemberParams("К кому применить действие")
     ] = None,
 ) -> None:
     """Отправляет аниме картинку."""
