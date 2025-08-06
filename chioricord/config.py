@@ -7,9 +7,8 @@
 хранилище.
 """
 
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, TypeVar, overload
+from typing import TypeVar
 
 import toml
 from arc import GatewayClient
@@ -84,11 +83,24 @@ class BotConfig(BaseSettings):
     Плагины смогут записывать или читать данные зи данный директории.
     """
 
+    CONFIG_PATH: Path = Path("config/")
+    """Путь до настроек бота.
+
+    Отсюда плагины загружают свои настройки.
+    """
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
 class PluginConfig(BaseModel):
     """Базовый класс для настроек плагина."""
+
+    config_name: str | None = None
+    """Имя настроек.
+
+    Данное имя будет использоваться для пути к файлу настроек.
+    если имя `foo`, тогда путь к настройкам `config/foo.toml`.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -101,78 +113,41 @@ class PluginConfigManager:
 
     def __init__(self, config_path: Path, client: GatewayClient) -> None:
         self._config_path = config_path
-        self._config: dict[str, dict[str, Any]] | None = None
-        self._groups: dict[str, type[PluginConfig]] = {}
         self._client = client
+        self._proto: list[type[PluginConfig]] = []
+        self._config: dict[type[PluginConfig], PluginConfig] = {}
 
-    @property
-    def config(self) -> dict[str, dict[str, Any]]:
-        """Настройки приложения."""
-        if self._config is None:
-            self._config = self._load_file()
-        return self._config
+    def load(self) -> None:
+        """Загружает настройки из прототипов."""
+        name_lock: dict[str, type[PluginConfig]] = {}
+        for proto in self._proto:
+            if proto.config_name is None:
+                raise ValueError(f"{proto} not provided config_name")
 
-    @property
-    def groups(self) -> Iterable[str]:
-        """Возвращает список групп настроек."""
-        return self._groups.keys()
+            used_name = name_lock.get(proto.config_name)
+            if used_name is not None:
+                raise ValueError(
+                    f"{proto.config_name} already used by {used_name}"
+                )
 
-    def dump_config(self) -> None:
-        """Сохраняет настройки плагинов в файл."""
-        logger.info("Dump config to file")
-        self._write_file()
+            with (self._config_path / f"{proto.config_name}.toml").open() as f:
+                config = proto.model_validate(toml.load(f.read()))
+                name_lock[proto.config_name] = proto
 
-    # Работа с файлом конфига
-    # =======================
+            self._config[proto] = config
+            self._client.set_type_dependency(proto, config)
+        self._proto = []
 
-    def _load_file(self) -> dict[str, dict[str, Any]]:
-        logger.info(self._config_path.absolute())
-        with self._config_path.open() as f:
-            return toml.loads(f.read())
-
-    def _write_file(self) -> None:
-        if self._config is None:
-            return
-        with self._config_path.open("w") as f:
-            f.write(toml.dumps(self._config))
-
-    # Настройка подгрупп
-    # ==================
-
-    def register(self, key: str, proto: type[PluginConfig]) -> None:
+    def register(self, proto: type[PluginConfig]) -> None:
         """Регистрирует новые настройки для плагина."""
-        logger.info("Setup config for {}", key)
-        self._groups[key] = proto
-        config = self.get_group(key)
-        self._client.set_type_dependency(proto, config)
+        logger.info("Setup config for {}", proto)
+        if proto in self._proto:
+            raise ValueError(f"{proto} already registered")
+        self._proto.append(proto)
 
-    def get_proto(self, key: str) -> type[PluginConfig]:
-        """получает прототип настроек для группы."""
-        proto = self._groups.get(key)
-        if proto is None:
-            raise KeyError(f"Config {key} not registered")
-        return proto
-
-    @overload
-    def get_group(self, key: str, type_: type[_C]) -> _C:
-        pass
-
-    @overload
-    def get_group(self, key: str) -> PluginConfig:
-        pass
-
-    def get_group(
-        self, key: str, type_: type[_C] | None = None
-    ) -> _C | PluginConfig:
+    def get(self, proto: type[_C]) -> _C:
         """Получает настройки для плагина."""
-        proto = self.get_proto(key)
-        plugin_data = self.config.get(key)
-        if plugin_data is None:
-            return proto()
-        return proto.model_validate(plugin_data)
-
-    def save_group(self, key: str, data: PluginConfig) -> None:
-        """Сохраняет настройки группы в конфиг."""
-        if self._config is None:
-            raise ValueError("You must load config before use it")
-        self._config[key] = data.model_dump()
+        key = self._config.get(proto)
+        if key is None:
+            raise ValueError(f"{proto} is not registered")
+        return key  # type: ignore

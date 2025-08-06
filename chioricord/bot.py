@@ -62,11 +62,14 @@ def _check_folders(config: BotConfig) -> None:
     logger.info("Check needed bot folders")
     config.EXTENSIONS_PATH.mkdir(exist_ok=True)
     config.DATA_PATH.mkdir(exist_ok=True)
+    config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
 def _setup_db(client: arc.GatewayClient, config: BotConfig) -> None:
     logger.info("Setup config and database")
-    cm = PluginConfigManager(config.DATA_PATH / config.PLUGINS_CONFIG, client)
+    cm = PluginConfigManager(config.CONFIG_PATH, client)
+    cm.load()
+
     db = ChioDB(str(config.DB_DSN), client)
     db.register(RoleTable)
 
