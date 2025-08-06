@@ -2,10 +2,7 @@
 
 Сделано с целью интеграции с одноимённым сервером Discord.
 
-Предоставляет
--------------
-
-Version: v0.6.1 (11)
+Version: v0.7 (13)
 Author: Milinuri Nirvalen
 """
 
@@ -17,16 +14,21 @@ from loguru import logger
 from mcstatus import JavaServer
 from mcstatus.responses import JavaStatusPlayers
 
+from chioricord.config import PluginConfig, PluginConfigManager
 from libs.static_embeds import StaticCommands, load_commands
 
+
+class ModcraftConfig(PluginConfig):
+    """Настройки Modcraft сервера."""
+
+    server_ip: str = "hydra.minerent.net:25598"
+    """IP minecraft сервера по умолчанию."""
+
+    commands_path: Path = Path("bot_data/modcraft_embeds.json")
+    """Путь к статическим командам для static_embeds."""
+
+
 plugin = arc.GatewayPlugin("ModCraft")
-_SERVER_IP = "hydra.minerent.net:25598"
-sc = StaticCommands()
-COMMANDS_PATh = Path("bot_data/modcraft_embeds.json")
-
-
-# определение команд
-# ==================
 
 cmd_group = plugin.include_slash_group(
     name="mc", description="Взаимодействие с сервером ModCraft."
@@ -48,14 +50,21 @@ def online_status(players: JavaStatusPlayers) -> str:
 
 @cmd_group.include
 @arc.slash_subcommand("status", description="Статус Minecraft сервера.")
-async def server_status(ctx: arc.GatewayContext) -> None:
+async def server_status(
+    ctx: arc.GatewayContext,
+    server_ip: arc.Option[
+        str | None, arc.StrParams("IP Minecraft сервера.")
+    ] = None,
+    config: ModcraftConfig = arc.inject(),
+) -> None:
     """Статус Minecraft сервера.
 
     Получает основную информацию о сервере.
     Название, версия, количество игроков, пинг.
     Также информация о Forge, если имеется.
     """
-    server = await JavaServer.async_lookup(_SERVER_IP)
+    server_ip = server_ip or config.server_ip
+    server = await JavaServer.async_lookup(server_ip)
     status = await server.async_status()
     ping = round(status.latency, 2)
 
@@ -88,15 +97,21 @@ async def server_status(ctx: arc.GatewayContext) -> None:
 
 
 @cmd_group.include
-@arc.slash_subcommand("mods", description="Какие моды установлены на сервере.")
-async def server_mods(ctx: arc.GatewayContext) -> None:
-    """Список модов на сервере.
+@arc.slash_subcommand("mods", description="Установлены моды на сервере.")
+async def server_mods(
+    ctx: arc.GatewayContext,
+    server_ip: arc.Option[
+        str | None, arc.StrParams("IP Minecraft сервера.")
+    ] = None,
+    config: ModcraftConfig = arc.inject(),
+) -> None:
+    """Список модов на Forge сервере.
 
     Содержит название и версию мода.
     """
-    server = await JavaServer.async_lookup(_SERVER_IP)
+    server_ip = server_ip or config.server_ip
+    server = await JavaServer.async_lookup(server_ip)
     status = await server.async_status()
-
     if status.forge_data is None:
         emb = hikari.Embed(
             title="📦 Список модов",
@@ -123,13 +138,20 @@ async def server_mods(ctx: arc.GatewayContext) -> None:
 
 @cmd_group.include
 @arc.slash_subcommand("ping", description="Скорость ответа от сервера.")
-async def server_ping(ctx: arc.GatewayContext) -> None:
+async def server_ping(
+    ctx: arc.GatewayContext,
+    server_ip: arc.Option[
+        str | None, arc.StrParams("IP Minecraft сервера.")
+    ] = None,
+    config: ModcraftConfig = arc.inject(),
+) -> None:
     """Пинг Minecraft сервера.
 
     Получает задержку между ботом и сервером.
     Уровень задержки отображает цветом.
     """
-    server = await JavaServer.async_lookup(_SERVER_IP)
+    server_ip = server_ip or config.server_ip
+    server = await JavaServer.async_lookup(server_ip)
     ping = round(await server.async_ping(), 2)
     green = min(0, int(0xFF * (1 - ping / 150)))
     color = hikari.Color.from_rgb(0xFF, green, 0x99)
@@ -146,7 +168,12 @@ async def server_ping(ctx: arc.GatewayContext) -> None:
 @arc.loader
 def loader(client: arc.GatewayClient) -> None:
     """Действия при загрузке плагина."""
-    commands = load_commands(COMMANDS_PATh)
+    cm = client.get_type_dependency(PluginConfigManager)
+    cm.register("modcraft", ModcraftConfig)
+    config = cm.get_group("modcraft", ModcraftConfig)
+
+    sc = StaticCommands()
+    commands = load_commands(config.commands_path)
     for command in commands:
         logger.info("Add command: {}: {}", command.name, command.desc)
         cmd_group.include(sc.add_subcommand(command))
