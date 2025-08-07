@@ -11,10 +11,11 @@ from hikari.applications import (
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
 
-from chioricord.api import ChioDB, DBTable, PluginConfig, PluginConfigManager
+from chioricord.api import DBTable, PluginConfig
+from chioricord.client import ChioClient
 
 
-class ChioPlugin(arc.GatewayPlugin):
+class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
     """Надстройка над GatewayPlugin с дополнительными методами."""
 
     def __init__(  # noqa: PLR0913
@@ -59,13 +60,11 @@ class ChioPlugin(arc.GatewayPlugin):
         """
         self._tables.append(table)
 
-    def _client_include_hook(self, client: arc.GatewayClient) -> None:
+    def _client_include_hook(self, client: ChioClient) -> None:
         super()._client_include_hook(client)
 
-        db = client.get_type_dependency(ChioDB)
         for table in self._tables:
-            db.register(table)
+            client.db.register(table)
 
         if self._config is not None:
-            cm = client.get_type_dependency(PluginConfigManager)
-            cm.register(self._config)
+            client.config.register(self._config)

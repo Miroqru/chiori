@@ -1,17 +1,21 @@
 """Глобальная система ролей пользователей."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import arc
 import hikari
 from asyncpg import Record
 from loguru import logger
 
-from chioricord.api.config import BotConfig
 from chioricord.api.db import ChioDB, DBTable
+
+if TYPE_CHECKING:
+    from chioricord.client import ChioClient, ChioContext
 
 
 class RoleLevel(IntEnum):
@@ -57,7 +61,7 @@ class ChangeRoleEvent(hikari.Event):
         return self._db.client.app
 
     @property
-    def client(self) -> arc.GatewayClient:
+    def client(self) -> ChioClient:
         """App instance for this application."""
         return self._db.client
 
@@ -90,12 +94,11 @@ class RoleTable(DBTable):
         self._db.client.add_injection_hook(self.role_injector)
 
     async def role_injector(
-        self, ctx: arc.GatewayContext, inj_ctx: arc.InjectorOverridingContext
+        self, ctx: ChioContext, inj_ctx: arc.InjectorOverridingContext
     ) -> None:
         """Предоставляет роль пользователя в arc inject."""
         logger.debug("Try to get user from {}", ctx)
-        config = ctx.get_type_dependency(BotConfig)
-        if ctx.user.id == config.BOT_OWNER:
+        if ctx.user.id == ctx.client.bot_config.BOT_OWNER:
             user = UserRole(
                 ctx.user.id, None, RoleLevel.OWNER, None, "From core config"
             )

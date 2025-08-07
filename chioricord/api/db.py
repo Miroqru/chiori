@@ -3,12 +3,17 @@
 предоставляет методы для работы с общей базой данных Postgres.
 """
 
+from __future__ import annotations
+
 import time
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-import arc
 import asyncpg
 from loguru import logger
+
+if TYPE_CHECKING:
+    from chioricord.client import ChioClient
 
 
 class DBTable(ABC):
@@ -16,7 +21,7 @@ class DBTable(ABC):
 
     __tablename__: str
 
-    def __init__(self, db: "ChioDB") -> None:
+    def __init__(self, db: ChioDB) -> None:
         self._db = db
 
     @abstractmethod
@@ -38,7 +43,7 @@ class ChioDB:
 
     __slots__ = ("client", "app", "_pool", "_tables")
 
-    def __init__(self, client: arc.GatewayClient) -> None:
+    def __init__(self, client: ChioClient) -> None:
         self.client = client
         self.app = client.app
 
@@ -49,8 +54,7 @@ class ChioDB:
         """просчитывает пинг до базы данных."""
         start = time.monotonic()
         await self.pool.execute("SELECT 1")
-        ping = (time.monotonic() - start) * 1000
-        return ping
+        return (time.monotonic() - start) * 1000
 
     @property
     def pool(self) -> asyncpg.Pool:

@@ -5,7 +5,6 @@
 
 from chioricord.api.config import BotConfig, PluginConfig, PluginConfigManager
 from chioricord.api.db import ChioDB, DBTable
-from chioricord.api.roles import ChangeRoleEvent, RoleLevel, RoleTable, UserRole
 
 __all__ = (
     "BotConfig",
@@ -13,8 +12,4 @@ __all__ = (
     "PluginConfigManager",
     "ChioDB",
     "DBTable",
-    "ChangeRoleEvent",
-    "RoleLevel",
-    "RoleTable",
-    "UserRole",
 )

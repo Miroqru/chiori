@@ -12,10 +12,11 @@ import hikari
 import miru
 from loguru import logger
 
-from chioricord.api import BotConfig, RoleLevel, RoleTable
+from chioricord.api import BotConfig
 from chioricord.client import ChioClient
 from chioricord.errors import client_error_handler
 from chioricord.hooks import has_role
+from chioricord.roles import RoleLevel, RoleTable
 
 try:
     import uvloop

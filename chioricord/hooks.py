@@ -7,8 +7,8 @@ from collections.abc import Callable
 
 import arc
 
-from chioricord.api import RoleLevel, UserRole
 from chioricord.client import ChioContext
+from chioricord.roles import RoleLevel, UserRole
 
 
 class MissingRoleError(arc.HookAbortError):
