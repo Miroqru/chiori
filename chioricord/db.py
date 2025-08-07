@@ -71,7 +71,7 @@ class ChioDB:
 
     def register(self, table: type[DBTable]) -> None:
         """Регистрирует таблицу в базу данных."""
-        logger.info("Register table {}", table)
+        logger.info("Register table {}", table.__tablename__)
         if table.__tablename__ in self._tables:
             raise ValueError(f"Table {table.__tablename__} already registered")
 

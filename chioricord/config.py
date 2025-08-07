@@ -8,7 +8,7 @@
 """
 
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, Unpack
 
 import toml
 from arc import GatewayClient
@@ -95,7 +95,7 @@ class BotConfig(BaseSettings):
 class PluginConfig(BaseModel):
     """Базовый класс для настроек плагина."""
 
-    config_name: str | None = None
+    __config_name__: str | None = None
     """Имя настроек.
 
     Данное имя будет использоваться для пути к файлу настроек.
@@ -103,6 +103,13 @@ class PluginConfig(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    def __init_subclass__(
+        cls, config: str, **kwargs: Unpack[ConfigDict]
+    ) -> None:
+        """Позволяет передать имя настроек."""
+        super().__init_subclass__(**kwargs)
+        cls.__config_name__ = config
 
 
 _C = TypeVar("_C", bound=PluginConfig)
@@ -116,30 +123,56 @@ class PluginConfigManager:
         self._proto: list[type[PluginConfig]] = []
         self._config: dict[type[PluginConfig], PluginConfig] = {}
 
+        self._name_lock: dict[str, type[PluginConfig]] = {}
+        self._failed_load: list[str] = []
+
+    def _load_proto(self, config_path: Path, proto: type[PluginConfig]) -> None:
+        logger.debug("Load config {}", proto.__config_name__)
+        if proto.__config_name__ is None:
+            raise ValueError(f"{proto} not provided config_name")
+
+        used_name = self._name_lock.get(proto.__config_name__)
+        if used_name is not None:
+            raise ValueError(
+                f"{proto.__config_name__} already used by {used_name}"
+            )
+
+        config_file = config_path / f"{proto.__config_name__}.toml"
+        if config_file.exists():
+            with config_file.open() as f:
+                config = proto.model_validate(toml.loads(f.read()))
+                self._name_lock[proto.__config_name__] = proto
+        else:
+            logger.warning("{} not found", config_file)
+            config = proto()
+
+        self._config[proto] = config
+        self._client.set_type_dependency(proto, config)
+
     def load(self, config_path: Path) -> None:
         """Загружает настройки из прототипов."""
-        name_lock: dict[str, type[PluginConfig]] = {}
         for proto in self._proto:
-            if proto.config_name is None:
-                raise ValueError(f"{proto} not provided config_name")
+            try:
+                self._load_proto(config_path, proto)
+            except Exception as e:
+                logger.warning(e)
+                self._failed_load.append(proto.__config_name__)  # type: ignore
 
-            used_name = name_lock.get(proto.config_name)
-            if used_name is not None:
-                raise ValueError(
-                    f"{proto.config_name} already used by {used_name}"
+        if len(self._failed_load) > 0:
+            logger.error("Failed to load some configs:")
+            for name in self._failed_load:
+                logger.error(
+                    "- {name} => {config}/{name}.toml",
+                    name=name,
+                    config=config_path,
                 )
 
-            with (config_path / f"{proto.config_name}.toml").open() as f:
-                config = proto.model_validate(toml.load(f.read()))
-                name_lock[proto.config_name] = proto
-
-            self._config[proto] = config
-            self._client.set_type_dependency(proto, config)
+            raise ValueError("Failed to load plugin config")
         self._proto = []
 
     def register(self, proto: type[PluginConfig]) -> None:
         """Регистрирует новые настройки для плагина."""
-        logger.info("Setup config for {}", proto)
+        logger.info("Register config {}", proto.__config_name__)
         if proto in self._proto:
             raise ValueError(f"{proto} already registered")
         self._proto.append(proto)

@@ -49,8 +49,8 @@ async def _connect_db(client: arc.GatewayClient) -> None:
 
 def _setup_logger(config: BotConfig) -> None:
     if config.DEBUG:
-        hikari_logger = logging.getLogger()
-        hikari_logger.setLevel(logging.DEBUG)
+        # hikari_logger = logging.getLogger()
+        # hikari_logger.setLevel(logging.DEBUG)
         level = "DEBUG"
     else:
         level = "INFO"
@@ -108,7 +108,12 @@ def start_bot() -> None:
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
     logger.info("[6] Load plugin configs")
-    cm.load(config.CONFIG_PATH)
+
+    try:
+        cm.load(config.CONFIG_PATH)
+    except ValueError as e:
+        logger.error(e)
+        sys.exit(1)
 
     logger.info("[7] Start bot")
     activity = hikari.Activity(name="/help", type=hikari.ActivityType.PLAYING)
