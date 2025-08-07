@@ -1,6 +1,6 @@
 [project]
 name = "chioricord"
-version = "0.7"
+version = "0.9"
 description = "Multi-functional modular discord bot for fluffy your server"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
@@ -19,7 +19,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["mypy>=1.16.0"]
+dev = [
+    "mypy>=1.16.0",
+    "pyright>=1.1.403",
+]
 extensions = ["aiohttp>=3.12.14", "mcstatus>=12.0.2", "openai>=1.97.0"]
 
 
