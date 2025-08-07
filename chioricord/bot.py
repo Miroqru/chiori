@@ -42,7 +42,8 @@ async def _connect_db(client: arc.GatewayClient) -> None:
     """Производим подключение к базе данных."""
     logger.info("Connect to chio database")
     db = client.get_type_dependency(ChioDB)
-    await db.connect()
+    config = client.get_type_dependency(BotConfig)
+    await db.connect(str(config.DB_DSN))
     await db.create_tables()
 
 
@@ -66,18 +67,9 @@ def _check_folders(config: BotConfig) -> None:
 
 
 def _setup_db(client: arc.GatewayClient, config: BotConfig) -> None:
-    logger.info("Setup config and database")
-    cm = PluginConfigManager(config.CONFIG_PATH, client)
-    cm.load()
-
-    db = ChioDB(str(config.DB_DSN), client)
+    db = ChioDB(client)
     db.register(RoleTable)
-
-    # Установка DI
-    client.set_type_dependency(PluginConfigManager, cm)
     client.set_type_dependency(ChioDB, db)
-
-    # Настройка хуков
     client.add_hook(has_role(RoleLevel.USER))
     client.add_startup_hook(_connect_db)
 
@@ -90,9 +82,10 @@ def start_bot() -> None:
     Подгружает все плагины.
     Запускает самого бота.
     """
-    logger.info("Load bot config")
+    logger.info("[0] Load bot config")
     config = BotConfig()  # type: ignore
 
+    logger.info("[1] Init client")
     bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
     client = arc.GatewayClient(bot)
     miru.Client.from_arc(client)
@@ -100,14 +93,23 @@ def start_bot() -> None:
     client.set_type_dependency(BotConfig, config)
     client.set_error_handler(client_error_handler)
 
+    logger.info("[2] Setup Chio")
     _setup_logger(config)
     _check_folders(config)
+
+    logger.info("[3] Setup ChioDB")
     _setup_db(client, config)
 
-    # Простой загрузчик расширений
-    logger.info("Load plugins from {} ...", config.EXTENSIONS_PATH)
+    logger.info("[4] Setup PluginConfig")
+    cm = PluginConfigManager(client)
+    client.set_type_dependency(PluginConfigManager, cm)
+
+    logger.info("[5] Load plugins from {}", config.EXTENSIONS_PATH)
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
-    # Запуск бота
+    logger.info("[6] Load plugin configs")
+    cm.load(config.CONFIG_PATH)
+
+    logger.info("[7] Start bot")
     activity = hikari.Activity(name="/help", type=hikari.ActivityType.PLAYING)
     bot.run(activity=activity)

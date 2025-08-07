@@ -111,13 +111,12 @@ _C = TypeVar("_C", bound=PluginConfig)
 class PluginConfigManager:
     """Динамические настройки плагинов."""
 
-    def __init__(self, config_path: Path, client: GatewayClient) -> None:
-        self._config_path = config_path
+    def __init__(self, client: GatewayClient) -> None:
         self._client = client
         self._proto: list[type[PluginConfig]] = []
         self._config: dict[type[PluginConfig], PluginConfig] = {}
 
-    def load(self) -> None:
+    def load(self, config_path: Path) -> None:
         """Загружает настройки из прототипов."""
         name_lock: dict[str, type[PluginConfig]] = {}
         for proto in self._proto:
@@ -130,7 +129,7 @@ class PluginConfigManager:
                     f"{proto.config_name} already used by {used_name}"
                 )
 
-            with (self._config_path / f"{proto.config_name}.toml").open() as f:
+            with (config_path / f"{proto.config_name}.toml").open() as f:
                 config = proto.model_validate(toml.load(f.read()))
                 name_lock[proto.config_name] = proto
 

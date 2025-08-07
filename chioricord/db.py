@@ -36,8 +36,7 @@ class ChioDB:
     Работает поверх Postgres пула подключений.
     """
 
-    def __init__(self, dsn: str, client: arc.GatewayClient) -> None:
-        self.dsn = dsn
+    def __init__(self, client: arc.GatewayClient) -> None:
         self.client = client
         self.app = client.app
 
@@ -58,9 +57,9 @@ class ChioDB:
             raise ValueError("You need to connect to database pool before")
         return self._pool
 
-    async def connect(self) -> None:
+    async def connect(self, dsn: str) -> None:
         """Подключение к базе данных."""
-        self._pool = await asyncpg.create_pool(self.dsn)
+        self._pool = await asyncpg.create_pool(dsn)
 
     async def close(self) -> None:
         """Закрывает подключение к базе данных."""
