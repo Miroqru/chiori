@@ -89,7 +89,9 @@ class BotConfig(BaseSettings):
     Отсюда плагины загружают свои настройки.
     """
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="forbid", frozen=True
+    )
 
 
 class PluginConfig(BaseModel):
@@ -117,6 +119,8 @@ _C = TypeVar("_C", bound=PluginConfig)
 
 class PluginConfigManager:
     """Динамические настройки плагинов."""
+
+    __slots__ = ("_client", "_proto", "_config", "_name_lock", "_failed_load")
 
     def __init__(self, client: GatewayClient) -> None:
         self._client = client
@@ -168,7 +172,11 @@ class PluginConfigManager:
                 )
 
             raise ValueError("Failed to load plugin config")
+
+        # clear
         self._proto = []
+        self._name_lock = {}
+        self._failed_load = []
 
     def register(self, proto: type[PluginConfig]) -> None:
         """Регистрирует новые настройки для плагина."""
