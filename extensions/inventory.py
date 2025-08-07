@@ -1,13 +1,6 @@
 """Позволяет взаимодействовать с инвентарём.
 
-Предоставляет
--------------
-
-- /index: Все доступных предметов в базе данных.
-- /index [item_id]: Детальную информацию о предмете.
-- /inventory: Предметы в ваших карманах.
-
-Version: v0.2.2 (8)
+Version: v0.2.3 (11)
 Author: Milinuri Nirvalen
 """
 
@@ -17,10 +10,11 @@ import arc
 import hikari
 from loguru import logger
 
-from chioricord.db import ChioDB
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs import inventory
 
-plugin = arc.GatewayPlugin("Inventory")
+plugin = ChioPlugin("Inventory")
 
 
 @dataclass(slots=True, frozen=True)
@@ -120,7 +114,7 @@ def item_info(item: inventory.Item) -> hikari.Embed:
 @plugin.include
 @arc.slash_command("index", description="Информацию о предмете.")
 async def index_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     item_id: arc.Option[  # type: ignore
         int | None, arc.IntParams("ID предмета из индекса предметов")
     ] = None,
@@ -142,7 +136,7 @@ async def index_handler(
 @plugin.include
 @arc.slash_command("inventory", description="Содержимое ваших карманов.")
 async def user_inventory(
-    ctx: arc.GatewayContext, inv: inventory.Inventory = arc.inject()
+    ctx: ChioContext, inv: inventory.Inventory = arc.inject()
 ) -> None:
     """Содержимое инвентаря пользователя."""
     items = await inv.get(ctx.user.id)
@@ -160,7 +154,7 @@ async def user_inventory(
 @plugin.listen(arc.events.StartedEvent)
 @plugin.inject_dependencies
 async def start_plugin(
-    event: arc.events.StartedEvent[arc.GatewayClient],
+    event: arc.events.StartedEvent[ChioClient],
     index: inventory.ItemIndex = arc.inject(),
     inv: inventory.Inventory = arc.inject(),
 ) -> None:
@@ -170,21 +164,11 @@ async def start_plugin(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина.
 
     Подключаем базу данных индекса предметов и инвентаря.
     """
+    plugin.add_table(inventory.ItemIndex)
+    plugin.add_table(inventory.Inventory)
     client.add_plugin(plugin)
-    db = client.get_type_dependency(ChioDB)
-    db.register(inventory.ItemIndex)
-    db.register(inventory.Inventory)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина.
-
-    Завершаем подключение к базе данных предметов и инвентаря.
-    """
-    client.remove_plugin(plugin)

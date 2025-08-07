@@ -2,12 +2,7 @@
 
 Позволяет участникам соревноваться в навыках подсчёта чисел.
 
-Предоставляет
--------------
-
-- /math - Начать тест по математике.
-
-Version: v0.5.1 (10)
+Version: v0.5.2 (14)
 Author: Milinuri Nirvalen
 """
 
@@ -20,7 +15,10 @@ import arc
 import hikari
 import miru
 
-plugin = arc.GatewayPlugin("Math Test")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Math test")
 
 _MATH_TIMER = 60
 _OPERATORS = ["+", "-", "*", "/"]
@@ -38,11 +36,11 @@ class Operators(IntEnum):
         """Получает результат для данного оператора над двумя числами."""
         if self.value == Operators.add:
             return a + b
-        elif self.value == Operators.sub:
+        if self.value == Operators.sub:
             return a - b
-        elif self.value == Operators.mul:
+        if self.value == Operators.mul:
             return a * b
-        elif self.value == Operators.div:
+        if self.value == Operators.div:
             return round(a / b)
         return 1
 
@@ -224,7 +222,7 @@ class MathView(miru.View):
 @plugin.include
 @arc.slash_command("math", description="Начать тест по математике.")
 async def nya_handler(
-    ctx: arc.GatewayContext, client: miru.Client = arc.inject()
+    ctx: ChioContext, client: miru.Client = arc.inject()
 ) -> None:
     """Первая няшная команда для бота.
 
@@ -241,12 +239,6 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

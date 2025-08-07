@@ -3,29 +3,23 @@
 Небольшой шуточный плагин для применения эффекта на аватарках
 пользователя.
 
-Предоставляет
--------------
-
-- /avatar <user> - Аватарка пользователя.
-
-Version: v0.1 (1)
+Version: v0.1.2 (3)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
-plugin = arc.GatewayPlugin("Avatar effects")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-
-# определение команд
-# ==================
+plugin = ChioPlugin("Avatar effects")
 
 
 @plugin.include
 @arc.slash_command("avatar", description="Аватарка пользователя.")
 async def user_avatar(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Чью получить аватарку")
     ] = None,
@@ -48,7 +42,7 @@ async def user_avatar(
 @plugin.include
 @arc.slash_command("triggered", description="Триггеред аватар пользователя.")
 async def triggered_avatar(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Чью получить аватарку")
     ] = None,
@@ -75,12 +69,6 @@ async def triggered_avatar(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

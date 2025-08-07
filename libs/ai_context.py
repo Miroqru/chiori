@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Self
 
-import arc
 import hikari
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from chioricord.config import PluginConfig
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
 from libs.lingua import MessagesTable, RoleT
 
 MessagesT = deque[ChatCompletionMessageParam]
@@ -63,7 +63,7 @@ class LinguaConfig(PluginConfig):
 
     rate_limit: int | None = None
     """Ограничение на скорость общения с ИИ.
-    
+
     Измеряется в секундах.
     """
 
@@ -77,7 +77,7 @@ class LinguaConfig(PluginConfig):
 
 
 async def _get_channel(
-    client: arc.GatewayClient, channel_id: int
+    client: ChioClient, channel_id: int
 ) -> hikari.PartialChannel:
     channel = client.cache.get_guild_channel(channel_id)
     if channel is not None:
@@ -85,7 +85,7 @@ async def _get_channel(
     return await client.rest.fetch_channel(channel_id)
 
 
-async def _get_guild(client: arc.GatewayClient, guild_id: int) -> hikari.Guild:
+async def _get_guild(client: ChioClient, guild_id: int) -> hikari.Guild:
     guild = client.cache.get_guild(guild_id)
     if guild is not None:
         return guild
@@ -105,12 +105,12 @@ class ChatContext:
         return self.guild.id
 
     @classmethod
-    def from_ctx(cls, ctx: arc.GatewayContext) -> Self:
+    def from_ctx(cls, ctx: ChioContext) -> Self:
         return cls(ctx.user, ctx.channel, ctx.get_guild())
 
     @classmethod
     async def from_event(
-        cls, client: arc.GatewayClient, event: hikari.MessageCreateEvent
+        cls, client: ChioClient, event: hikari.MessageCreateEvent
     ) -> Self:
         return cls(
             event.author,
@@ -166,7 +166,9 @@ class MessageStorage:
     def __init__(self, config: LinguaConfig, messages: MessagesTable) -> None:
         self.config = config
         self.history: dict[int, UserContext] = {}
-        self.client = AsyncOpenAI(base_url=config.api_url, api_key=config.api_key)
+        self.client = AsyncOpenAI(
+            base_url=config.api_url, api_key=config.api_key
+        )
         self.messages = messages
 
     async def create_context(self, ctx: ChatContext) -> UserContext:
@@ -194,7 +196,11 @@ class MessageStorage:
         context.model = model
 
     async def add_message(
-        self, user: UserContext, chat: ChatContext, content: str, role: RoleT = "user"
+        self,
+        user: UserContext,
+        chat: ChatContext,
+        content: str,
+        role: RoleT = "user",
     ) -> None:
         """Добавляет сообщение в историю."""
         user.add_message(content)
@@ -202,7 +208,9 @@ class MessageStorage:
             chat.user.id, chat.guild_id, chat.channel.id, content, role
         )
 
-    async def generate_answer(self, content: str, chat: ChatContext) -> str | None:
+    async def generate_answer(
+        self, content: str, chat: ChatContext
+    ) -> str | None:
         """Генерирует некоторый ответ от AI."""
         user = await self.user_context(chat)
         if chat.channel.id != user.chat:

@@ -7,11 +7,11 @@ Author: Milinuri Nirvalen
 from dataclasses import dataclass
 from typing import Self
 
-import arc
 import hikari
 from asyncpg import Record
 
-from chioricord.db import ChioDB, DBTable
+from chioricord.api import ChioDB, DBTable
+from chioricord.client import ChioClient
 
 
 @dataclass(slots=True)
@@ -65,7 +65,7 @@ class LevelUpEvent(hikari.Event):
         return self._db.client.app
 
     @property
-    def client(self) -> arc.GatewayClient:
+    def client(self) -> ChioClient:
         """App instance for this application."""
         return self._db.client
 
@@ -160,19 +160,18 @@ class ActiveTable(DBTable):
                 user.xp,
             )
             return await self.get_user(user.user_id)
-        else:
-            await self.pool.execute(
-                "UPDATE active SET messages=$1, words=$2, voice=$3, "
-                "bumps=$4, level=$5, xp=$6 WHERE user_id=$7",
-                user.messages,
-                user.words,
-                user.voice,
-                user.bumps,
-                user.level,
-                user.xp,
-                user.user_id,
-            )
-            return user
+        await self.pool.execute(
+            "UPDATE active SET messages=$1, words=$2, voice=$3, "
+            "bumps=$4, level=$5, xp=$6 WHERE user_id=$7",
+            user.messages,
+            user.words,
+            user.voice,
+            user.bumps,
+            user.level,
+            user.xp,
+            user.user_id,
+        )
+        return user
 
     async def add_xp(
         self, user: UserActive, user_id: int, xp: int

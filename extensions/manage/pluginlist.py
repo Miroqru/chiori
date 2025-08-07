@@ -2,14 +2,7 @@
 
 Позволяет удобно просматривать список доступных плагинов и команд.
 
-Предоставляет
--------------
-
-- /plugins - Список плагинов.
-- /help - Список всех активных команд бота.
-- /help [plugin] - Список команд для конкретного плагина.
-
-Version: v0.5 (13)
+Version: v0.5.2 (16)
 Author: Milinuri Nirvalen
 """
 
@@ -18,11 +11,12 @@ from collections.abc import Iterable
 import arc
 import hikari
 
-# Глобальные переменные
-# =====================
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Plugin list")
+plugin = ChioPlugin("Plugin list")
 
+# TODO: Делаем интеграцию с индексом
 # настройки отображения индекса пакетов
 # index_url: Ссылка до раздела документации Chioricord
 # icon_url: Ссылка на иконку индекса пакетов
@@ -51,7 +45,7 @@ def plugins_list(plugins: Iterable[str]) -> str:
 
 @plugin.include
 @arc.slash_command("plugins", description="Список активных плагинов.")
-async def plugin_handler(ctx: arc.GatewayContext) -> None:
+async def plugin_handler(ctx: ChioContext) -> None:
     """Список всех загруженных плагинов Чиори.
 
     Включает в себя перечисление всех названий плагинов.
@@ -75,14 +69,14 @@ async def plugin_handler(ctx: arc.GatewayContext) -> None:
 # ==========================
 
 
-def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
+def get_all_commands(ctx: ChioContext) -> hikari.Embed:
     """Получает все команды бота.
 
     Кратко выводит названия всех команд, которые можно использовать
     пользователям бота.
 
     :param ctx: Контекст команды, для получения экземпляра клиента бота.
-    :type ctx: arc.GatewayContext
+    :type ctx: ChioContext
     :return: Сообщение со списком всех команд бота.
     :rtype: hikari.Embed
     """
@@ -124,9 +118,7 @@ def get_all_commands(ctx: arc.GatewayContext) -> hikari.Embed:
     )
 
 
-def get_plugin_commands(
-    ctx: arc.GatewayContext, plugin_name: str
-) -> hikari.Embed:
+def get_plugin_commands(ctx: ChioContext, plugin_name: str) -> hikari.Embed:
     """Получает список команд для конкретного плагина.
 
     Если не удалось найти плагин по названиям, выдаст соответствующие
@@ -134,7 +126,7 @@ def get_plugin_commands(
     Будет предоставлен список команд с кратким их описанием.
 
     :param ctx: Контекст команд, для получение экземпляра клиента.
-    :type ctx: arc.GatewayContext
+    :type ctx: ChioContext
     :param plugin_name: Название плагина, для получения его команд.
     :type plugin_name: str
     :return: Сообщение со списком команд плагина или ошибкой поиска.
@@ -169,7 +161,7 @@ def get_plugin_commands(
 
 
 async def plugin_opts(
-    data: arc.AutocompleteData[arc.GatewayClient, str],
+    data: arc.AutocompleteData[ChioClient, str],
 ) -> list[str]:
     """Авто дополнение для списка расширений."""
     plugins = list(data.client.plugins.keys())
@@ -186,7 +178,7 @@ async def plugin_opts(
 @plugin.include
 @arc.slash_command("help", description="Список всех команд.")
 async def help_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     plugin: arc.Option[  # type: ignore
         str | None,
         arc.StrParams(
@@ -215,12 +207,6 @@ async def help_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

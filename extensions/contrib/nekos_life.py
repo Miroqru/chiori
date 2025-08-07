@@ -6,7 +6,7 @@
 репозитории было несколько лет назад.
 Однако сервис продолжает работать, так что продолжаем.
 
-Version: v1.3 (5)
+Version: v1.3.1 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -18,7 +18,10 @@ import arc
 import hikari
 from aiohttp import ClientSession
 
-plugin = arc.GatewayPlugin("Nekos life")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Nekos life")
 neko = plugin.include_slash_group(
     name="nekos", description="Различные милые команды."
 )
@@ -81,7 +84,7 @@ async def fetch(
 @neko.include
 @arc.slash_subcommand(name="image", description="Анимешная рп картинка.")
 async def neko_image(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     group: arc.Option[  # type: ignore
         str, arc.StrParams("Тип картинки", choices=list(_IMAGE_TYPES.keys()))
     ],
@@ -108,7 +111,7 @@ async def neko_image(
 
 @neko.include
 @arc.slash_subcommand("cat", description="Кошачья мордочка.")
-async def neko_cat(ctx: arc.GatewayContext) -> None:
+async def neko_cat(ctx: ChioContext) -> None:
     """Отправляет кошачью мордочку."""
     async with aiohttp.ClientSession() as session:
         await ctx.respond(await fetch(session, "/cat", "cat"))
@@ -116,7 +119,7 @@ async def neko_cat(ctx: arc.GatewayContext) -> None:
 
 @neko.include
 @arc.slash_subcommand("fact", description="Интересный факт.")
-async def neko_fact(ctx: arc.GatewayContext) -> None:
+async def neko_fact(ctx: ChioContext) -> None:
     """Отправляет интересный факт."""
     async with aiohttp.ClientSession() as session:
         await ctx.respond(await fetch(session, "/fact", "fact"))
@@ -124,7 +127,7 @@ async def neko_fact(ctx: arc.GatewayContext) -> None:
 
 @neko.include
 @arc.slash_subcommand("name", description="Случайное имя.")
-async def neko_name(ctx: arc.GatewayContext) -> None:
+async def neko_name(ctx: ChioContext) -> None:
     """Отправляет интересный факт."""
     async with aiohttp.ClientSession() as session:
         await ctx.respond(await fetch(session, "/name", "name"))
@@ -132,7 +135,7 @@ async def neko_name(ctx: arc.GatewayContext) -> None:
 
 @neko.include
 @arc.slash_subcommand("why", description="Вопрос дня.")
-async def neko_nya(ctx: arc.GatewayContext) -> None:
+async def neko_nya(ctx: ChioContext) -> None:
     """Отправляет случайный вопрос."""
     async with aiohttp.ClientSession() as session:
         await ctx.respond(await fetch(session, "/why", "why"))
@@ -143,12 +146,6 @@ async def neko_nya(ctx: arc.GatewayContext) -> None:
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

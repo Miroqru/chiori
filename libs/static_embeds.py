@@ -5,7 +5,7 @@
 
 Для удобной сборки Embed: https://embed.dan.onl/
 
-Version: v1.1.1 (3)
+Version: v1.1.2 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -13,11 +13,12 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import arc
 import hikari
 from arc import SlashCommand, SlashSubCommand
 from loguru import logger
 from pydantic import BaseModel
+
+from chioricord.client import ChioClient, ChioContext
 
 
 class EmbedAuthor(BaseModel):
@@ -119,16 +120,14 @@ class StaticCommands:
     def __init__(self) -> None:
         self._embeds: dict[str, hikari.Embed] = {}
 
-    def add_command(
-        self, command: StaticCommand
-    ) -> SlashCommand[arc.GatewayClient]:
+    def add_command(self, command: StaticCommand) -> SlashCommand[ChioClient]:
         """Добавляет новую статическую команду."""
         self._embeds[command.name] = build_embed(command.embed)
 
-        async def _handler(ctx: arc.GatewayContext) -> None:
+        async def _handler(ctx: ChioContext) -> None:
             await ctx.respond(self._embeds[command.name])
 
-        return SlashCommand[arc.GatewayClient](
+        return SlashCommand[ChioClient](
             callback=_handler,
             name=command.name,
             description=command.desc,
@@ -137,11 +136,11 @@ class StaticCommands:
 
     def add_subcommand(
         self, command: StaticCommand
-    ) -> SlashSubCommand[arc.GatewayClient]:
+    ) -> SlashSubCommand[ChioClient]:
         """Добавляет новую статическую саб-команду."""
         self._embeds[command.name] = build_embed(command.embed)
 
-        async def _handler(ctx: arc.GatewayContext) -> None:
+        async def _handler(ctx: ChioContext) -> None:
             await ctx.respond(self._embeds[command.name])
 
         return SlashSubCommand(

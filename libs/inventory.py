@@ -16,7 +16,7 @@ from typing import Self
 
 from asyncpg import Record
 
-from chioricord.db import ChioDB, DBTable
+from chioricord.api import ChioDB, DBTable
 
 
 class ItemIndexError(Exception):
@@ -26,8 +26,6 @@ class ItemIndexError(Exception):
     не так, как должно.
     К примеру если указан неправильный ID в индекс предметов.
     """
-
-    pass
 
 
 @dataclass(slots=True)
@@ -252,22 +250,18 @@ class Inventory(DBTable):
     ) -> InventoryItem | None:
         """Забирает предметы из инвентаря пользователя."""
         in_inventory = await self.get_item(user_id, item_id)
-        if in_inventory is None:
+        if in_inventory is None or amount > in_inventory.amount:
             return None
-        elif amount > in_inventory.amount:
-            return None
-        elif amount == in_inventory.amount:
+        if amount == in_inventory.amount:
             await self.remove(user_id, item_id)
             return in_inventory
-        else:
-            await self.pool.execute(
-                "UPDATE inventory SET amount=$1 "
-                "WHERE user_id=$2 AND item_id=$3",
-                in_inventory.amount - amount,
-                user_id,
-                item_id,
-            )
-            return InventoryItem(in_inventory.index, amount)
+        await self.pool.execute(
+            "UPDATE inventory SET amount=$1 WHERE user_id=$2 AND item_id=$3",
+            in_inventory.amount - amount,
+            user_id,
+            item_id,
+        )
+        return InventoryItem(in_inventory.index, amount)
 
     async def move(
         self, item_id: int, amount: int, from_user: int, to_user: int

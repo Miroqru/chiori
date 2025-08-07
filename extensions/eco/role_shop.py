@@ -1,18 +1,24 @@
-"""Магазин ролей для сервере."""
+"""Магазин ролей для сервере.
+
+- TODO: Использовать Miru
+
+Version: v1.2.1 (8)
+Author: Milinuri Nirvalen
+"""
 
 import arc
 import hikari
 
-from chioricord.db import ChioDB
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.coinengine import CoinsTable
 from libs.role_shop import GuildRole, RoleShopTable
 
-plugin = arc.GatewayPlugin("Roles shop")
-
+plugin = ChioPlugin("Roles shop")
 role_shop = plugin.include_slash_group("rshop", "Магазин пролей")
 
 
-async def _get_role(client: arc.GatewayClient, role: GuildRole) -> hikari.Role:
+async def _get_role(client: ChioClient, role: GuildRole) -> hikari.Role:
     return client.cache.get_role(role.role) or await client.rest.fetch_role(
         role.guild_id, role.role
     )
@@ -21,7 +27,7 @@ async def _get_role(client: arc.GatewayClient, role: GuildRole) -> hikari.Role:
 @role_shop.include
 @arc.slash_subcommand("list", description="Доступные для покупки роли.")
 async def list_shop_handler(
-    ctx: arc.GatewayContext, shop: RoleShopTable = arc.inject()
+    ctx: ChioContext, shop: RoleShopTable = arc.inject()
 ) -> None:
     """Все доступные для покупки роли."""
     if ctx.guild_id is None:
@@ -45,7 +51,7 @@ async def list_shop_handler(
 @role_shop.include
 @arc.slash_subcommand("byu", description="Купить роль.")
 async def byu_shop_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Роль для продажи")],
     shop: RoleShopTable = arc.inject(),
     coins: CoinsTable = arc.inject(),
@@ -99,7 +105,7 @@ async def byu_shop_handler(
 @arc.with_hook(arc.has_permissions(hikari.Permissions.MANAGE_ROLES))
 @arc.slash_subcommand("add_role", description="Добавить роль для продажи.")
 async def add_role_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Роль для продажи")],
     price: arc.Option[int, arc.IntParams("Цена покупки")],
     shop: RoleShopTable = arc.inject(),
@@ -118,7 +124,7 @@ async def add_role_handler(
 @arc.with_hook(arc.has_permissions(hikari.Permissions.MANAGE_ROLES))
 @arc.slash_subcommand("remove_role", description="Удаляет роль из магазина.")
 async def remove_role_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Роль для удаления")],
     shop: RoleShopTable = arc.inject(),
 ) -> None:
@@ -138,7 +144,7 @@ async def remove_role_handler(
     "set_require", description="Устанавливает необходимую роль."
 )
 async def set_require_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Роль для удаления")],
     require: arc.Option[
         hikari.Role | None, arc.RoleParams("Роль для удаления")
@@ -163,14 +169,7 @@ async def set_require_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Actions on plugin load."""
+    plugin.add_table(RoleShopTable)
     client.add_plugin(plugin)
-    cm = client.get_type_dependency(ChioDB)
-    cm.register(RoleShopTable)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Actions on plugin unload."""
-    client.remove_plugin(plugin)

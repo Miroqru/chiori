@@ -13,35 +13,20 @@
 
     В ином случае вам самостоятельно придётся её подключать.
 
-Предоставляет
--------------
-
-- Управление финансами пользователей:
-    - /coins give <amount> [user] - Выдать монеты участнику.
-    - /coins take <amount> [user] - Забрать монеты участника.
-
-- управление накоплениями
-    - /deposit put <amount> - Положить монеты в банк.
-    - /deposit take <amount> - Взять монеты из банка.
-    - /deposit info - Информация о накоплениях.
-
-- /pay <user> <amount> - Оплатить услугу пользователю.
-- /balance [user] - Сколько монет у пользователя на руках.
-- /rich [group] - Таблица лидеров самых богатых участников.
-
-Version: v2.1 (18)
+Version: v2.1.1 (19)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
-from chioricord.db import ChioDB
+from chioricord.client import ChioClient, ChioContext
 from chioricord.hooks import has_role
+from chioricord.plugin import ChioPlugin
 from chioricord.roles import RoleLevel
 from libs.coinengine import CoinsTable
 
-plugin = arc.GatewayPlugin("Coins")
+plugin = ChioPlugin("Coins")
 
 # Общее сообщение при неудачной транзакции
 # К примеру у вас может быть недостаточно средств или ещё какая-то
@@ -92,7 +77,7 @@ coin_group = plugin.include_slash_group(
 @arc.with_hook(has_role(RoleLevel.MODERATOR))
 @arc.slash_subcommand("give", description="Выдать монетки участнику.")
 async def coin_give_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько дать", min=1)],  # type: ignore
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Кому дать монетки (себе)")
@@ -115,7 +100,7 @@ async def coin_give_handler(
 @arc.with_hook(has_role(RoleLevel.MODERATOR))
 @arc.slash_subcommand("take", description="Забрать монетки участника.")
 async def coin_take_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько взять", min=1)],  # type: ignore
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("У кого забрать (себе)")
@@ -152,7 +137,7 @@ deposit_group = plugin.include_slash_group(
 @deposit_group.include
 @arc.slash_subcommand("put", description="Положить монеты в банк.")
 async def deposit_put_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько положить", min=1)],  # type: ignore
     coins: CoinsTable = arc.inject(),
 ) -> None:
@@ -175,7 +160,7 @@ async def deposit_put_handler(
 @deposit_group.include
 @arc.slash_subcommand("take", description="Взять монеты из банка.")
 async def deposit_take_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько взять")],  # type: ignore
     coins: CoinsTable = arc.inject(),
 ) -> None:
@@ -196,7 +181,7 @@ async def deposit_take_handler(
 @deposit_group.include
 @arc.slash_subcommand("status", description="Ваши накопления.")
 async def deposit_info_handler(
-    ctx: arc.GatewayContext, coins: CoinsTable = arc.inject()
+    ctx: ChioContext, coins: CoinsTable = arc.inject()
 ) -> None:
     """Получает информацию о накоплениях.
 
@@ -228,7 +213,7 @@ async def deposit_info_handler(
 @plugin.include
 @arc.slash_command("pay", description="Оплатить услуги пользователю.")
 async def pay_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],  # type: ignore
     amount: arc.Option[
         int, arc.IntParams("Сколько передать", min=1, max=10_000_000)
@@ -255,7 +240,7 @@ async def pay_handler(
 @plugin.include
 @arc.slash_command("balance", description="Сколько монеток у вас на руках.")
 async def balance_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Чьи монетки хотите посмотреть")
     ] = None,
@@ -300,7 +285,7 @@ async def balance_handler(
 @plugin.include
 @arc.slash_command("rich", description="Самый богатые участники сервера.")
 async def rich_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     group: arc.Option[
         str,
         arc.StrParams(
@@ -358,17 +343,10 @@ async def rich_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина.
 
     Подключаем базу данных монетного хранилища.
     """
+    plugin.add_table(CoinsTable)
     client.add_plugin(plugin)
-    db = client.get_type_dependency(ChioDB)
-    db.register(CoinsTable)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

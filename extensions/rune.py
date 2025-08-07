@@ -9,13 +9,7 @@
 - Все прочие символы остаются не тронутыми.
 - При переводе теряется привязка к регистру.
 
-Предоставляет
--------------
-
-- /rune <text> - Переводит текст на рунический язык.
-- /unrune <text> - Обратный перевод рунического текста.
-
-Version: v1.0.2 (3)
+Version: v1.0.4 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -24,7 +18,10 @@ from typing import NamedTuple
 import arc
 import hikari
 
-plugin = arc.GatewayPlugin("Rune")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Rune")
 
 
 class Rune(NamedTuple):
@@ -128,7 +125,7 @@ def translate_to_text(rune_text: str) -> str:
             rune_buffer = ""
             res += complex_rune
             continue
-        elif simple_rune is not None:
+        if simple_rune is not None:
             res += simple_rune
         else:
             res += rune_buffer
@@ -149,7 +146,7 @@ def translate_to_text(rune_text: str) -> str:
 @plugin.include
 @arc.slash_command("rune", description="Перевод на рунический язык.")
 async def rune_translate(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     text: arc.Option[str, arc.StrParams("Текст для перевода")],  # type: ignore
 ) -> None:
     """Переводит текст в рунический язык по словарю."""
@@ -165,7 +162,7 @@ async def rune_translate(
 @plugin.include
 @arc.slash_command("unrune", description="Обратный перевод рунического текста.")
 async def unrune_translate(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     text: arc.Option[str, arc.StrParams("Текст для перевода")],  # type: ignore
 ) -> None:
     """Расшифровывает рунический текст."""
@@ -183,12 +180,6 @@ async def unrune_translate(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

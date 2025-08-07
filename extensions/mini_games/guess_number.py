@@ -3,12 +3,7 @@
 Бот загадывает некоторое число от 1 до 1000.
 Задача пользователя - верно отгадать число.
 
-Предоставляет
--------------
-
- - /guessnum - Начать игру Угадай число.
-
-Version: 0.2.1 (3)
+Version: 0.2.2 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -18,11 +13,11 @@ import arc
 import hikari
 import miru
 
-plugin = arc.GatewayPlugin("Guess number")
-_MAX_GUESS = 1000
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-# Вспомогательный класс определения игрового компонента
-# =====================================================
+plugin = ChioPlugin("Guess number")
+_MAX_GUESS = 1000
 
 
 class GuessModal(miru.Modal):
@@ -50,7 +45,7 @@ class GuessModal(miru.Modal):
                 f"Вам бы следовало написать тут число от 1 до {_MAX_GUESS}",
                 flags=hikari.MessageFlag.EPHEMERAL,
             )
-            return None
+            return
 
         if guess > _MAX_GUESS or guess < 1:
             await ctx.respond(
@@ -101,10 +96,9 @@ class GuessView(miru.View):
         """
         if self.user_guess < self._guess:
             return f"Загаданное вами число **{self.user_guess}** меньше моего"
-        elif self.user_guess > self._guess:
+        if self.user_guess > self._guess:
             return f"Загаданное вами число **{self.user_guess}** больше моего"
-        else:
-            return f"Я загадывала **{self.user_guess}**"
+        return f"Я загадывала **{self.user_guess}**"
 
     def game_status(self) -> hikari.Embed:
         """Сообщение статуса игры."""
@@ -128,7 +122,7 @@ class GuessView(miru.View):
 @plugin.include
 @arc.slash_command("guessnum", description="Начать игру Угадай число.")
 async def guess_number(
-    ctx: arc.GatewayContext, client: miru.Client = arc.inject()
+    ctx: ChioContext, client: miru.Client = arc.inject()
 ) -> None:
     """Игра угадай число.
 
@@ -144,12 +138,6 @@ async def guess_number(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

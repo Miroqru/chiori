@@ -2,30 +2,29 @@
 
 Позволяет просматривать настройки бота.
 
-Предоставляет
--------------
+- FIXME: Устарел. начиная с версии Chio v0.9 (ConfigAPI v2)
 
-- /config - Список всех групп настроек.
-- /config <group> - Настройки для конкретной группы.
-
-Version: v1.1 (2)
+Version: v1.1.2 (4)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
-from chioricord.config import PluginConfigManager
+from chioricord.api import PluginConfigManager
+from chioricord.client import ChioClient, ChioContext
 from chioricord.hooks import has_role
+from chioricord.plugin import ChioPlugin
 from chioricord.roles import RoleLevel
 
-plugin = arc.GatewayPlugin("Config manager")
+plugin = ChioPlugin("Config manager")
 plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
 
 
+# FIXME: Deprecated in configAPI v2
 @plugin.inject_dependencies()
 async def group_opts(
-    data: arc.AutocompleteData[arc.GatewayClient, str],
+    data: arc.AutocompleteData[ChioClient, str],
     cm: PluginConfigManager = arc.inject(),
 ) -> list[str]:
     """Авто дополнение для списка расширений."""
@@ -87,7 +86,7 @@ def config_group(cm: PluginConfigManager, group: str) -> hikari.Embed:
 @plugin.include
 @arc.slash_command("config", description="Настройки Chiori.")
 async def nya_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     group: arc.Option[  # type: ignore
         str | None, arc.StrParams("Группа настроек")
     ] = None,
@@ -111,12 +110,6 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

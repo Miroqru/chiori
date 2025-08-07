@@ -3,7 +3,7 @@
 Отправляет различные весёлые анимешные картиночки.
 В отличие от собрата nekos.life выглядит более презентабельно.
 
-Version: v1.1 (3)
+Version: v1.1.1 (4)
 Author: Milinuri Nirvalen
 """
 
@@ -14,7 +14,10 @@ import aiohttp
 import arc
 import hikari
 
-plugin = arc.GatewayPlugin("Nekos best")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Nekos best")
 
 API_URL = "https://nekos.best/api/v2"
 
@@ -78,7 +81,7 @@ _CATEGORIES = {
 
 
 async def category_opts(
-    data: arc.AutocompleteData[arc.GatewayClient, str],
+    data: arc.AutocompleteData[ChioClient, str],
 ) -> list[str]:
     """Авто дополнение для списка расширений."""
     extensions = sorted(list(_CATEGORIES.keys()))
@@ -105,7 +108,7 @@ class ImageResult(TypedDict):
 @plugin.include
 @arc.slash_command(name="neko", description="Милая аниме картинка.")
 async def neko_image(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     category: arc.Option[  # type: ignore
         str, arc.StrParams("Тип картинки", autocomplete_with=category_opts)
     ],
@@ -160,12 +163,6 @@ async def neko_image(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

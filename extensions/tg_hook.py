@@ -16,7 +16,7 @@ Telegram -> Discord:
 - [ ] Отправка медия.
 - [ ] Кросс-ответы.
 
-Version: v0.2 (3)
+Version: v0.2.2 (6)
 Author: Milinuri Nirvalen
 """
 
@@ -27,9 +27,11 @@ import arc
 import hikari
 from pydantic import BaseModel
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Telegram hook")
+plugin = ChioPlugin("Telegram hook")
 
 
 class Translator(BaseModel):
@@ -40,7 +42,7 @@ class Translator(BaseModel):
     from_users: list[int] | None = None
 
 
-class TelegramHookConfig(PluginConfig):
+class TelegramHookConfig(PluginConfig, config="telegram"):
     """Настройки Telegram хука."""
 
     bot_token: str
@@ -99,7 +101,7 @@ async def listener_name(
 @plugin.include
 @arc.slash_command("send", description="Отправляет сообщение в Telegram")
 async def send_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     chat_id: arc.Option[int, arc.IntParams("В какой чат отправить сообщение.")],
     message: arc.Option[str, arc.StrParams("Текст сообщения")],
     hook: TelegramWebhook = arc.inject(),
@@ -118,19 +120,16 @@ async def send_handler(
     await ctx.respond(emb)
 
 
-@arc.loader
-def loader(client: arc.GatewayClient) -> None:
-    """Actions on plugin load."""
-    client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("telegram", TelegramHookConfig)
-
-    config = client.get_type_dependency(TelegramHookConfig)
+@plugin.listen(arc.StartedEvent)
+async def on_start(event: arc.StartedEvent[ChioClient]) -> None:
+    """Подключаемся к сессии."""
+    config = event.client.config.get(TelegramHookConfig)
     hook = TelegramWebhook(config.bot_token)
-    client.set_type_dependency(TelegramWebhook, hook)
+    event.client.set_type_dependency(TelegramWebhook, hook)
 
 
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Actions on plugin unload."""
-    client.remove_plugin(plugin)
+@arc.loader
+def loader(client: ChioClient) -> None:
+    """Actions on plugin load."""
+    plugin.set_config(TelegramHookConfig)
+    client.add_plugin(plugin)

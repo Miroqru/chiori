@@ -11,7 +11,7 @@ from typing import Self
 
 from asyncpg import Record
 
-from chioricord.db import DBTable
+from chioricord.api import DBTable
 
 
 @dataclass(frozen=True, slots=True)

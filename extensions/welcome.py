@@ -2,19 +2,21 @@
 
 Приветствует новых участников на сервере.
 
-Version: v1.1.1 (4)
+Version: v1.1.2 (7)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Welcome")
+plugin = ChioPlugin("Welcome")
 
 
-class WelcomeConfig(PluginConfig):
+class WelcomeConfig(PluginConfig, config="welcome"):
     """Пример использования настроек для плагина."""
 
     listen_guild: int
@@ -97,19 +99,12 @@ async def on_join(
     await event.app.rest.create_message(channel, emb)
 
 
-# Загрузчики и выгрузчики плагина
-# ===============================
+# Загрузка плагина
+# ================
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(WelcomeConfig)
     client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("welcome", WelcomeConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

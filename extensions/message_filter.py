@@ -2,7 +2,7 @@
 
 Очищает чат от бесполезных сообщений.
 
-Version: v0.1 (1)
+Version: v0.1.2 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -12,12 +12,14 @@ from typing import Self
 import arc
 import hikari
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Message filter")
+plugin = ChioPlugin("Message filter")
 
 
-class FilterConfig(PluginConfig):
+class FilterConfig(PluginConfig, config="filter"):
     """Пример использования настроек для плагина."""
 
     min_length: int = 3
@@ -76,19 +78,19 @@ async def message_filter(
         return
 
     stat = MessageStat.analyze(event.content)
-    if stat.clear_len < config.min_length:
-        await event.message.delete()
-        emb = hikari.Embed(
-            title="⚡ Минимальная длина сообщения",
-            description=(
-                f"Сообщение: `{stat.clear_len}`\n"
-                f"Необходимо: `{config.min_length}`"
-            ),
-            color=hikari.Color(0xFFCC66),
-        )
-        await event.message.respond(emb, flags=hikari.MessageFlag.EPHEMERAL)
+    # if stat.clear_len < config.min_length:
+    #     await event.message.delete()
+    #     emb = hikari.Embed(
+    #         title="⚡ Минимальная длина сообщения",
+    #         description=(
+    #             f"Сообщение: `{stat.clear_len}`\n"
+    #             f"Необходимо: `{config.min_length}`"
+    #         ),
+    #         color=hikari.Color(0xFFCC66),
+    #     )
+    #     await event.message.respond(emb, flags=hikari.MessageFlag.EPHEMERAL)
 
-    elif stat.upper_percentage > config.upper_percentage:
+    if stat.upper_percentage > config.upper_percentage:
         await event.message.delete()
         emb = hikari.Embed(
             title="⚡ Процент капса",
@@ -106,14 +108,7 @@ async def message_filter(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(FilterConfig)
     client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("message_filter", FilterConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

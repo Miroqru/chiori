@@ -1,11 +1,6 @@
 """Игра камень-ножницы-бумага.
 
-Предоставляет
--------------
-
-- /rps  - Игра Камень Ножницы бумага.
-
-Version: v0.3.3 (11)
+Version: v0.3.4 (14)
 Author: Milinuri Nirvalen
 """
 
@@ -16,13 +11,13 @@ import arc
 import hikari
 import miru
 
-plugin = arc.GatewayPlugin("Rps")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Rps")
 
 # Использованные в игре символы
 _RPS_SIM = ["🪨", "🧻", "✂️"]
-
-# Представление кнопок
-# ====================
 
 
 class GameObject(IntEnum):
@@ -196,21 +191,20 @@ class RockPaperScissorsView(miru.View):
         if len(self._players) == 0:
             self._players.append(Player(user, choice))
             return True
-        else:
-            if len(self._players) >= self.limit_players:
-                return False
+        if len(self._players) >= self.limit_players:
+            return False
 
-            if self.check_in_list(user):
-                return False
+        if self.check_in_list(user):
+            return False
 
-            self._players.append(Player(user, choice))
+        self._players.append(Player(user, choice))
 
-            if not self._ready_to_game:
-                if len(self._players) >= 2:  # noqa: PLR2004
-                    self._ready_to_game = True
-                    self.continue_button.set_active()
+        if not self._ready_to_game:
+            if len(self._players) >= 2:  # noqa: PLR2004
+                self._ready_to_game = True
+                self.continue_button.set_active()
 
-            return True
+        return True
 
     def get_winner(self, a: Player, b: Player) -> Player | None:
         """получает победителя среди двух игроков.
@@ -358,7 +352,7 @@ class RockPaperScissorsView(miru.View):
 @plugin.include
 @arc.slash_command("rps", description="Игра Камень Ножницы Бумага.")
 async def nya_handler(
-    ctx: arc.GatewayContext, client: miru.Client = arc.inject()
+    ctx: ChioContext, client: miru.Client = arc.inject()
 ) -> None:
     """Начинает новую игру в Камень Ножницы Бумага.
 
@@ -377,12 +371,6 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Загружает плагин в ядро."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Выгружает плагин из ядра."""
-    client.remove_plugin(plugin)

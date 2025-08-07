@@ -5,7 +5,7 @@
 
 Должен настраиваться пож каждый конкретный случай рейда.
 
-Version: v1.0 (1)
+Version: v0.1.3 (5)
 Author: Milinuri Nirvalen
 """
 
@@ -13,7 +13,10 @@ import arc
 import hikari
 from loguru import logger
 
-plugin = arc.GatewayPlugin("Unraid")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Unraid")
 
 
 # определение команд
@@ -27,7 +30,7 @@ plugin = arc.GatewayPlugin("Unraid")
     default_permissions=hikari.Permissions.MANAGE_CHANNELS,
 )
 async def unraid(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     channel_name: arc.Option[
         str | None, arc.StrParams("Имя канал для очистки")
     ] = "переезд",
@@ -48,7 +51,7 @@ async def unraid(
 
     logger.info("Start unraid process")
     delete_counter = 0
-    for c_id, channel in guild.get_channels().items():
+    for _, channel in guild.get_channels().items():
         if channel.name == channel_name:
             await channel.delete()
             delete_counter += 1
@@ -66,12 +69,6 @@ async def unraid(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

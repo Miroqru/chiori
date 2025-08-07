@@ -5,11 +5,8 @@ Author: Milinuri Nirvalen
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 
-import aiosqlite
-
-from chioricord.db import DBTable
+from chioricord.api import DBTable
 
 
 @dataclass(slots=True)

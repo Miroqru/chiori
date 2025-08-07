@@ -1,18 +1,11 @@
 """Управляет плагинами Chiori.
 
-Его задача управлять загруженными в клиент плагинами во время работы
-бота.
+Управляет загруженными в клиент плагинами во время работы бота.
+Позволяет загружать/выгружать/перезагружать плагины.
+просматривать их общий список.
+Выполнять синхронизацию команд.
 
-Предоставляет
--------------
-
-- /ext list: Список всех доступных расширений.
-- /ext load <ext>: Загружает расширение из файла.
-- /ext unload <ext>: Выгружает расширение из шиори.
-- /ext reload <ext>: Перезагружает расширение.
-- /ext sync: Синхронизирует список команд с Discord.
-
-Version: v1.1 (8)
+Version: v1.1.2 (11)
 Author: Milinuri Nirvalen
 """
 
@@ -21,13 +14,12 @@ from pathlib import Path
 import arc
 import hikari
 
+from chioricord.client import ChioClient, ChioContext
 from chioricord.hooks import has_role
+from chioricord.plugin import ChioPlugin
 from chioricord.roles import RoleLevel
 
-plugin = arc.GatewayPlugin("Extension manager")
-plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
-
-
+plugin = ChioPlugin("Extension manager")
 cmd_group = plugin.include_slash_group(
     name="ext", description="Управление загруженными расширениями."
 )
@@ -44,7 +36,7 @@ def get_extensions() -> list[str]:
 
 
 async def ext_opts(
-    data: arc.AutocompleteData[arc.GatewayClient, str],
+    data: arc.AutocompleteData[ChioClient, str],
 ) -> list[str]:
     """Авто дополнение для списка расширений."""
     extensions = get_extensions()
@@ -64,7 +56,7 @@ async def ext_opts(
 
 @cmd_group.include
 @arc.slash_subcommand("list", description="Список всех доступных расширений.")
-async def list_extension(ctx: arc.GatewayContext) -> None:
+async def list_extension(ctx: ChioContext) -> None:
     """Список всех доступных расширений.
 
     Просматривает список файлов в папке `extensions/`.
@@ -92,7 +84,7 @@ async def list_extension(ctx: arc.GatewayContext) -> None:
 @cmd_group.include
 @arc.slash_subcommand("load", description="Загружает расширение по имени.")
 async def load_extension(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     extension: arc.Option[  # type: ignore
         str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
     ],
@@ -112,7 +104,7 @@ async def load_extension(
 @cmd_group.include
 @arc.slash_subcommand("unload", description="Выгружает расширение по имени.")
 async def unload_extension(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     extension: arc.Option[  # type: ignore
         str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
     ],
@@ -132,7 +124,7 @@ async def unload_extension(
 @cmd_group.include
 @arc.slash_subcommand("reload", description="Выгружает расширение по имени.")
 async def reload_extension(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     extension: arc.Option[  # type: ignore
         str, arc.StrParams("Путь до расширения", autocomplete_with=ext_opts)
     ],
@@ -152,7 +144,7 @@ async def reload_extension(
 
 @cmd_group.include
 @arc.slash_subcommand("sync", description="Синхронизация список команд.")
-async def sync_commands(ctx: arc.GatewayContext) -> None:
+async def sync_commands(ctx: ChioContext) -> None:
     """Обновляет список команд на стороне Discord.
 
     это дорогая операция, чтобы выполнять её при каждом действии с расширением.
@@ -167,12 +159,7 @@ async def sync_commands(ctx: arc.GatewayContext) -> None:
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

@@ -2,14 +2,9 @@
 
 Различные полезные команды, которые вы можете использовать.
 
-Предоставляет
--------------
+- TODO: Разобрать по разным плагинам.
 
-- /delmsg [count] - Удаляет сообщения из канала.
-- /user [user] - Информация о пользователе.
-- /server - Информация о сервере.
-
-Version: v0.4 (17)
+Version: v0.4.2 (20)
 Author: Milinuri Nirvalen
 """
 
@@ -18,7 +13,10 @@ from datetime import date, timedelta
 import arc
 import hikari
 
-plugin = arc.GatewayPlugin("utils")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("utils")
 
 
 # определение команд
@@ -32,7 +30,7 @@ plugin = arc.GatewayPlugin("utils")
     default_permissions=hikari.Permissions.MANAGE_MESSAGES,
 )
 async def delete_messages(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     channel: arc.Option[  # type: ignore
         hikari.TextableGuildChannel,
         arc.ChannelParams("Канал для очистки сообщений"),
@@ -59,8 +57,7 @@ def str_delta(delta: timedelta) -> str:
     years, days = divmod(delta.days, 365)
     if years > 0:
         return f"{years} л. {days} д."
-    else:
-        return f"{delta.days} д."
+    return f"{delta.days} д."
 
 
 def get_member_info(member: hikari.Member) -> hikari.Embed:
@@ -114,7 +111,7 @@ def get_user_info(user: hikari.User) -> hikari.Embed:
 @plugin.include
 @arc.slash_command("user", description="Информация о пользователе")
 async def user_info(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("О ком получить сведения")
     ] = None,
@@ -137,7 +134,7 @@ async def user_info(
 
 @plugin.include
 @arc.slash_command("server", description="Информация о сервере")
-async def guild_info(ctx: arc.GatewayContext) -> None:
+async def guild_info(ctx: ChioContext) -> None:
     """Информация о сервер."""
     guild = ctx.get_guild()
     if guild is None:
@@ -164,6 +161,9 @@ async def guild_info(ctx: arc.GatewayContext) -> None:
 # Управление ролями участника
 # ===========================
 
+# TODO: Move to another plugin
+# TODO: Use miru
+
 
 @plugin.include
 @arc.slash_command(
@@ -172,7 +172,7 @@ async def guild_info(ctx: arc.GatewayContext) -> None:
     default_permissions=hikari.Permissions.MANAGE_ROLES,
 )
 async def list_roles_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     member: arc.Option[
         hikari.Member | None, arc.MemberParams("Для какого участника")
     ] = None,
@@ -203,7 +203,7 @@ async def list_roles_handler(
     default_permissions=hikari.Permissions.MANAGE_ROLES,
 )
 async def add_role_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
     member: arc.Option[
         hikari.Member | None, arc.MemberParams("Для какого участника")
@@ -234,7 +234,7 @@ async def add_role_handler(
     default_permissions=hikari.Permissions.MANAGE_ROLES,
 )
 async def add_role_all_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
     reason: arc.Option[
         str, arc.StrParams("По какой причине")
@@ -267,7 +267,7 @@ async def add_role_all_handler(
     default_permissions=hikari.Permissions.MANAGE_ROLES,
 )
 async def remove_role_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Какую роль удалить")],
     member: arc.Option[
         hikari.Member | None, arc.MemberParams("Для какого участника")
@@ -298,7 +298,7 @@ async def remove_role_handler(
     default_permissions=hikari.Permissions.MANAGE_ROLES,
 )
 async def remove_role_all_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Какую роль добавить")],
     reason: arc.Option[
         str, arc.StrParams("По какой причине")
@@ -329,12 +329,6 @@ async def remove_role_all_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

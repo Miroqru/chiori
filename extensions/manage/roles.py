@@ -1,30 +1,21 @@
-"""Роли.
+"""Глобальные роли пользователей.
 
-Управляет ролями пользователей.
+Позволяет управлять ролями пользователей.
+Просматривать, присваивать, убирать роли для пользователей.
 
-предоставляет
--------------
-
-/role status [user]: Узнать роль пользователя.
-/role ban <user>: Заблокировать пользователя.
-/role user <user>: Разблокировать пользователя.
-/role vip <user>: назначить особой персоной.
-/role moder <user>: назначить модератором.
-/role admin <user>: назначить администратором.
-/role reset <user>: Сбросить роль.
-
-Version: v1.0 (1)
+Version: v1.0.2 (4)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
+from chioricord.client import ChioClient, ChioContext
 from chioricord.hooks import has_role
+from chioricord.plugin import ChioPlugin
 from chioricord.roles import RoleLevel, RoleTable, UserRole
 
-plugin = arc.GatewayPlugin("Roles")
-plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
+plugin = ChioPlugin("Roles")
 
 role_group = plugin.include_slash_group(
     "role", "Управление ролями пользователей."
@@ -59,7 +50,7 @@ def change_role_status(
 @role_group.include
 @arc.slash_subcommand("status", description="Узнать роль пользователя")
 async def role_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[
         hikari.User | None, arc.UserParams("Чью роль просмотреть")
     ] = None,
@@ -85,7 +76,7 @@ async def role_handler(
 @role_group.include
 @arc.slash_subcommand("ban", description="Заблокировать пользователя.")
 async def set_ban_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Кого заблокировать")],
     reason: arc.Option[str | None, arc.StrParams("Причина блокировки")] = None,
     table: RoleTable = arc.inject(),
@@ -104,7 +95,7 @@ async def set_ban_role(
 @role_group.include
 @arc.slash_subcommand("user", description="Разблокировать пользователя.")
 async def set_user_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Кого разблокировать")],
     reason: arc.Option[str | None, arc.StrParams("Причина смены роли")] = None,
     table: RoleTable = arc.inject(),
@@ -123,7 +114,7 @@ async def set_user_role(
 @role_group.include
 @arc.slash_subcommand("vip", description="Назначить особой персоной.")
 async def set_vip_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Какого пользователя")],
     reason: arc.Option[str | None, arc.StrParams("Причина смены роли")] = None,
     table: RoleTable = arc.inject(),
@@ -142,7 +133,7 @@ async def set_vip_role(
 @role_group.include
 @arc.slash_subcommand("moder", description="Назначить модератором.")
 async def set_moderator_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Какого пользователя")],
     reason: arc.Option[str | None, arc.StrParams("Причина смены роли")] = None,
     table: RoleTable = arc.inject(),
@@ -162,7 +153,7 @@ async def set_moderator_role(
 @arc.with_hook(has_role(RoleLevel.OWNER))
 @arc.slash_subcommand("admin", description="Назначить администратором.")
 async def set_administrator_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Какого пользователя")],
     reason: arc.Option[str | None, arc.StrParams("Причина смены роли")] = None,
     table: RoleTable = arc.inject(),
@@ -178,7 +169,7 @@ async def set_administrator_role(
 @arc.with_hook(has_role(RoleLevel.OWNER))
 @arc.slash_subcommand("reset", description="Сбросить роль.")
 async def reset_role(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[hikari.User, arc.UserParams("Какого пользователя")],
     table: RoleTable = arc.inject(),
 ) -> None:
@@ -188,12 +179,7 @@ async def reset_role(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Actions on plugin load."""
+    plugin.add_hook(has_role(RoleLevel.ADMINISTRATOR))
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Actions on plugin unload."""
-    client.remove_plugin(plugin)

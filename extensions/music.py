@@ -42,7 +42,7 @@ TODO для релиза
 - /queue clear: Очистить очередь.
 - /queue shuffle: Перемешать очередь.
 
-Version: v2.5 (32)
+Version: v2.5.2 (35)
 Author: Milinuri Nirvalen
 """
 
@@ -56,12 +56,14 @@ from loguru import logger
 from ongaku.client import Client
 from ongaku.ext.injection import arc_ensure_player
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Music")
+plugin = ChioPlugin("Music")
 
 
-class MusicConfig(PluginConfig):
+class MusicConfig(PluginConfig, config="music"):
     """Настройки для плагина музыки."""
 
     name: str = "miroq player"
@@ -101,7 +103,7 @@ def format_time(milliseconds: int) -> str:
     if days > 0:
         return f"{days}:{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    elif hours > 0:
+    if hours > 0:
         return f"{days * 24 + hours}:{minutes:02d}:{seconds:02d}"
 
     return f"{(days * 24 + hours) * 60 + minutes}:{seconds:02d}"
@@ -237,7 +239,7 @@ def query_track_embed(
     """Собирает embed о добавленном плеер треке."""
     if isinstance(query, ongaku.Track):
         return track_embed(query, requestor)
-    elif isinstance(query, ongaku.Playlist):
+    if isinstance(query, ongaku.Playlist):
         return playlist_embed(query, requestor)
     return list_track_embed(query, requestor)
 
@@ -318,7 +320,7 @@ async def on_next_track(
 @plugin.set_error_handler()
 @plugin.inject_dependencies()
 async def error_handler(
-    ctx: arc.GatewayContext, exc: Exception, client: Client = arc.inject()
+    ctx: ChioContext, exc: Exception, client: Client = arc.inject()
 ) -> None:
     """Если плеер упал."""
     if isinstance(exc, arc.GuildOnlyError):
@@ -349,7 +351,7 @@ async def error_handler(
 @plugin.include
 @arc.slash_command("play", description="Сыграть песню.")
 async def play_song(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     query: arc.Option[  # type: ignore
         str, arc.StrParams("Какую песню играть")
     ],
@@ -399,7 +401,7 @@ async def play_song(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("np", "Что сейчас играет.")
 async def now_playing(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Какая песня сейчас играет."""
@@ -413,7 +415,7 @@ async def now_playing(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("pause", "Приостановить/возобновить воспроизведение.")
 async def player_pause(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
@@ -428,7 +430,7 @@ async def player_pause(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("autoplay", "Приостановить/возобновить воспроизведение.")
 async def player_aytoplay(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
@@ -443,7 +445,7 @@ async def player_aytoplay(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("loop", "Приостановить/возобновить воспроизведение.")
 async def player_loop(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает/возобновляет воспроизведение музыку."""
@@ -458,7 +460,7 @@ async def player_loop(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("volume", "Установить громкость плеера.")
 async def player_volume(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     volume: arc.Option[  # type: ignore
         int,
         arc.IntParams("Насколько кричать.", min=0, max=100),
@@ -474,7 +476,7 @@ async def player_volume(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("skip", "Пропустить песню.")
 async def skip_command(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     amount: arc.Option[  # type: ignore
         int,
         arc.IntParams("Сколько песен пропустить (1)", min=1),
@@ -490,7 +492,7 @@ async def skip_command(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("stop", "Остановить воспроизведение.")
 async def stop_player(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает воспроизведение в канале."""
@@ -502,7 +504,7 @@ async def stop_player(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_command("leave", "Завершить плеер.")
 async def leave_player(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Останавливает воспроизведение в канале."""
@@ -520,7 +522,7 @@ player_group = plugin.include_slash_group("player", "Информация о п�
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("status", "Состояние плеера.")
 async def player_status(
-    ctx: arc.GatewayContext, player: ongaku.Player = arc.inject()
+    ctx: ChioContext, player: ongaku.Player = arc.inject()
 ) -> None:
     """Основная информация о плеере."""
     guild = ctx.get_guild()
@@ -556,7 +558,7 @@ async def player_status(
 @player_group.include
 @arc.slash_subcommand("info", "Информация о плеере.")
 async def player_info(
-    ctx: arc.GatewayContext, ongaku_client: ongaku.Client = arc.inject()
+    ctx: ChioContext, ongaku_client: ongaku.Client = arc.inject()
 ) -> None:
     """Основная информация о плеере."""
     info = await ongaku_client.rest.fetch_info()
@@ -587,7 +589,7 @@ async def player_info(
 @player_group.include
 @arc.slash_subcommand("stats", "Статистика плеера.")
 async def player_stats(
-    ctx: arc.GatewayContext, ongaku_client: ongaku.Client = arc.inject()
+    ctx: ChioContext, ongaku_client: ongaku.Client = arc.inject()
 ) -> None:
     """Основная информация о плеере."""
     stats = await ongaku_client.rest.fetch_stats()
@@ -640,7 +642,7 @@ queue = plugin.include_slash_group(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("list", "Очередь воспроизведения.")
 async def player_queue(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Очередь воспроизведения."""
@@ -654,7 +656,7 @@ async def player_queue(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("add", description="Добавить песни в очередь.")
 async def add_track(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     query: arc.Option[  # type: ignore
         str, arc.StrParams("Какую песню играть")
     ],
@@ -680,7 +682,7 @@ async def add_track(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("remove", description="удалить трек из очереди.")
 async def remove_track(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     track: arc.Option[  # type: ignore
         int, arc.IntParams("Какую песню удалить.")
     ],
@@ -696,7 +698,7 @@ async def remove_track(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("clear", description="Очистить очередь.")
 async def clear_queue(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Удаляет трек из очереди проигрывания."""
@@ -708,7 +710,7 @@ async def clear_queue(
 @arc.with_hook(arc_ensure_player)
 @arc.slash_subcommand("shuffle", description="Перемещать очередь.")
 async def shuffle_queue(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     player: ongaku.Player = arc.inject(),
 ) -> None:
     """Удаляет трек из очереди проигрывания."""
@@ -720,16 +722,12 @@ async def shuffle_queue(
 # ===============================
 
 
-@arc.loader
-def loader(client: arc.GatewayClient) -> None:
-    """Действия при загрузке плагина."""
-    client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("music", MusicConfig)
-    config = cm.get_group("music", MusicConfig)
-
+@plugin.listen(arc.StartedEvent)
+async def on_start(event: arc.StartedEvent[ChioClient]) -> None:
+    """Подключаемся к сессии."""
     logger.info("Create ongaku session")
-    ongaku_client = ongaku.Client.from_arc(client)
+    ongaku_client = ongaku.Client.from_arc(event.client)
+    config = event.client.config.get(MusicConfig)
     ongaku_client.create_session(
         name=config.name,
         ssl=config.ssl,
@@ -739,7 +737,8 @@ def loader(client: arc.GatewayClient) -> None:
     )
 
 
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)
+@arc.loader
+def loader(client: ChioClient) -> None:
+    """Действия при загрузке плагина."""
+    plugin.set_config(MusicConfig)
+    client.add_plugin(plugin)

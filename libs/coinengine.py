@@ -12,7 +12,7 @@ from typing import Literal, Self
 
 from asyncpg import Record
 
-from chioricord.db import DBTable
+from chioricord.api import DBTable
 
 # Будет капать на баланс каждый день
 DEPOSIT_PERCENT = 0.05
@@ -41,7 +41,7 @@ class UserCoins:
         return cls(int(row[0]), int(row[1]), int(row[2]))
 
 
-OrderBy = Literal["amount"] | Literal["deposit"] | Literal["amount+deposit"]
+OrderBy = Literal["amount", "deposit", "amount+deposit"]
 
 
 class CoinsTable(DBTable):
@@ -128,7 +128,7 @@ class CoinsTable(DBTable):
         user = await self.get_user(user_id)
         if user is None:
             await self.create_user(UserCoins(user_id, amount, 0))
-            return None
+            return
         await self._update_amount(user_id, max(user.amount + amount, 0))
 
     async def take(self, user_id: int, amount: int) -> bool:

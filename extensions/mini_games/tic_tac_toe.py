@@ -12,12 +12,7 @@
 - **Бесконечный**: Похож на обычный, однако со временем выши старые
   ходы стирается и клетки освобождаются.
 
-Предоставляет
--------------
-
-- /ttt - Игра крестики-нолики.
-
-Version: v0.5.3 (21)
+Version: v0.5.4 (24)
 Author: Milinuri Nirvalen
 """
 
@@ -25,10 +20,10 @@ import arc
 import hikari
 import miru
 
-# Глобальные переменные
-# =====================
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("tic_tac_toe")
+plugin = ChioPlugin("Tic tac toe")
 
 # Как будут выглядеть крестик и нолик
 # Возможно в будущем появится настройки для стиля элементов
@@ -226,9 +221,7 @@ class TicTacToeView(miru.View):
         """
         # Добавляем игроков, если их не хватает
         if len(self._players) < 2:  # noqa: PLR2004
-            if len(self._players) == 0:
-                self._players.append(ctx.user)
-            elif ctx.user != self._players[0]:
+            if len(self._players) == 0 or ctx.user != self._players[0]:
                 self._players.append(ctx.user)
             else:
                 return False
@@ -407,8 +400,7 @@ class TicTacToeView(miru.View):
         res = _TTT_SIM[self.cur]
         if len(self._players) < 2:  # noqa: PLR2004
             return res + " игрока"
-        else:
-            return f"{res} {self._players[self.cur].mention}"
+        return f"{res} {self._players[self.cur].mention}"
 
     def no_valid_player_message(self) -> hikari.Embed:
         """Сообщение если кто-то посторонний нажал на кнопку.
@@ -438,7 +430,7 @@ class TicTacToeView(miru.View):
 @plugin.include
 @arc.slash_command("ttt", description="Начать игру крестики-нолики.")
 async def nya_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     endless: arc.Option[  # type: ignore
         bool, arc.BoolParams("Бесконечная ли игр (нет)")
     ] = False,
@@ -461,12 +453,6 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Производит загрузку плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Производит выгрузку плагина."""
-    client.remove_plugin(plugin)

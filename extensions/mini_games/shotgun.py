@@ -2,12 +2,7 @@
 
 Игра для весёлой компании, которой нечем заняться в свободное время.
 
-Предоставляет
--------------
-
-- /shot - Начать игру в рулетку.
-
-Version: v1.0 (1)
+Version: v1.0.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -17,7 +12,10 @@ import arc
 import hikari
 import miru
 
-plugin = arc.GatewayPlugin("Shotgun")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Shotgun")
 
 
 class ShotButton(miru.Button):
@@ -121,7 +119,7 @@ class ShotView(miru.View):
 @plugin.include
 @arc.slash_command("shot", description="Начать новую игру в рулетку.")
 async def nya_handler(
-    ctx: arc.GatewayContext, client: miru.Client = arc.inject()
+    ctx: ChioContext, client: miru.Client = arc.inject()
 ) -> None:
     """Игра рулетка.
 
@@ -138,12 +136,6 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

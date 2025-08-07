@@ -12,7 +12,7 @@ import hikari
 from asyncpg import Record
 from loguru import logger
 
-from chioricord.api.db import ChioDB, DBTable
+from chioricord.api import ChioDB, DBTable
 
 if TYPE_CHECKING:
     from chioricord.client import ChioClient, ChioContext

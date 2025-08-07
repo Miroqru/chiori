@@ -34,7 +34,7 @@
 - @MemberDeleteEvent
 - @voiceStateUpdateEvent
 
-Version: v1.2 (18)
+Version: v1.2.2 (22)
 Author: Milinuri Nirvalen
 """
 
@@ -44,12 +44,14 @@ import arc
 import hikari
 from loguru import logger
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Logger")
+plugin = ChioPlugin("Logger")
 
 
-class LoggerConfig(PluginConfig):
+class LoggerConfig(PluginConfig, config="logger"):
     """Настройки для журнала событий."""
 
     channel_id: int
@@ -533,7 +535,7 @@ async def on_message_delete(
     deleted = event.old_message
     if deleted is None or deleted.author.is_bot:
         logger.warning("Not enough information: {}", deleted)
-        return None
+        return
 
     emb = hikari.Embed(
         title="💎 message delete",
@@ -567,7 +569,7 @@ async def on_message_update(
         isinstance(event.message.author, hikari.User)
         and event.message.author.is_bot
     ):
-        return None
+        return
 
     emb = hikari.Embed(
         title="💎 Message edit",
@@ -904,14 +906,7 @@ async def on_voice_update(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(LoggerConfig)
     client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("logger", LoggerConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

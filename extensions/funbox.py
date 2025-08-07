@@ -3,16 +3,7 @@
 Расширение, которое предоставляет различные забавные команды без
 какой-либо определённой тематики.
 
-Предоставляет
--------------
-
-- /ping: Проверить что бот работает.
-- /dice: Подбросить кубик.
-- /flip: Подбросить монетку.
-- /ball: Совет от мудрого шара.
-- /chance <message>: Вероятность случайного события.
-
-Version: v0.5 (7)
+Version: v0.5.2 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -21,12 +12,14 @@ import random
 import arc
 import hikari
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Funbox")
+plugin = ChioPlugin("Funbox")
 
 
-class FunboxConfig(PluginConfig):
+class FunboxConfig(PluginConfig, config="funbox"):
     """Различные настройки для коробки весёлостей."""
 
     flip_results: list[str] = ["Орла", "Решку"]
@@ -61,13 +54,9 @@ class FunboxConfig(PluginConfig):
     """
 
 
-# определение команд
-# ==================
-
-
 @plugin.include
 @arc.slash_command("ping", description="Проверить работу бота.")
-async def ping(ctx: arc.GatewayContext) -> None:
+async def ping(ctx: ChioContext) -> None:
     """Проверить что бот в сети и отвечает на запросы."""
     await ctx.respond("🏓 Понг!")
 
@@ -75,7 +64,7 @@ async def ping(ctx: arc.GatewayContext) -> None:
 @plugin.include
 @arc.slash_command("dice", description="Подбросить кубик.")
 async def roll_dice(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     sides: arc.Option[int, arc.IntParams("Сколько сторон у кубика (6)")] = 6,  # type: ignore
     count: arc.Option[int, arc.IntParams("Сколько будет кубиков (1)")] = 1,  # type: ignore
 ) -> None:
@@ -120,7 +109,7 @@ async def roll_dice(
 @plugin.include
 @arc.slash_command("flip", description="Подбросить монетку.")
 async def flip_coin(
-    ctx: arc.GatewayContext, config: FunboxConfig = arc.inject()
+    ctx: ChioContext, config: FunboxConfig = arc.inject()
 ) -> None:
     """Подбрасывает монетку.
 
@@ -141,7 +130,7 @@ async def flip_coin(
 @plugin.include
 @arc.slash_command("number", description="Случайное число в диапазоне.")
 async def random_number(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     start: arc.Option[int, arc.IntParams("Начальное число (0)")] = 0,  # type: ignore
     stop: arc.Option[int, arc.IntParams("Конечное число (100)")] = 100,  # type: ignore
 ) -> None:
@@ -162,7 +151,7 @@ async def random_number(
 @plugin.include
 @arc.slash_command("ball", description="Совет от мудрого шара.")
 async def flip_ball(
-    ctx: arc.GatewayContext, config: FunboxConfig = arc.inject()
+    ctx: ChioContext, config: FunboxConfig = arc.inject()
 ) -> None:
     """8 шар.
 
@@ -182,7 +171,7 @@ async def flip_ball(
 @plugin.include
 @arc.slash_command("chance", description="Вероятность случайного события")
 async def chance(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     event: arc.Option[str, arc.StrParams("Некоторое событие")],  # type: ignore
 ) -> None:
     """Вероятность случайного события.
@@ -198,14 +187,6 @@ async def chance(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-    cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
-    cm.register("funbox", FunboxConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

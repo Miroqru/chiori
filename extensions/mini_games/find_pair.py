@@ -9,13 +9,7 @@
 
 Довольно простая игра, которая развивает память.
 
-
-Предоставляет
--------------
-
-- /pair - Начать игру найди пару
-
-Version: v0.3.1 (7)
+Version: v0.3.3 (10)
 Author: Milinuri Nirvalen
 """
 
@@ -25,27 +19,17 @@ import arc
 import hikari
 import miru
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-# Глобальные переменные
-# =====================
-
-plugin = arc.GatewayPlugin("Find pair")
+plugin = ChioPlugin("Find pair")
 
 
-class FindPairConfig(PluginConfig):
+class FindPairConfig(PluginConfig, config="find_pair"):
     """Настройки стиля для игры найти пару."""
 
-    pairs: list[str] = [
-        "🍌",
-        "🍓",
-        "🍇",
-        "🍞",
-        "🥐",
-        "🍫",
-        "🍦",
-        "☕",
-    ]
+    pairs: list[str] = ["🍌", "🍓", "🍇", "🍞", "🥐", "🍫", "🍦", "☕"]
     """
     Перечисляем все варианты вкусностей
     Поскольку в коде они будут представлены как число от 0 до 8
@@ -246,7 +230,7 @@ class PairView(miru.View):
 @plugin.include
 @arc.slash_command("pair", description="Игра найди пару.")
 async def nya_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     client: miru.Client = arc.inject(),
     config: FindPairConfig = arc.inject(),
 ) -> None:
@@ -261,14 +245,7 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(FindPairConfig)
     client.add_plugin(plugin)
-    cm: PluginConfigManager = client.get_type_dependency(PluginConfigManager)
-    cm.register("find_pair", FindPairConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

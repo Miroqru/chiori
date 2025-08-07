@@ -17,7 +17,8 @@ import hikari
 from asyncpg import Record
 from loguru import logger
 
-from chioricord.db import ChioDB, DBTable
+from chioricord.api import ChioDB, DBTable
+from chioricord.client import ChioClient, ChioContext
 
 RoleT = Literal["user", "system", "assistant", "imagine"]
 
@@ -99,7 +100,7 @@ class CreateUserEvent(hikari.Event):
         return self._db.client.app
 
     @property
-    def client(self) -> arc.GatewayClient:
+    def client(self) -> ChioClient:
         """App instance for this application."""
         return self._db.client
 
@@ -133,7 +134,7 @@ class ChatTable(DBTable):
         self._db.client.add_injection_hook(self.chat_injector)
 
     async def chat_injector(
-        self, ctx: arc.GatewayContext, inj_ctx: arc.InjectorOverridingContext
+        self, ctx: ChioContext, inj_ctx: arc.InjectorOverridingContext
     ) -> None:
         """Предоставляет роль пользователя в arc inject."""
         logger.debug("Try to get user with id {}", ctx.user.id)

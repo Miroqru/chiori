@@ -2,37 +2,31 @@
 
 Сделано с целью интеграции с одноимённым сервером Discord.
 
-Version: v0.7 (13)
+Version: v0.8 (15)
 Author: Milinuri Nirvalen
 """
 
-from pathlib import Path
-
 import arc
 import hikari
-from loguru import logger
 from mcstatus import JavaServer
 from mcstatus.responses import JavaStatusPlayers
 
-from chioricord.config import PluginConfig, PluginConfigManager
-from libs.static_embeds import StaticCommands, load_commands
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-
-class ModcraftConfig(PluginConfig):
-    """Настройки Modcraft сервера."""
-
-    server_ip: str = "hydra.minerent.net:25598"
-    """IP minecraft сервера по умолчанию."""
-
-    commands_path: Path = Path("bot_data/modcraft_embeds.json")
-    """Путь к статическим командам для static_embeds."""
-
-
-plugin = arc.GatewayPlugin("ModCraft")
+plugin = ChioPlugin("ModCraft")
 
 cmd_group = plugin.include_slash_group(
     name="mc", description="Взаимодействие с сервером ModCraft."
 )
+
+
+class ModcraftConfig(PluginConfig, config="modcraft"):
+    """Настройки Modcraft сервера."""
+
+    server_ip: str = "hydra.minerent.net:25598"
+    """IP minecraft сервера по умолчанию."""
 
 
 def online_status(players: JavaStatusPlayers) -> str:
@@ -51,7 +45,7 @@ def online_status(players: JavaStatusPlayers) -> str:
 @cmd_group.include
 @arc.slash_subcommand("status", description="Статус Minecraft сервера.")
 async def server_status(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     server_ip: arc.Option[
         str | None, arc.StrParams("IP Minecraft сервера.")
     ] = None,
@@ -99,7 +93,7 @@ async def server_status(
 @cmd_group.include
 @arc.slash_subcommand("mods", description="Установлены моды на сервере.")
 async def server_mods(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     server_ip: arc.Option[
         str | None, arc.StrParams("IP Minecraft сервера.")
     ] = None,
@@ -139,7 +133,7 @@ async def server_mods(
 @cmd_group.include
 @arc.slash_subcommand("ping", description="Скорость ответа от сервера.")
 async def server_ping(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     server_ip: arc.Option[
         str | None, arc.StrParams("IP Minecraft сервера.")
     ] = None,
@@ -166,22 +160,7 @@ async def server_ping(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("modcraft", ModcraftConfig)
-    config = cm.get_group("modcraft", ModcraftConfig)
-
-    sc = StaticCommands()
-    commands = load_commands(config.commands_path)
-    for command in commands:
-        logger.info("Add command: {}: {}", command.name, command.desc)
-        cmd_group.include(sc.add_subcommand(command))
-
+    plugin.set_config(ModcraftConfig)
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

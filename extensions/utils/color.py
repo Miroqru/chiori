@@ -3,22 +3,18 @@
 небольшой плагин для художников.
 позволяет выбрать цвета в формате HEX, RGB, HSV.
 
-Предоставляет
--------------
-
-- /color - Случайный цвет.
-- /color [color] - информацию о цвете.
-
-Version: v0.3.2 (5)
+Version: v0.3.4 (8)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.color import Color, ColorParseError
 
-plugin = arc.GatewayPlugin("color")
+plugin = ChioPlugin("Color")
 
 
 # определение команд
@@ -28,7 +24,7 @@ plugin = arc.GatewayPlugin("color")
 @plugin.include
 @arc.slash_command("color", description="Информация о цвете.")
 async def color_selector(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     color: arc.Option[  # type: ignore
         str | None, arc.StrParams("Hex, RGB, HSV (случайный цвет)")
     ] = None,
@@ -68,7 +64,7 @@ async def color_selector(
 
 
 @color_selector.set_error_handler
-async def error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
+async def error_handler(ctx: ChioContext, exc: Exception) -> None:
     """Обрабатывает ошибки получения цвета."""
     if isinstance(exc, ColorParseError):
         emb = hikari.Embed(
@@ -86,12 +82,6 @@ async def error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

@@ -5,12 +5,12 @@ from typing import Self
 
 from asyncpg import Record
 
-from chioricord.db import DBTable
+from chioricord.api import DBTable
 
 
 @dataclass(frozen=True, slots=True)
 class GuildRole:
-    """Роль на продажу на сервере."""
+    """Продаваемая на сервере."""
 
     guild_id: int
     role: int

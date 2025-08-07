@@ -6,15 +6,7 @@
 > Вы Легко можете начать писать своё расширение для Чиори,
 > взяв за основу исходный код данного расширения.
 
-Предоставляет
--------------
-
-- /rep [member] - Репутация пользователя.
-- /rep_top - Таблица лидеров по репутации.
-- /respect - Оказать уважение пользователю.
-- /disrespect - Оказать неуважение к пользователю.
-
-Version: v1.0.1 (10)
+Version: v1.0.3 (13)
 Author: Milinuri Nirvalen
 """
 
@@ -23,10 +15,11 @@ from datetime import datetime
 import arc
 import hikari
 
-from chioricord.db import ChioDB
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.rep import ReputationTable, UserReputation
 
-plugin = arc.GatewayPlugin("Reputation")
+plugin = ChioPlugin("Reputation")
 
 _COLOR_SUCCESS = hikari.Color(0x66FFCC)
 _COLOR_MAIN = hikari.Color(0xFFCC77)
@@ -78,7 +71,7 @@ def _user_stats(rep: UserReputation, pos: str) -> str:
 @plugin.include
 @arc.slash_command("rep", description="Репутация пользователя.")
 async def user_reputation(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Чью репутацию посмотреть")
     ] = None,
@@ -112,7 +105,7 @@ async def user_reputation(
 @plugin.include
 @arc.slash_command("respect", description="Оказать уважение пользователя.")
 async def add_reputation(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User, arc.UserParams("Кому оказать уважение")
     ],
@@ -156,7 +149,7 @@ async def add_reputation(
 @plugin.include
 @arc.slash_command("disrespect", description="Оказать неуважение пользователя.")
 async def remove_reputation(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User, arc.UserParams("Кому оказать неуважение")
     ],
@@ -199,7 +192,7 @@ async def remove_reputation(
 @plugin.include
 @arc.slash_command("rep_top", description="Таблица лидеров по репутации.")
 async def reputation_top(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     table: ReputationTable = arc.inject(),
 ) -> None:
     """Таблица лидеров по сообщениям."""
@@ -234,14 +227,7 @@ async def reputation_top(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.add_table(ReputationTable)
     client.add_plugin(plugin)
-    db = client.get_type_dependency(ChioDB)
-    db.register(ReputationTable)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

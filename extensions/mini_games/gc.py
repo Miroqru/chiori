@@ -2,12 +2,7 @@
 
 Первая игра, использующая библиотеку инвентаря.
 
-Предоставляет
--------------
-
-- /gc - Отправиться на свалку.
-
-Version: v0.0.3 (7)
+Version: v0.0.4 (11)
 Author: Milinuri Nirvalen
 """
 
@@ -18,9 +13,11 @@ import arc
 import hikari
 import miru
 
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.inventory import Inventory, InventoryItem, ItemIndex
 
-plugin = arc.GatewayPlugin("Gc")
+plugin = ChioPlugin("Gc")
 
 _MAX_ENERGY = 5
 
@@ -77,14 +74,14 @@ class GameButton(miru.Button):
             await ctx.respond(
                 "Не трогайте меня пожалуйста ...", delete_after=10
             )
-            return None
+            return
 
         rare = await self.view.get_item(self.index)
         if rare is None:
             await ctx.edit_response(
                 embed=self.view.stop_game(), components=None
             )
-            return None
+            return
         self.set_open(rare)
 
         game_over = await self.view.is_game_over()
@@ -228,7 +225,7 @@ class GCView(miru.View):
 @plugin.include
 @arc.slash_command("gc", description="Отправиться на свалку.")
 async def collect_garbage(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     index: ItemIndex = arc.inject(),
     inventory: Inventory = arc.inject(),
     client: miru.Client = arc.inject(),
@@ -244,12 +241,6 @@ async def collect_garbage(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

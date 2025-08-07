@@ -8,12 +8,7 @@
 задев при этом ни одной бомбы.
 Игра не такая простая, как может показаться на первый взгляд.
 
-Предоставляет
--------------
-
-- /mines - Начать игру Сапёр.
-
-Version: v0.4.1 (20)
+Version: v0.4.2 (24)
 Author: Milinuri Nirvalen
 """
 
@@ -24,15 +19,12 @@ import arc
 import hikari
 import miru
 
-# Глобальные переменные
-# =====================
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("mines")
+plugin = ChioPlugin("Mines")
 _MIN_BOMBS = 3
 _MAX_BOMBS = 10
-
-# Классы представление минного поля
-# ================================
 
 
 class EmptyButton(miru.Button):
@@ -332,7 +324,7 @@ class MineView(miru.View):
 @plugin.include
 @arc.slash_command("mines", description="Начать игру сапёр.")
 async def start_mines(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     client: miru.Client = arc.inject(),
     bombs: arc.Option[  # type: ignore
         int | None, arc.IntParams("Количество бомб в игре (3-10)")
@@ -355,8 +347,8 @@ async def start_mines(
                     color=0xFF00AA,
                 )
             )
-            return None
-        elif bombs > _MAX_BOMBS:
+            return
+        if bombs > _MAX_BOMBS:
             await ctx.respond(
                 embed=hikari.Embed(
                     title="💣 Многовато бомб",
@@ -367,7 +359,7 @@ async def start_mines(
                     color=0xFF00AA,
                 )
             )
-            return None
+            return
 
     view = MineView()
     await ctx.respond(embed=view.game_status(), components=view)
@@ -379,12 +371,6 @@ async def start_mines(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

@@ -9,12 +9,7 @@
 - Использовать только существительные единственного числа.
 - Слова должны быть в единственном числе именительного падежа.
 
-Предоставляет
--------------
-
-- /word <word>: Добавить новое слово в цепочку слов.
-
-Version: v0.4.3 (17)
+Version: v0.4.4 (21)
 Author: Milinuri Nirvalen
 """
 
@@ -28,7 +23,10 @@ import arc
 import hikari
 from loguru import logger
 
-plugin = arc.GatewayPlugin("word_game")
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
+
+plugin = ChioPlugin("Words")
 
 # Общие правила используются при начале гры и если отправлено
 # неправильное слово.
@@ -77,8 +75,7 @@ def get_last_letter(word: str) -> str:
     """
     if word[-1] in ("ь", "ъ", "ы"):
         return word[-2]
-    else:
-        return word[-1]
+    return word[-1]
 
 
 # Главный игровой класс
@@ -138,7 +135,7 @@ class WordGame:
                 return word_link
         return None
 
-    def validate_word(self, ctx: arc.GatewayContext, word: str) -> str | None:
+    def validate_word(self, ctx: ChioContext, word: str) -> str | None:
         """Проверяет строку на корректность чтобы его добавить.
 
         Пробует извлечь слово из строки.
@@ -148,18 +145,18 @@ class WordGame:
         последней буквой предыдущего слова.
 
         :param ctx: Контекст сообщения, кто отправил новое слово.
-        :type ctx: arc.GatewayContext
+        :type ctx: ChioContext
         :param word: Строка, которую необходимо проверить.
         :type word: str
         :return: Новое слово в цепочку, или None, если не подходит.
         :rtype: str | None
         """
-        word = get_word(word)
-        if word is None:
+        clear_word = get_word(word)
+        if clear_word is None:
             return None
 
         if self.last_user is not None:
-            if word == self.last_word:
+            if clear_word == self.last_word:
                 return None
 
             if ctx.user.id == self.last_user:
@@ -174,7 +171,7 @@ class WordGame:
                 return None
         return word
 
-    async def next_word(self, ctx: arc.GatewayContext, word: str) -> bool:
+    async def next_word(self, ctx: ChioContext, word: str) -> bool:
         """Добавляет новое слово в цепочку.
 
         Внутри проводит проверку что слово может быть добавлено в цепь.
@@ -186,7 +183,7 @@ class WordGame:
         При успешном добавлении нового слова в цепочку возвращает True.
 
         :param ctx: Контекст команды, кто добавил новое слово и когда.
-        :type ctx: arc.GatewayContext
+        :type ctx: ChioContext
         :param word: Слово, которое пользователь собирается добавить.
         :type word: str
         :return: Статус добавление нового слова.
@@ -416,6 +413,7 @@ class GameStorage:
 
 
 # Создаём одно глобальное хранилище для всего плагина
+# TODO: Начать использовать конфиг
 GLOBAL_STORAGE = GameStorage(Path("bot_data/word_game.json"))
 
 
@@ -426,7 +424,7 @@ GLOBAL_STORAGE = GameStorage(Path("bot_data/word_game.json"))
 @plugin.include
 @arc.slash_command("word", description="Сказать слово для игры в слова.")
 async def word_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")],
 ) -> None:
     """Добавляет новое слово для игры в слова.
@@ -454,7 +452,7 @@ async def word_handler(
     default_permissions=hikari.Permissions.MANAGE_MESSAGES,
 )
 async def new_word_game(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     word: arc.Option[str, arc.StrParams("Какое вы хотите сказать слово?")],
 ) -> None:
     """Принудительно начинает новую игру в слова.
@@ -476,26 +474,20 @@ async def new_word_game(
 
 
 @plugin.listen(arc.events.StartedEvent)
-async def connect(event: arc.events.StartedEvent) -> None:
+async def connect(event: arc.StartedEvent[ChioClient]) -> None:
     """Подключаемся к базам данных при запуске бота."""
     logger.info("Connect to word games storage")
     GLOBAL_STORAGE.connect()
 
 
 @plugin.listen(arc.events.StoppingEvent)
-async def disconnect(event: arc.events.StoppingEvent) -> None:
+async def disconnect(event: arc.StoppingEvent[ChioClient]) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
     logger.info("Close connect to word games storage")
     GLOBAL_STORAGE.close()
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
     client.add_plugin(plugin)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

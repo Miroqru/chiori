@@ -12,19 +12,21 @@
 
 - /nya <member> - Някнуть участника
 
-Version: v0.4 (6)
+Version: v0.4.1 (8)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
 
-from chioricord.config import PluginConfig, PluginConfigManager
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 
-plugin = arc.GatewayPlugin("Nya")
+plugin = ChioPlugin("Nya")
 
 
-class NyaConfig(PluginConfig):
+class NyaConfig(PluginConfig, config="nya"):
     """Пример использования настроек для плагина."""
 
     message: str = "ня!"
@@ -46,7 +48,7 @@ class NyaConfig(PluginConfig):
 @plugin.include
 @arc.slash_command("nya", description="Скажи ня участнику сервера.")
 async def nya_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Кого нужно някнуть")
     ] = None,
@@ -68,14 +70,7 @@ async def nya_handler(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(NyaConfig)
     client.add_plugin(plugin)
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("nya", NyaConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

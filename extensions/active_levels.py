@@ -3,13 +3,7 @@
 Отслеживает активность участников на сервере.
 Сколько они написали сообщений, сколько провели в голосовом канале.
 
-Предоставляет
--------------
-
-- /top [category]: Таблица лидеров по активности на сервере.
-- /active: Активность участника на сервере.
-
-Version: v1.7 (18)
+Version: v1.8.1 (21)
 Author: Milinuri Nirvalen
 """
 
@@ -20,11 +14,12 @@ import arc
 import hikari
 from loguru import logger
 
-from chioricord.config import PluginConfig, PluginConfigManager
-from chioricord.db import ChioDB
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.active_levels import ActiveTable, LevelUpEvent, UserActive
 
-plugin = arc.GatewayPlugin("Active levels")
+plugin = ChioPlugin("Active levels")
 
 
 @dataclass(slots=True)
@@ -40,7 +35,7 @@ class UserVoice:
 voice_start_times: dict[int, UserVoice] = {}
 
 
-class LevelsConfig(PluginConfig):
+class LevelsConfig(PluginConfig, config="levels"):
     """Настройки для журнала событий."""
 
     channel_id: int
@@ -144,53 +139,6 @@ async def on_message(
         xp += len(event.content.split())
 
     await active.add_messages(event.author_id, xp)
-
-    # # -> Message Bumps
-    # if event.author.is_bot:
-    #     embed = event.embeds[0]
-
-    #     if embed.description and "Время реакции" in embed.description:
-    #         if embed.author is None:
-    #             return
-    #         user_name = embed.author.name
-
-    #         guild = event.get_guild()
-    #         if guild is None:
-    #             return
-
-    #         members = guild.get_members()
-    #         user = None
-
-    #         for member in members:
-    #             member = guild.get_member(member)
-    #             if member is None:
-    #                 continue
-    #             if member.username == user_name:
-    #                 user = member
-    #                 break
-
-    #         if user is None or user_name is None:
-    #             return
-
-    #         await update_bump_count(user.id, user_name)
-
-    #         session = async_sessionmaker(
-    #             database_manager.engine, expire_on_commit=True
-    #         )
-    #         async with session() as session:
-    #             async with session.begin():
-    #                 stmt = select(UserData.bump_count).where(
-    #                     UserData.user_id == user.id
-    #                 )
-    #                 bump_count = await session.scalar(stmt)
-
-    #         embed_success = hikari.Embed(
-    #             description=f"Hey, {user.mention}, thank u!\n Your total bumps: `{bump_count}`",
-    #             color=0x2B2D31,
-    #         )
-    #         channel = event.get_channel()
-    #         if isinstance(channel, hikari.GuildTextChannel):
-    #             await channel.send(embed=embed_success)
 
 
 @plugin.listen(hikari.VoiceStateUpdateEvent)
@@ -305,7 +253,7 @@ async def on_level_up(
 @plugin.include
 @arc.slash_command("top", description="Таблица лидеров по активности.")
 async def message_top(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     group: arc.Option[  # type: ignore
         str,
         arc.StrParams(
@@ -354,7 +302,7 @@ async def message_top(
 @plugin.include
 @arc.slash_command("active", description="Активность пользователя.")
 async def user_active(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Для какого пользователя.")
     ] = None,
@@ -402,7 +350,7 @@ async def user_active(
 @plugin.include
 @arc.slash_command("voice", description="Активность в голосовом канале.")
 async def voice_active(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     user: arc.Option[  # type: ignore
         hikari.User | None, arc.UserParams("Для какого пользователя.")
     ] = None,
@@ -439,7 +387,7 @@ async def voice_active(
 
 
 @plugin.listen(arc.StartedEvent)
-async def check_voice_state(event: arc.StartedEvent[arc.GatewayClient]) -> None:
+async def check_voice_state(event: arc.StartedEvent[ChioClient]) -> None:
     """Записывает участников в голосовые каналы."""
     states = event.client.cache.get_voice_states_view()
     now = int(time())
@@ -454,7 +402,7 @@ async def check_voice_state(event: arc.StartedEvent[arc.GatewayClient]) -> None:
 @plugin.listen(arc.StoppingEvent)
 @plugin.inject_dependencies
 async def clear_voice_state(
-    event: arc.StoppingEvent[arc.GatewayClient],
+    event: arc.StoppingEvent[ChioClient],
     active: ActiveTable = arc.inject(),
     config: LevelsConfig = arc.inject(),
 ) -> None:
@@ -483,18 +431,8 @@ async def clear_voice_state(
 
 
 @arc.loader
-def loader(client: arc.GatewayClient) -> None:
+def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    plugin.set_config(LevelsConfig)
+    plugin.add_table(ActiveTable)
     client.add_plugin(plugin)
-
-    db = client.get_type_dependency(ChioDB)
-    db.register(ActiveTable)
-
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("levels", LevelsConfig)
-
-
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)

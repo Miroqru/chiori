@@ -5,10 +5,7 @@ Lingua — это помощник, который помогает вам с р
 Он всегда готов ответить на ваши вопросы и сделать общение
 персонализированным и приятным.
 
-Предоставляет
--------------
-
-Version: v0.13 (12)
+Version: v0.13.3 (15)
 Author: Milinuri Nirvalen
 """
 
@@ -23,14 +20,12 @@ from loguru import logger
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from chioricord.config import PluginConfig, PluginConfigManager
-from chioricord.db import ChioDB
+from chioricord.api import PluginConfig
+from chioricord.client import ChioClient, ChioContext
+from chioricord.plugin import ChioPlugin
 from libs.lingua import ChatGuild, ChatTable, RoleT
 
-# Глобальные переменные
-# =====================
-
-plugin = arc.GatewayPlugin("lingua")
+plugin = ChioPlugin("lingua")
 
 MAX_MESSAGE_LENGTH = 2_000
 DALL_E_3_MAX_CHARACTERS = 4_000
@@ -52,7 +47,7 @@ DEFAULT_PROMPT: str = (
 )
 
 
-class LinguaConfig(PluginConfig):
+class LinguaConfig(PluginConfig, config="lingua"):
     """Настройки для Lingua."""
 
     api_url: str
@@ -83,7 +78,7 @@ class LinguaConfig(PluginConfig):
 
 
 async def _get_channel(
-    client: arc.GatewayClient, channel_id: int
+    client: ChioClient, channel_id: int
 ) -> hikari.PartialChannel:
     channel = client.cache.get_guild_channel(channel_id)
     if channel is not None:
@@ -91,7 +86,7 @@ async def _get_channel(
     return await client.rest.fetch_channel(channel_id)
 
 
-async def _get_guild(client: arc.GatewayClient, guild_id: int) -> hikari.Guild:
+async def _get_guild(client: ChioClient, guild_id: int) -> hikari.Guild:
     guild = client.cache.get_guild(guild_id)
     if guild is not None:
         return guild
@@ -105,12 +100,12 @@ class ChatContext:
     guild: hikari.Guild | None
 
     @classmethod
-    def from_ctx(cls, ctx: arc.GatewayContext) -> Self:
+    def from_ctx(cls, ctx: ChioContext) -> Self:
         return cls(ctx.user, ctx.channel, ctx.get_guild())
 
     @classmethod
     async def from_event(
-        cls, client: arc.GatewayClient, event: hikari.MessageCreateEvent
+        cls, client: ChioClient, event: hikari.MessageCreateEvent
     ) -> Self:
         return cls(
             event.author,
@@ -145,7 +140,8 @@ def get_info() -> hikari.Embed:
         "https://raw.githubusercontent.com/atarwn/Lingua/refs/heads/main/assets/lingua.png"
     )
     embed.set_footer(
-        text="Lingua v0.13 © Milinuri, 2024-2025", icon="https://miroq.ru/ava.jpg"
+        text="Lingua v0.13 © Milinuri, 2024-2025",
+        icon="https://miroq.ru/ava.jpg",
     )
     return embed
 
@@ -195,7 +191,9 @@ class MessageStorage:
     def __init__(self, config: LinguaConfig) -> None:
         self.config = config
         self.history: HistoryT = {}
-        self.client = AsyncOpenAI(base_url=config.api_url, api_key=config.api_key)
+        self.client = AsyncOpenAI(
+            base_url=config.api_url, api_key=config.api_key
+        )
 
     async def create_context(self, ctx: ChatContext) -> UserContext:
         """Создаёт новый контекст переписки с пользователем."""
@@ -233,7 +231,9 @@ class MessageStorage:
             .message.content
         )
 
-    async def generate_answer(self, content: str, ctx: ChatContext) -> str | None:
+    async def generate_answer(
+        self, content: str, ctx: ChatContext
+    ) -> str | None:
         """Генерирует некоторый ответ от AI."""
         context = await self.user_context(ctx)
         if ctx.channel.id != context.chat:
@@ -263,7 +263,7 @@ async def on_message(
     if not event.is_human or event.message.content is None:
         return
 
-    app = cast(hikari.GatewayBotAware, event.app)
+    app = cast("hikari.GatewayBotAware", event.app)
     me = app.get_me()
     if me is None:
         raise ValueError("OwnUser can`t be None")
@@ -273,16 +273,17 @@ async def on_message(
     else:
         chat = await table.get_or_create(event.message.guild_id)
 
-    if chat is None:
-        content = event.message.content
-
-    elif chat.chat_channel is not None and event.channel_id == chat.chat_channel:
-        content = event.message.content
-
-    elif (
-        event.message.referenced_message is not None
-        and event.message.referenced_message.author
-        and event.message.referenced_message.author.id == me.id
+    if (
+        chat is None
+        or (
+            chat.chat_channel is not None
+            and event.channel_id == chat.chat_channel
+        )
+        or (
+            event.message.referenced_message is not None
+            and event.message.referenced_message.author
+            and event.message.referenced_message.author.id == me.id
+        )
     ):
         content = event.message.content
 
@@ -315,7 +316,9 @@ async def on_message(
         else:
             await event.message.respond(
                 "Сообщение оказалось слишком длинным, держите `.txt` файл.",
-                attachment=hikari.Bytes(memoryview(answer.encode()), "message.txt"),
+                attachment=hikari.Bytes(
+                    memoryview(answer.encode()), "message.txt"
+                ),
                 reply=True,
             )
 
@@ -327,7 +330,7 @@ async def on_message(
 @plugin.include
 @arc.slash_command("chat", description="Диалог с AI.")
 async def lingua_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     prompt: arc.Option[str | None, arc.StrParams("Сообщение для AI")] = None,  # type: ignore
     storage: MessageStorage = arc.inject(),
 ) -> None:
@@ -347,14 +350,16 @@ async def lingua_handler(
         else:
             await respond.edit(
                 "Сообщение оказалось слишком длинным, держите `.txt` файл.",
-                attachment=hikari.Bytes(memoryview(answer.encode()), "message.txt"),
+                attachment=hikari.Bytes(
+                    memoryview(answer.encode()), "message.txt"
+                ),
             )
 
 
 @plugin.include
 @arc.slash_command("clear_context", description="Обчищает контекст диалога.")
 async def reset_ai_dialog(
-    ctx: arc.GatewayContext, storage: MessageStorage = arc.inject()
+    ctx: ChioContext, storage: MessageStorage = arc.inject()
 ) -> None:
     """Очищает историю сообщений для пользователя."""
     res = storage.history.pop(ctx.user.id, None)
@@ -363,13 +368,15 @@ async def reset_ai_dialog(
             "⚠ У вас нет сохранённых сообщений.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )
-    await ctx.respond("✅ Контекст очищена!", flags=hikari.MessageFlag.EPHEMERAL)
+    await ctx.respond(
+        "✅ Контекст очищена!", flags=hikari.MessageFlag.EPHEMERAL
+    )
 
 
 @plugin.include
 @arc.slash_command("model", description="Выбрать AI модель для диалога.")
 async def set_ai_model(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     model: arc.Option[str, arc.StrParams("Желаемая модель")],  # type: ignore
     storage: MessageStorage = arc.inject(),
 ) -> None:
@@ -388,7 +395,7 @@ async def set_ai_model(
 @plugin.include
 @arc.slash_command("chat_status", description="Какой выбран ИИ чат.")
 async def chat_status_handler(
-    ctx: arc.GatewayContext, chat: ChatGuild = arc.inject()
+    ctx: ChioContext, chat: ChatGuild = arc.inject()
 ) -> None:
     """Detailed command description"""
     await ctx.respond(f"Talk channel is: {chat.chat_channel}.")
@@ -401,7 +408,7 @@ async def chat_status_handler(
     default_permissions=hikari.Permissions.MANAGE_CHANNELS,
 )
 async def set_chat_handler(
-    ctx: arc.GatewayContext,
+    ctx: ChioContext,
     channel: arc.Option[
         hikari.TextableChannel, arc.ChannelParams("В каком канале общаться.")
     ],
@@ -423,7 +430,7 @@ async def set_chat_handler(
     default_permissions=hikari.Permissions.MANAGE_CHANNELS,
 )
 async def reset_chat_handler(
-    ctx: arc.GatewayContext, table: ChatTable = arc.inject()
+    ctx: ChioContext, table: ChatTable = arc.inject()
 ) -> None:
     """удаляет чат для общения с ии."""
     if ctx.guild_id is None:
@@ -438,24 +445,18 @@ async def reset_chat_handler(
 # ===============================
 
 
-@arc.loader
-def loader(client: arc.GatewayClient) -> None:
-    """Действия при загрузке плагина."""
-    client.add_plugin(plugin)
-
-    cm = client.get_type_dependency(PluginConfigManager)
-    cm.register("lingua", LinguaConfig)
-
+@plugin.listen(arc.StartedEvent)
+async def on_start(event: arc.StartedEvent[ChioClient]) -> None:
+    """Подключается к ИИ после запуска бота."""
     logger.info("Init AI message storage")
-    config = cm.get_group("lingua", LinguaConfig)
+    config = event.client.config.get(LinguaConfig)
     storage = MessageStorage(config)
-    client.set_type_dependency(MessageStorage, storage)
-
-    db = client.get_type_dependency(ChioDB)
-    db.register(ChatTable)
+    event.client.set_type_dependency(MessageStorage, storage)
 
 
-@arc.unloader
-def unloader(client: arc.GatewayClient) -> None:
-    """Действия при выгрузке плагина."""
-    client.remove_plugin(plugin)
+@arc.loader
+def loader(client: ChioClient) -> None:
+    """Действия при загрузке плагина."""
+    plugin.set_config(LinguaConfig)
+    plugin.add_table(ChatTable)
+    client.add_plugin(plugin)

@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from asyncpg import Record
 
-from chioricord.db import DBTable
+from chioricord.api import DBTable
 
 _REP_COOLDOWN = timedelta(minutes=10)
 
@@ -36,7 +36,7 @@ class UserReputation:
         return cls(int(row[0]), int(row[1]), int(row[2]), row[3])
 
 
-OrderBy = Literal["positive"] | Literal["negative"]
+OrderBy = Literal["positive", "negative"]
 
 
 class ReputationTable(DBTable):
