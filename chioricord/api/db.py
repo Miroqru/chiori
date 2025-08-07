@@ -1,4 +1,4 @@
-"""База данных.
+"""Общая база данных Postgres.
 
 предоставляет методы для работы с общей базой данных Postgres.
 """
@@ -35,6 +35,8 @@ class ChioDB:
     Глобальное хранилище для хранение данных бота.
     Работает поверх Postgres пула подключений.
     """
+
+    __slots__ = ("client", "app", "_pool", "_tables")
 
     def __init__(self, client: arc.GatewayClient) -> None:
         self.client = client
