@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime
 
-import arc
 import hikari
 from loguru import logger
 
+from chioricord.client import ChioContext
 
-async def client_error_handler(ctx: arc.GatewayContext, exc: Exception) -> None:
+
+async def client_error_handler(ctx: ChioContext, exc: Exception) -> None:
     """Отлавливаем исключение если что-то  пошло не по плану.
 
     К примеру это могут быть ошибки внутри обработчиков.

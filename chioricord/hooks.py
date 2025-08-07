@@ -7,7 +7,8 @@ from collections.abc import Callable
 
 import arc
 
-from chioricord.roles import RoleLevel, UserRole
+from chioricord.api import RoleLevel, UserRole
+from chioricord.client import ChioContext
 
 
 class MissingRoleError(arc.HookAbortError):
@@ -18,7 +19,7 @@ class UserBannedError(arc.HookAbortError):
     """Если пользователь с блокировкой пытается использовать команду."""
 
 
-def _role_hook(ctx: arc.GatewayContext, role: RoleLevel) -> None:
+def _role_hook(ctx: ChioContext, role: RoleLevel) -> None:
     user = ctx.get_type_dependency(UserRole)
     if user.role == RoleLevel.BANNED:
         raise UserBannedError("You are banned by administrator")
@@ -29,10 +30,10 @@ def _role_hook(ctx: arc.GatewayContext, role: RoleLevel) -> None:
         )
 
 
-def has_role(role: RoleLevel) -> Callable[[arc.GatewayContext], None]:
+def has_role(role: RoleLevel) -> Callable[[ChioContext], None]:
     """Проверяет есть ли у пользователя необходимая роль."""
 
-    def _wrapper(ctx: arc.GatewayContext) -> None:
+    def _wrapper(ctx: ChioContext) -> None:
         return _role_hook(ctx, role)
 
     return _wrapper

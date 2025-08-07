@@ -10,8 +10,8 @@ import hikari
 from asyncpg import Record
 from loguru import logger
 
-from chioricord.config import BotConfig
-from chioricord.db import ChioDB, DBTable
+from chioricord.api.config import BotConfig
+from chioricord.api.db import ChioDB, DBTable
 
 
 class RoleLevel(IntEnum):

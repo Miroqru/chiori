@@ -6,19 +6,16 @@
 """
 
 import asyncio
-import logging
 import sys
 
-import arc
 import hikari
 import miru
 from loguru import logger
 
-from chioricord.config import BotConfig, PluginConfigManager
-from chioricord.db import ChioDB
+from chioricord.api import BotConfig, RoleLevel, RoleTable
+from chioricord.client import ChioClient
 from chioricord.errors import client_error_handler
 from chioricord.hooks import has_role
-from chioricord.roles import RoleLevel, RoleTable
 
 try:
     import uvloop
@@ -37,14 +34,14 @@ _LOG_FORMAT = (
     "<lvl>{message}</>"
 )
 
+__all__ = ("start_bot",)
 
-async def _connect_db(client: arc.GatewayClient) -> None:
+
+async def _connect_db(client: ChioClient) -> None:
     """Производим подключение к базе данных."""
     logger.info("Connect to chio database")
-    db = client.get_type_dependency(ChioDB)
-    config = client.get_type_dependency(BotConfig)
-    await db.connect(str(config.DB_DSN))
-    await db.create_tables()
+    await client.db.connect(str(client.bot_config.DB_DSN))
+    await client.db.create_tables()
 
 
 def _setup_logger(config: BotConfig) -> None:
@@ -66,10 +63,8 @@ def _check_folders(config: BotConfig) -> None:
     config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
-def _setup_db(client: arc.GatewayClient, config: BotConfig) -> None:
-    db = ChioDB(client)
-    db.register(RoleTable)
-    client.set_type_dependency(ChioDB, db)
+def _setup_db(client: ChioClient) -> None:
+    client.db.register(RoleTable)
     client.add_hook(has_role(RoleLevel.USER))
     client.add_startup_hook(_connect_db)
 
@@ -82,12 +77,10 @@ def start_bot() -> None:
     Подгружает все плагины.
     Запускает самого бота.
     """
-    logger.info("[0] Load bot config")
-    config = BotConfig()  # type: ignore
-
     logger.info("[1] Init client")
+    config = BotConfig()  # type: ignore
     bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
-    client = arc.GatewayClient(bot)
+    client = ChioClient(bot, config)
     miru.Client.from_arc(client)
 
     client.set_type_dependency(BotConfig, config)
@@ -96,25 +89,18 @@ def start_bot() -> None:
     logger.info("[2] Setup Chio")
     _setup_logger(config)
     _check_folders(config)
+    _setup_db(client)
 
-    logger.info("[3] Setup ChioDB")
-    _setup_db(client, config)
-
-    logger.info("[4] Setup PluginConfig")
-    cm = PluginConfigManager(client)
-    client.set_type_dependency(PluginConfigManager, cm)
-
-    logger.info("[5] Load plugins from {}", config.EXTENSIONS_PATH)
+    logger.info("[3] Load plugins from {}", config.EXTENSIONS_PATH)
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
-    logger.info("[6] Load plugin configs")
-
+    logger.info("[4] Load plugin configs")
     try:
-        cm.load(config.CONFIG_PATH)
+        client.config.load(config.CONFIG_PATH)
     except ValueError as e:
         logger.error(e)
         sys.exit(1)
 
-    logger.info("[7] Start bot")
+    logger.info("[5] Start bot")
     activity = hikari.Activity(name="/help", type=hikari.ActivityType.PLAYING)
     bot.run(activity=activity)

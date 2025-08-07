@@ -11,8 +11,7 @@ from hikari.applications import (
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
 
-from chioricord.config import PluginConfig, PluginConfigManager
-from chioricord.db import ChioDB, DBTable
+from chioricord.api import ChioDB, DBTable, PluginConfig, PluginConfigManager
 
 
 class ChioPlugin(arc.GatewayPlugin):
