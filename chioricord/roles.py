@@ -45,43 +45,23 @@ class UserRole:
         return cls(row[0], row[1], RoleLevel(row[2]), row[3], row[4])
 
 
+@dataclass(frozen=True, slots=True)
 class ChangeRoleEvent(hikari.Event):
     """Когда изменяется роль пользователя.."""
 
-    def __init__(
-        self, db: ChioDB, old_role: UserRole | None, role: UserRole
-    ) -> None:
-        self._db = db
-        self._old_role = old_role
-        self._role = role
+    db: ChioDB
+    old_role: UserRole | None
+    new_role: UserRole
 
     @property
     def app(self) -> hikari.RESTAware:
         """App instance for this application."""
-        return self._db.client.app
+        return self.db.client.app
 
     @property
     def client(self) -> ChioClient:
         """App instance for this application."""
-        return self._db.client
-
-    @property
-    def db(self) -> ChioDB:
-        """Возвращает подключение к базе данных."""
-        return self._db
-
-    @property
-    def old_role(self) -> UserRole | None:
-        """Возвращает прошлую роль пользователя.
-
-        Вернёт None если ранее у пользователя не было роли.
-        """
-        return self._old_role
-
-    @property
-    def role(self) -> UserRole:
-        """Возвращает текущую роль пользователя."""
-        return self._role
+        return self.db.client
 
 
 class RoleTable(DBTable):
