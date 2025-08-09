@@ -33,6 +33,12 @@ class DBTable(ABC):
         """Возвращает подключение к базе данных."""
         return self._db.pool
 
+    def __init_subclass__(cls, table: str | None = None) -> None:
+        """Предоставляет имя таблицы для подкласса."""
+        super().__init_subclass__()
+        if table is not None:
+            cls.__tablename__ = table
+
 
 class ChioDB:
     """База данных Chiori.
