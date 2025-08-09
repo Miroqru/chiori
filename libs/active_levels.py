@@ -51,38 +51,27 @@ class UserActive:
         )
 
 
+@dataclass(frozen=True, slots=True)
 class LevelUpEvent(hikari.Event):
     """Когда участник повышает свой уровень."""
 
-    def __init__(self, db: ChioDB, user_id: int, active: UserActive) -> None:
-        self._db = db
-        self._user_id = user_id
-        self._active = active
+    db: ChioDB
+    active: UserActive
 
     @property
     def app(self) -> hikari.RESTAware:
         """App instance for this application."""
-        return self._db.client.app
+        return self.db.client.app
 
     @property
     def client(self) -> ChioClient:
-        """App instance for this application."""
-        return self._db.client
-
-    @property
-    def db(self) -> ChioDB:
-        """Возвращает подключение к базе данных."""
-        return self._db
+        """Client instance for this application."""
+        return self.db.client
 
     @property
     def user_id(self) -> int:
-        """Возвращает пользователя, получившего повышение."""
-        return self._user_id
-
-    @property
-    def active(self) -> UserActive:
-        """Возвращает статистику активности пользователя."""
-        return self._active
+        """Возвращает ID пользователя, получившего повышение."""
+        return self.active.user_id
 
 
 class ActiveTable(DBTable):
@@ -189,7 +178,7 @@ class ActiveTable(DBTable):
         await self.set_user(user)
         if user.level != start_level:
             self._db.client.app.event_manager.dispatch(
-                LevelUpEvent(self._db, user_id, user)
+                LevelUpEvent(self._db, user)
             )
         return user
 

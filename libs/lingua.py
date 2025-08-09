@@ -87,37 +87,27 @@ class MessageStats:
 # =======
 
 
+@dataclass(frozen=True, slots=True)
 class CreateUserEvent(hikari.Event):
-    """Когда пользователь создаёт учётную запись."""
+    """Когда создаётся новый пользователь в базе данных."""
 
-    def __init__(self, db: ChioDB, user: UserContext) -> None:
-        self._db = db
-        self._user = user
+    db: ChioDB
+    user: UserContext
 
     @property
     def app(self) -> hikari.RESTAware:
         """App instance for this application."""
-        return self._db.client.app
+        return self.db.client.app
 
     @property
     def client(self) -> ChioClient:
-        """App instance for this application."""
-        return self._db.client
-
-    @property
-    def db(self) -> ChioDB:
-        """Возвращает подключение к базе данных."""
-        return self._db
+        """Client instance for this application."""
+        return self.db.client
 
     @property
     def user_id(self) -> int:
         """Возвращает пользователя, получившего повышение."""
-        return self._user.user_id
-
-    @property
-    def user(self) -> UserContext:
-        """Возвращает статистику активности пользователя."""
-        return self._user
+        return self.user.user_id
 
 
 # Таблицы для базы данных
