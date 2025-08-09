@@ -114,10 +114,8 @@ class CreateUserEvent(hikari.Event):
 # =======================
 
 
-class ChatTable(DBTable):
+class ChatTable(DBTable, table="chat"):
     """Таблица чатов с ии для гильдии."""
-
-    __tablename__ = "chat"
 
     def __init__(self, db: ChioDB) -> None:
         super().__init__(db)
@@ -188,10 +186,8 @@ class ChatTable(DBTable):
         return new_chat
 
 
-class UsersTable(DBTable):
+class UsersTable(DBTable, table="lingua_users"):
     """Таблица пользователей ии."""
-
-    __tablename__ = "lingua_users"
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
@@ -249,10 +245,8 @@ class UsersTable(DBTable):
         return new_user
 
 
-class MessagesTable(DBTable):
+class MessagesTable(DBTable, table="lingua_messages"):
     """Таблица сообщений в ии чатах."""
-
-    __tablename__ = "lingua_messages"
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""

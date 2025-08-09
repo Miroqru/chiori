@@ -69,13 +69,11 @@ class InventoryItem:
 # ==============================
 
 
-class ItemIndex(DBTable):
+class ItemIndex(DBTable, table="index"):
     """Индекс предметов.
 
     Хранит сведения о всех существующих предметах.
     """
-
-    __tablename__ = "index"
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""
@@ -138,13 +136,11 @@ class ItemIndex(DBTable):
         await self.pool.execute("DELETE FROM 'index' WHERE id=$1", item_id)
 
 
-class Inventory(DBTable):
+class Inventory(DBTable, table="inventory"):
     """Представление инвентаря пользователя.
 
     Каждый пользователь может хранить несколько одинаковых предметов.
     """
-
-    __tablename__ = "inventory"
 
     def __init__(self, db: ChioDB) -> None:
         super().__init__(db)

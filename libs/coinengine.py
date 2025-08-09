@@ -44,10 +44,8 @@ class UserCoins:
 OrderBy = Literal["amount", "deposit", "amount+deposit"]
 
 
-class CoinsTable(DBTable):
+class CoinsTable(DBTable, table="coins"):
     """Таблица монет пользователя."""
-
-    __tablename__ = "coins"
 
     async def create_table(self) -> None:
         """Создаёт таблицу для базы данных."""

@@ -39,10 +39,8 @@ class UserReputation:
 OrderBy = Literal["positive", "negative"]
 
 
-class ReputationTable(DBTable):
+class ReputationTable(DBTable, table="reputation"):
     """Репутация пользователя."""
-
-    __tablename__ = "reputation"
 
     async def create_table(self) -> None:
         """Создаёт таблицу для базы данных."""

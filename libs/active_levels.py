@@ -74,7 +74,7 @@ class LevelUpEvent(hikari.Event):
         return self.active.user_id
 
 
-class ActiveTable(DBTable):
+class ActiveTable(DBTable, table="active"):
     """База данных активности пользователе.
 
     Сохраняет данные об активности участников.
@@ -83,8 +83,6 @@ class ActiveTable(DBTable):
     за накопленный опыт будут выдаваться уровни.
     Это будет стимулом для участников больше заниматься активностям.
     """
-
-    __tablename__ = "active"
 
     async def create_table(self) -> None:
         """Создаёт недостающие таблицы для базы данных."""

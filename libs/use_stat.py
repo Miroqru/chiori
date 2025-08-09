@@ -29,10 +29,8 @@ class CommandUsage:
         return cls(row[1], row[2], row[3], row[4])
 
 
-class CommandsTable(DBTable):
+class CommandsTable(DBTable, table="commands_stat"):
     """Таблица использования команд пользователями."""
-
-    __tablename__ = "commands_stat"
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""

@@ -23,10 +23,8 @@ class GuildRole:
         return cls(row[1], row[2], row[3], row[4])
 
 
-class RoleShopTable(DBTable):
+class RoleShopTable(DBTable, table="roles_shop"):
     """Таблица магазина ролей для гильдии."""
-
-    __tablename__ = "roles_shop"
 
     async def create_table(self) -> None:
         """Создаёт таблицы для базы данных."""

@@ -22,7 +22,7 @@ class WarnInfo:
     reason: str
 
 
-class WarnSys(DBTable):
+class WarnSys(DBTable, table="warnings"):
     """Глобальная система предупреждений участником сервера."""
 
     async def create_tables(self) -> None:
