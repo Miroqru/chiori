@@ -44,7 +44,7 @@ def plugins_list(plugins: Iterable[str]) -> str:
 
 
 @plugin.include
-@arc.slash_command("plugins", description="Список активных плагинов.")
+@arc.slash_command("plugins", description="Список загруженных плагинов.")
 async def plugin_handler(ctx: ChioContext) -> None:
     """Список всех загруженных плагинов Чиори.
 
@@ -182,7 +182,7 @@ async def help_handler(
     plugin: arc.Option[  # type: ignore
         str | None,
         arc.StrParams(
-            "Название плагина для получение его списка команд",
+            "для какого плагина",
             autocomplete_with=plugin_opts,
         ),
     ] = None,

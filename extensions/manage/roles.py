@@ -48,7 +48,7 @@ def change_role_status(
 
 
 @role_group.include
-@arc.slash_subcommand("status", description="Узнать роль пользователя")
+@arc.slash_subcommand("status", description="Текущая роль пользователя")
 async def role_handler(
     ctx: ChioContext,
     user: arc.Option[

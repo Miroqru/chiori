@@ -1,4 +1,4 @@
-"""Управляет плагинами Chiori.
+"""Управляет расширениями Chiori.
 
 Управляет загруженными в клиент плагинами во время работы бота.
 Позволяет загружать/выгружать/перезагружать плагины.
@@ -82,7 +82,7 @@ async def list_extension(ctx: ChioContext) -> None:
 
 
 @cmd_group.include
-@arc.slash_subcommand("load", description="Загружает расширение по имени.")
+@arc.slash_subcommand("load", description="Загрузить расширение по имени.")
 async def load_extension(
     ctx: ChioContext,
     extension: arc.Option[  # type: ignore
@@ -102,7 +102,7 @@ async def load_extension(
 
 
 @cmd_group.include
-@arc.slash_subcommand("unload", description="Выгружает расширение по имени.")
+@arc.slash_subcommand("unload", description="Выгрузить расширение по имени.")
 async def unload_extension(
     ctx: ChioContext,
     extension: arc.Option[  # type: ignore
@@ -122,7 +122,7 @@ async def unload_extension(
 
 
 @cmd_group.include
-@arc.slash_subcommand("reload", description="Выгружает расширение по имени.")
+@arc.slash_subcommand("reload", description="Перезагрузить расширение по имени.")
 async def reload_extension(
     ctx: ChioContext,
     extension: arc.Option[  # type: ignore
@@ -143,7 +143,7 @@ async def reload_extension(
 
 
 @cmd_group.include
-@arc.slash_subcommand("sync", description="Синхронизация список команд.")
+@arc.slash_subcommand("sync", description="Синхронизировать список команд.")
 async def sync_commands(ctx: ChioContext) -> None:
     """Обновляет список команд на стороне Discord.
 
