@@ -1,8 +1,9 @@
 """Расширение для сервера ModCraft.
 
+Просмотр статуса, пинга и списка модов Minecraft сервера.
 Сделано с целью интеграции с одноимённым сервером Discord.
 
-Version: v0.8 (15)
+Version: v0.8 (16)
 Author: Milinuri Nirvalen
 """
 
@@ -91,7 +92,7 @@ async def server_status(
 
 
 @cmd_group.include
-@arc.slash_subcommand("mods", description="Установлены моды на сервере.")
+@arc.slash_subcommand("mods", description="Установленные моды на сервере.")
 async def server_mods(
     ctx: ChioContext,
     server_ip: arc.Option[
