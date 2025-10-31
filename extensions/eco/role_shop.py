@@ -14,7 +14,7 @@ from chioricord.plugin import ChioPlugin
 from libs.coinengine import CoinsTable
 from libs.role_shop import GuildRole, RoleShopTable
 
-plugin = ChioPlugin("Roles shop")
+plugin = ChioPlugin("Role shop")
 role_shop = plugin.include_slash_group("rshop", "Магазин пролей")
 
 
@@ -52,7 +52,7 @@ async def list_shop_handler(
 @arc.slash_subcommand("byu", description="Купить роль.")
 async def byu_shop_handler(
     ctx: ChioContext,
-    role: arc.Option[hikari.Role, arc.RoleParams("Роль для продажи")],
+    role: arc.Option[hikari.Role, arc.RoleParams("Роль для покупки")],
     shop: RoleShopTable = arc.inject(),
     coins: CoinsTable = arc.inject(),
 ) -> None:
@@ -103,7 +103,7 @@ async def byu_shop_handler(
 
 @role_shop.include
 @arc.with_hook(arc.has_permissions(hikari.Permissions.MANAGE_ROLES))
-@arc.slash_subcommand("add_role", description="Добавить роль для продажи.")
+@arc.slash_subcommand("add_role", description="Добавить роль для в магазин.")
 async def add_role_handler(
     ctx: ChioContext,
     role: arc.Option[hikari.Role, arc.RoleParams("Роль для продажи")],
@@ -122,10 +122,10 @@ async def add_role_handler(
 
 @role_shop.include
 @arc.with_hook(arc.has_permissions(hikari.Permissions.MANAGE_ROLES))
-@arc.slash_subcommand("remove_role", description="Удаляет роль из магазина.")
+@arc.slash_subcommand("remove_role", description="Удалить роль из магазина.")
 async def remove_role_handler(
     ctx: ChioContext,
-    role: arc.Option[hikari.Role, arc.RoleParams("Роль для удаления")],
+    role: arc.Option[hikari.Role, arc.RoleParams("Роль в магазине")],
     shop: RoleShopTable = arc.inject(),
 ) -> None:
     """Все доступные для покупки роли."""
@@ -145,9 +145,9 @@ async def remove_role_handler(
 )
 async def set_require_handler(
     ctx: ChioContext,
-    role: arc.Option[hikari.Role, arc.RoleParams("Роль для удаления")],
+    role: arc.Option[hikari.Role, arc.RoleParams("Роль в магазине")],
     require: arc.Option[
-        hikari.Role | None, arc.RoleParams("Роль для удаления")
+        hikari.Role | None, arc.RoleParams("Требуемая роль")
     ] = None,
     shop: RoleShopTable = arc.inject(),
 ) -> None:
