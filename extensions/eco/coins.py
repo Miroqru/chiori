@@ -13,7 +13,7 @@
 
     В ином случае вам самостоятельно придётся её подключать.
 
-Version: v2.1.1 (19)
+Version: v2.1.1 (20)
 Author: Milinuri Nirvalen
 """
 
@@ -75,12 +75,12 @@ coin_group = plugin.include_slash_group(
 
 @coin_group.include
 @arc.with_hook(has_role(RoleLevel.MODERATOR))
-@arc.slash_subcommand("give", description="Выдать монетки участнику.")
+@arc.slash_subcommand("give", description="Выдать монетки.")
 async def coin_give_handler(
     ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько дать", min=1)],  # type: ignore
     user: arc.Option[  # type: ignore
-        hikari.User | None, arc.UserParams("Кому дать монетки (себе)")
+        hikari.User | None, arc.UserParams("Кому выдать (себе)")
     ] = None,
     coins: CoinsTable = arc.inject(),
 ) -> None:
@@ -98,7 +98,7 @@ async def coin_give_handler(
 
 @coin_group.include
 @arc.with_hook(has_role(RoleLevel.MODERATOR))
-@arc.slash_subcommand("take", description="Забрать монетки участника.")
+@arc.slash_subcommand("take", description="Забрать монетки.")
 async def coin_take_handler(
     ctx: ChioContext,
     amount: arc.Option[int, arc.IntParams("Сколько взять", min=1)],  # type: ignore
@@ -179,7 +179,7 @@ async def deposit_take_handler(
 
 
 @deposit_group.include
-@arc.slash_subcommand("status", description="Ваши накопления.")
+@arc.slash_subcommand("status", description="Ваши накопления в банке.")
 async def deposit_info_handler(
     ctx: ChioContext, coins: CoinsTable = arc.inject()
 ) -> None:
@@ -211,12 +211,12 @@ async def deposit_info_handler(
 
 
 @plugin.include
-@arc.slash_command("pay", description="Оплатить услуги пользователю.")
+@arc.slash_command("pay", description="Заплатить монетки пользователю.")
 async def pay_handler(
     ctx: ChioContext,
-    user: arc.Option[hikari.User, arc.UserParams("Кому передать монетки")],  # type: ignore
+    user: arc.Option[hikari.User, arc.UserParams("Кому оплатить")],  # type: ignore
     amount: arc.Option[
-        int, arc.IntParams("Сколько передать", min=1, max=10_000_000)
+        int, arc.IntParams("Сколько оплатить", min=1, max=10_000_000)
     ],  # type: ignore
     coins: CoinsTable = arc.inject(),
 ) -> None:
@@ -238,11 +238,11 @@ async def pay_handler(
 
 
 @plugin.include
-@arc.slash_command("balance", description="Сколько монеток у вас на руках.")
+@arc.slash_command("balance", description="Накопления пользователя.")
 async def balance_handler(
     ctx: ChioContext,
     user: arc.Option[  # type: ignore
-        hikari.User | None, arc.UserParams("Чьи монетки хотите посмотреть")
+        hikari.User | None, arc.UserParams("Какого пользователя (себя)")
     ] = None,
     coins: CoinsTable = arc.inject(),
 ) -> None:
