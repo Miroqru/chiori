@@ -64,10 +64,8 @@ class ChangeRoleEvent(hikari.Event):
         return self.db.client
 
 
-class RoleTable(DBTable):
+class RoleTable(DBTable, table="roles"):
     """Таблица ролей пользователей."""
-
-    __tablename__ = "roles"
 
     def __init__(self, db: ChioDB) -> None:
         super().__init__(db)
