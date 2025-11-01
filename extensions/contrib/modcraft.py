@@ -3,7 +3,7 @@
 Просмотр статуса, пинг и списка модов Minecraft сервера.
 Сделано с целью интеграции с одноимённым сервером Discord.
 
-Version: v0.8 (17)
+Version: v0.9 (20)
 Author: Milinuri Nirvalen
 """
 
@@ -26,7 +26,7 @@ cmd_group = plugin.include_slash_group(
 class ModcraftConfig(PluginConfig, config="modcraft"):
     """Настройки Modcraft сервера."""
 
-    server_ip: str = "hydra.minerent.net:25598"
+    server_ip: str = "helix.minerent.net:21024"
     """IP minecraft сервера по умолчанию."""
 
 
@@ -37,10 +37,8 @@ def online_status(players: JavaStatusPlayers) -> str:
     if players.sample is None:
         return "🕸️ Нет информации об онлайне."
 
-    list_online = ""
-    for player in players.sample:
-        list_online += f"- {player.name}\n"
-    return list_online
+    list_online = [f"- {player.name}" for player in players.sample]
+    return "\n".join(list_online)
 
 
 @cmd_group.include
@@ -66,33 +64,30 @@ async def server_status(
     emb = hikari.Embed(
         title="🌟 Статус сервера",
         description=(
+            f"> {status.motd.to_plain()}\n\n"
             f"{status.version.name} ({status.version.protocol})\n"
-            f"Motd: {status.motd.to_plain()}\n"
             f"Ping {ping} мс.\n"
         ),
         color=0x3D994C,
     )
     if status.forge_data is not None:
         emb.add_field(
-            "Forge",
+            f"FML `v{status.forge_data.fml_network_version}`",
             (
-                f"FML version: `{status.forge_data.fml_network_version}`\n"
-                f"Channels: `{len(status.forge_data.channels)}`\n"
+                f"Channels: `{len(status.forge_data.channels)}` "
                 f"Mods: `{len(status.forge_data.mods)}`\n"
-                f"truncated: {status.forge_data.truncated}"
             ),
-            inline=True,
         )
     emb.add_field(
         f"В сети {status.players.online}/{status.players.max}",
         online_status(status.players),
-        inline=True,
     )
+    emb.set_thumbnail(status.icon)
     await ctx.respond(emb)
 
 
 @cmd_group.include
-@arc.slash_subcommand("mods", description="Установленные моды на сервере.")
+@arc.slash_subcommand("mods", description="Моды на сервере.")
 async def server_mods(
     ctx: ChioContext,
     server_ip: arc.Option[
@@ -100,7 +95,7 @@ async def server_mods(
     ] = None,
     config: ModcraftConfig = arc.inject(),
 ) -> None:
-    """Список модов на Forge сервере.
+    """Список модов для Forge сервера.
 
     Содержит название и версию мода.
     """
@@ -118,16 +113,21 @@ async def server_mods(
             color=0x814634,
         )
     else:
-        mod_list = ""
-        for mod in sorted(status.forge_data.mods, key=lambda m: m.name):
-            mod_list += f"✨ {mod.name}: {mod.marker}\n"
+        mod_list: list[str] = [
+            f"✨ {mod.name}: {mod.marker}"
+            for mod in sorted(status.forge_data.mods, key=lambda m: m.name)
+        ]
 
         emb = hikari.Embed(
-            title=f"📦 Список модов ({len(status.forge_data.mods)})",
-            description=mod_list,
+            title=(
+                f"📦 Список модов {status.version.name} "
+                f"(всего {len(status.forge_data.mods)})"
+            ),
+            description="\n".join(mod_list),
             color=0x3D994C,
         )
 
+    emb.set_thumbnail(status.icon)
     await ctx.respond(emb)
 
 
