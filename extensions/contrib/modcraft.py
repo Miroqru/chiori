@@ -1,9 +1,9 @@
 """Расширение для сервера ModCraft.
 
-Просмотр статуса, пинга и списка модов Minecraft сервера.
+Просмотр статуса, пинг и списка модов Minecraft сервера.
 Сделано с целью интеграции с одноимённым сервером Discord.
 
-Version: v0.8 (16)
+Version: v0.8 (17)
 Author: Milinuri Nirvalen
 """
 
@@ -131,6 +131,12 @@ async def server_mods(
     await ctx.respond(emb)
 
 
+def color_gradient(x: float) -> hikari.Color:
+    """Цветовой градиент от зелёного к красному."""
+    m = round(x / 1 * 0xFF)
+    return hikari.Color((m << 16) + (0xFF - m << 8) + 0x99)
+
+
 @cmd_group.include
 @arc.slash_subcommand("ping", description="Скорость ответа от сервера.")
 async def server_ping(
@@ -148,10 +154,10 @@ async def server_ping(
     server_ip = server_ip or config.server_ip
     server = await JavaServer.async_lookup(server_ip)
     ping = round(await server.async_ping(), 2)
-    green = min(0, int(0xFF * (1 - ping / 150)))
-    color = hikari.Color.from_rgb(0xFF, green, 0x99)
     emb = hikari.Embed(
-        title="⚡ Ping", description=f"Ping сервера: `{ping}` мс.", color=color
+        title="⚡ Ping",
+        description=f"Ping сервера: `{ping}` мс.",
+        color=color_gradient(max(min(ping / 200, 1), 0)),
     )
     await ctx.respond(emb)
 
