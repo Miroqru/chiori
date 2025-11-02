@@ -2,7 +2,7 @@
 
 До тех пор, пока не появится нормальная поддержка хранилища сервера.
 
-Version: v1.0 (8)
+Version: v1.0.1 (9)
 Author: Milinuri Nirvalen
 """
 
@@ -13,12 +13,12 @@ from datetime import datetime, timedelta
 from typing import Literal, Self
 
 import arc
-import hikari
 from asyncpg import Record
 from loguru import logger
 
 from chioricord.api import ChioDB, DBTable
-from chioricord.client import ChioClient, ChioContext
+from chioricord.client import ChioContext
+from chioricord.events import DBEvent
 
 RoleT = Literal["user", "system", "assistant", "imagine"]
 
@@ -88,21 +88,10 @@ class MessageStats:
 
 
 @dataclass(frozen=True, slots=True)
-class CreateUserEvent(hikari.Event):
+class CreateUserEvent(DBEvent):
     """Когда создаётся новый пользователь в базе данных."""
 
-    db: ChioDB
     user: UserContext
-
-    @property
-    def app(self) -> hikari.RESTAware:
-        """App instance for this application."""
-        return self.db.client.app
-
-    @property
-    def client(self) -> ChioClient:
-        """Client instance for this application."""
-        return self.db.client
 
     @property
     def user_id(self) -> int:

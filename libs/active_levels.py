@@ -1,17 +1,16 @@
 """База данных активности участников.
 
-Version: v2.2.1 (9)
+Version: v2.2.2 (10)
 Author: Milinuri Nirvalen
 """
 
 from dataclasses import dataclass
 from typing import Self
 
-import hikari
 from asyncpg import Record
 
-from chioricord.api import ChioDB, DBTable
-from chioricord.client import ChioClient
+from chioricord.api import DBTable
+from chioricord.events import DBEvent
 
 
 @dataclass(slots=True)
@@ -52,21 +51,10 @@ class UserActive:
 
 
 @dataclass(frozen=True, slots=True)
-class LevelUpEvent(hikari.Event):
+class LevelUpEvent(DBEvent):
     """Когда участник повышает свой уровень."""
 
-    db: ChioDB
     active: UserActive
-
-    @property
-    def app(self) -> hikari.RESTAware:
-        """App instance for this application."""
-        return self.db.client.app
-
-    @property
-    def client(self) -> ChioClient:
-        """Client instance for this application."""
-        return self.db.client
 
     @property
     def user_id(self) -> int:
