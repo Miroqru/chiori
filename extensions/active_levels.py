@@ -3,9 +3,14 @@
 Отслеживает активность участников на сервере.
 Сколько они написали сообщений, сколько провели в голосовом канале.
 
-Version: v1.8.1 (21)
+Version: v1.9 (24)
 Author: Milinuri Nirvalen
 """
+
+# TODO: Приветствие в канале
+# TODO: Прощание в канале
+# TODO: Начало звонка
+# TODO: Окончание звонка
 
 from dataclasses import dataclass
 from time import time
@@ -27,12 +32,39 @@ class UserVoice:
     """Состояние пользователя в голосовом канале."""
 
     start: int
-    start_buffer: int
-    xp_buffer: int
-    modifier: float
+    updated: int
+    xp: int
 
 
-voice_start_times: dict[int, UserVoice] = {}
+class VoiceTimer:
+    """Таймер голосового канала."""
+
+    def __init__(self) -> None:
+        self.users: dict[int, UserVoice] = {}
+
+    def start(self, user_id: int) -> UserVoice:
+        """Начинает отсчёт времени для пользователя."""
+        logger.info("Add {} to timer", user_id)
+        now = int(time())
+        voice = UserVoice(now, now, 0)
+        self.users[user_id] = voice
+        return voice
+
+    def tick(self, user_id: int, mod: float = 1) -> None:
+        """Переключает новое состояние пользователя."""
+        logger.debug("Update state for {}", user_id)
+        user = self.users.get(user_id) or self.start(user_id)
+        now = int(time())
+        duration = (now - user.updated) // 60
+        user.xp += round(duration * mod)
+        user.updated = now
+        self.users[user_id] = user
+
+    def stop(self, user_id: int, mod: float = 1) -> UserVoice:
+        """Заканчивает сеанс пользователя."""
+        logger.info("Remove {} from timer", user_id)
+        self.tick(user_id)
+        return self.users.pop(user_id)
 
 
 class LevelsConfig(PluginConfig, config="levels"):
@@ -103,16 +135,19 @@ def _get_points(active: UserActive, group: str) -> str:
 
 
 def _voice_stats(
-    user: hikari.User, duration: int, xp: int, active: UserActive
+    user: hikari.User, voice: UserVoice, active: UserActive
 ) -> hikari.Embed:
-    to_next_level = format_duration((active.count_xp() - active.xp) // 5)
+    duration = (int(time()) - voice.start) // 60
+    to_next_level = format_duration(
+        (active.count_xp() - active.xp - voice.xp) // 5
+    )
 
     emb = hikari.Embed(
         title="😺 Голосовая активность",
         description=(
             f"{user.display_name}, вы мурлыкали в канале "
             f"`{format_duration(duration)}`\n"
-            f"и получаете за это {xp * 5}✨\n\n"
+            f"и получаете за это {voice.xp}✨\n\n"
             f"**До нового уровня**: `{to_next_level}`"
         ),
         color=hikari.Color(0xFF66B2),
@@ -147,6 +182,7 @@ async def on_voice_update(
     event: hikari.VoiceStateUpdateEvent,
     active: ActiveTable = arc.inject(),
     config: LevelsConfig = arc.inject(),
+    timer: VoiceTimer = arc.inject(),
 ) -> None:
     """Отслеживаем активность в голосовом канале."""
     before = event.old_state
@@ -156,43 +192,26 @@ async def on_voice_update(
     if member is None or member.is_bot:
         return
 
-    # Добавляет человека если его ещё нету
-    # Может быть такое что человек зашёл раньше, чем запустился бот
-    now = int(time())
-    if member.id not in voice_start_times:
-        logger.info("Add {} to listener", member.id)
-        voice_start_times[member.id] = UserVoice(
-            now, now, 0, count_modifier(after)
-        )
+    if member.id not in timer.users:
+        timer.start(member.id)
 
-    # Пользователь только зашёл в канал
     if before is None:
         return
 
-    user_voice = voice_start_times[member.id]
-    user_voice.xp_buffer += round(
-        ((now - user_voice.start_buffer) / 60) * user_voice.modifier
-    )
-    user_voice.start_buffer = now
-    user_voice.modifier = count_modifier(after)
+    timer.tick(member.id, count_modifier(before))
+    if after.channel_id is None and member.id in timer.users:
+        user = timer.stop(member.id)
+        duration = (int(time()) - user.start) // 60
 
-    logger.debug("{}: {}", member.id, user_voice)
-
-    # Когда человек покидает голосовой канал -> начисляем опыт.
-    if after.channel_id is None and member.id in voice_start_times:
-        logger.info("Remove {} from listener", member.id)
-        duration = round((now - user_voice.start) / 60)
-        voice_start_times.pop(member.id)
-        if duration > 0:
-            await active.add_voice(member.id, duration, user_voice.xp_buffer)
+        if user.xp > 0:
+            await active.add_voice(member.id, duration, user.xp)
 
         if duration > config.send_notify_after:
             await plugin.client.rest.create_message(
                 config.channel_id,
                 _voice_stats(
                     member,
-                    duration,
-                    user_voice.xp_buffer,
+                    user,
                     await active.get_or_default(member.id),
                 ),
             )
@@ -355,30 +374,23 @@ async def voice_active(
         hikari.User | None, arc.UserParams("Для какого пользователя.")
     ] = None,
     at: ActiveTable = arc.inject(),
+    timer: VoiceTimer = arc.inject(),
 ) -> None:
     """Активность пользователя в голосовом канале."""
-    if user is None:
-        user = ctx.author
-
+    user = user or ctx.author
     active = await at.get_or_default(user.id)
-    now = int(time())
-    user_voice = voice_start_times.get(user.id, UserVoice(now, 0, 0, 0))
-    duration = round((now - user_voice.start) / 60)
-    total_xp = round(
-        user_voice.xp_buffer
-        + round((now - user_voice.start_buffer) / 60) * user_voice.modifier
-    )
 
-    emb = _voice_stats(user, duration, total_xp, active)
+    now = int(time())
+    user_voice = timer.users.get(user.id, UserVoice(now, now, []))
+    emb = _voice_stats(user, user_voice, active)
     emb.color = hikari.Color(0x5C991F)
-    if user_voice.xp_buffer > 0:
-        emb.add_field(
-            "Подсказка",
-            (
-                "- Xp зависит от типа активности в голосовом канале.\n"
-                "- Опыт начисляется после выхода из голосового канала."
-            ),
-        )
+    emb.add_field(
+        "Подсказка",
+        (
+            "- Xp зависит от вида активности в голосовом канале.\n"
+            "- Опыт начисляется после завершения вашего звонка."
+        ),
+    )
     await ctx.respond(emb)
 
 
@@ -389,14 +401,12 @@ async def voice_active(
 @plugin.listen(arc.StartedEvent)
 async def check_voice_state(event: arc.StartedEvent[ChioClient]) -> None:
     """Записывает участников в голосовые каналы."""
+    timer = event.client.get_type_dependency(VoiceTimer)
     states = event.client.cache.get_voice_states_view()
-    now = int(time())
+    logger.debug(states)
     for guild_states in states.values():
-        for user_id, state in guild_states.items():
-            logger.debug("Add {} to listener", user_id)
-            voice_start_times[user_id] = UserVoice(
-                now, now, 0, count_modifier(state)
-            )
+        for user_id in guild_states.keys():
+            timer.start(user_id)
 
 
 @plugin.listen(arc.StoppingEvent)
@@ -405,28 +415,23 @@ async def clear_voice_state(
     event: arc.StoppingEvent[ChioClient],
     active: ActiveTable = arc.inject(),
     config: LevelsConfig = arc.inject(),
+    timer: VoiceTimer = arc.inject(),
 ) -> None:
     """Время отключаться от баз данных, вместе с отключением бота."""
-    logger.info("Close connect to active DB {}")
-
+    logger.info("Save active time")
     now = int(time())
-    for k, v in voice_start_times.items():
-        logger.info("Remove {} from listener", k)
-        duration = round((now - v.start) / 60)
-        if duration > 0:
-            await active.add_voice(k, duration, v.xp_buffer)
 
-        user = event.client.cache.get_user(k)
-        logger.debug("{} {} {}", user, k, duration)
+    for user_id in timer.users.keys():
+        logger.info("Remove {} from listener", user_id)
+        voice = timer.stop(user_id)
+        duration = round((now - voice.start) / 60)
+        await active.add_voice(user_id, duration, voice.xp)
+
+        user = event.client.cache.get_user(user_id)
         if user is not None and duration > config.send_notify_after:
             await plugin.client.rest.create_message(
                 config.channel_id,
-                _voice_stats(
-                    user,
-                    duration,
-                    v.xp_buffer,
-                    await active.get_or_default(k),
-                ),
+                _voice_stats(user, voice, await active.get_or_default(user_id)),
             )
 
 
