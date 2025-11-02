@@ -8,14 +8,14 @@ from enum import IntEnum
 from typing import TYPE_CHECKING, Self
 
 import arc
-import hikari
 from asyncpg import Record
 from loguru import logger
 
 from chioricord.api import ChioDB, DBTable
+from chioricord.events import DBEvent
 
 if TYPE_CHECKING:
-    from chioricord.client import ChioClient, ChioContext
+    from chioricord.client import ChioContext
 
 
 class RoleLevel(IntEnum):
@@ -46,22 +46,11 @@ class UserRole:
 
 
 @dataclass(frozen=True, slots=True)
-class ChangeRoleEvent(hikari.Event):
+class ChangeRoleEvent(DBEvent):
     """Когда изменяется роль пользователя.."""
 
-    db: ChioDB
     old_role: UserRole | None
     new_role: UserRole
-
-    @property
-    def app(self) -> hikari.RESTAware:
-        """App instance for this application."""
-        return self.db.client.app
-
-    @property
-    def client(self) -> ChioClient:
-        """App instance for this application."""
-        return self.db.client
 
 
 class RoleTable(DBTable, table="roles"):

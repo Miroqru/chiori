@@ -7,8 +7,8 @@
 или удалением файлов из директорий `libs/` и `extensions/`.
 
 Author: Milinuri Nirvalen
-Version: v0.8 (40)
+Version: v0.9.2 (44)
 """
 
-__version__ = "0.9"
+__version__ = "0.9.2"
 __all__ = ("__version__",)
