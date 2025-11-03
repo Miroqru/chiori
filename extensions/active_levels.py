@@ -1,23 +1,16 @@
 """Активность участников.
 
 Отслеживает активность участников на сервере.
-Сколько они написали сообщений, сколько провели в голосовом канале.
+Оповещает о получении нового уровня.
+Отслеживает активность в текстовых каналах.
+Для отслеживания голосовых каналов, есть отдельное расширение.
 
-Version: v1.9.1 (25)
+Version: v1.10 (27)
 Author: Milinuri Nirvalen
 """
 
-# TODO: Приветствие в канале
-# TODO: Прощание в канале
-# TODO: Начало звонка
-# TODO: Окончание звонка
-
-from dataclasses import dataclass
-from time import time
-
 import arc
 import hikari
-from loguru import logger
 
 from chioricord.api import PluginConfig
 from chioricord.client import ChioClient, ChioContext
@@ -25,46 +18,6 @@ from chioricord.plugin import ChioPlugin
 from libs.active_levels import ActiveTable, LevelUpEvent, UserActive
 
 plugin = ChioPlugin("Active levels")
-
-
-@dataclass(slots=True)
-class UserVoice:
-    """Состояние пользователя в голосовом канале."""
-
-    start: int
-    updated: int
-    xp: int
-
-
-class VoiceTimer:
-    """Таймер голосового канала."""
-
-    def __init__(self) -> None:
-        self.users: dict[int, UserVoice] = {}
-
-    def start(self, user_id: int) -> UserVoice:
-        """Начинает отсчёт времени для пользователя."""
-        logger.info("Add {} to timer", user_id)
-        now = int(time())
-        voice = UserVoice(now, now, 0)
-        self.users[user_id] = voice
-        return voice
-
-    def tick(self, user_id: int, mod: float = 1) -> None:
-        """Переключает новое состояние пользователя."""
-        logger.debug("Update state for {}", user_id)
-        user = self.users.get(user_id) or self.start(user_id)
-        now = int(time())
-        duration = (now - user.updated) // 60
-        user.xp += round(duration * mod)
-        user.updated = now
-        self.users[user_id] = user
-
-    def stop(self, user_id: int, mod: float = 1) -> UserVoice:
-        """Заканчивает сеанс пользователя."""
-        logger.info("Remove {} from timer", user_id)
-        self.tick(user_id)
-        return self.users.pop(user_id)
 
 
 class LevelsConfig(PluginConfig, config="levels"):
@@ -76,39 +29,14 @@ class LevelsConfig(PluginConfig, config="levels"):
     Именно сюда будут отправляться уведомлений о поднятии уровня.
     """
 
-    send_notify_after: int = 10
-    """
-    Через сколько минут в голосовом канале отправлять сообщение с поздравление
-    за проведённое время.
-    """
-
 
 def format_duration(minutes: int) -> str:
     """Преобразует количество секунд в более точное время."""
-    logger.debug(minutes)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     if days > 0:
         return f"{days} д. {hours:02d} ч. {minutes:02d} м."
     return f"{hours:02d} ч. {minutes:02d} м."
-
-
-def count_modifier(state: hikari.VoiceState) -> float:
-    """Высчитывает модификатор на основе."""
-    if state.is_guild_deafened or state.is_self_deafened or state.is_suppressed:
-        return 0
-    base = 1.0
-
-    if state.is_streaming:
-        base += 1
-
-    if state.is_guild_muted or state.is_guild_muted:
-        base -= 0.5
-
-    if state.is_video_enabled:
-        base += 0.5
-
-    return base
 
 
 def _pretty_pos(pos: int | None) -> str:
@@ -134,28 +62,6 @@ def _get_points(active: UserActive, group: str) -> str:
     return f"`{active.words}` слов / `{active.messages}` сообщений"
 
 
-def _voice_stats(
-    user: hikari.User, voice: UserVoice, active: UserActive
-) -> hikari.Embed:
-    duration = (int(time()) - voice.start) // 60
-    to_next_level = format_duration(
-        (active.count_xp() - active.xp - voice.xp) // 5
-    )
-
-    emb = hikari.Embed(
-        title="😺 Голосовая активность",
-        description=(
-            f"{user.display_name}, вы мурлыкали в канале "
-            f"`{format_duration(duration)}`\n"
-            f"и получаете за это {voice.xp}✨\n\n"
-            f"**До нового уровня**: `{to_next_level}`"
-        ),
-        color=hikari.Color(0xFF66B2),
-    )
-    emb.set_thumbnail(user.make_avatar_url(file_format="PNG"))
-    return emb
-
-
 # Отслеживание событий
 # ====================
 
@@ -173,48 +79,8 @@ async def on_message(
     if event.content is not None:
         xp += len(event.content.split())
 
-    await active.add_messages(event.author_id, xp)
-
-
-@plugin.listen(hikari.VoiceStateUpdateEvent)
-@plugin.inject_dependencies()
-async def on_voice_update(
-    event: hikari.VoiceStateUpdateEvent,
-    active: ActiveTable = arc.inject(),
-    config: LevelsConfig = arc.inject(),
-    timer: VoiceTimer = arc.inject(),
-) -> None:
-    """Отслеживаем активность в голосовом канале."""
-    before = event.old_state
-    after = event.state
-    member = event.state.member
-
-    if member is None or member.is_bot:
-        return
-
-    if member.id not in timer.users:
-        timer.start(member.id)
-
-    if before is None:
-        return
-
-    timer.tick(member.id, count_modifier(before))
-    if after.channel_id is None and member.id in timer.users:
-        user = timer.stop(member.id)
-        duration = (int(time()) - user.start) // 60
-
-        if user.xp > 0:
-            await active.add_voice(member.id, duration, user.xp)
-
-        if duration > config.send_notify_after:
-            await plugin.client.rest.create_message(
-                config.channel_id,
-                _voice_stats(
-                    member,
-                    user,
-                    await active.get_or_default(member.id),
-                ),
-            )
+    if xp > 0:
+        await active.add_messages(event.author_id, xp)
 
 
 @plugin.listen(LevelUpEvent)
@@ -366,78 +232,9 @@ async def user_active(
     await ctx.respond(emb)
 
 
-@plugin.include
-@arc.slash_command("voice", description="Активность в голосовом канале.")
-async def voice_active(
-    ctx: ChioContext,
-    user: arc.Option[  # type: ignore
-        hikari.User | None, arc.UserParams("Для какого пользователя.")
-    ] = None,
-    at: ActiveTable = arc.inject(),
-    timer: VoiceTimer = arc.inject(),
-) -> None:
-    """Активность пользователя в голосовом канале."""
-    user = user or ctx.author
-    active = await at.get_or_default(user.id)
-
-    now = int(time())
-    user_voice = timer.users.get(user.id, UserVoice(now, now, []))
-    emb = _voice_stats(user, user_voice, active)
-    emb.color = hikari.Color(0x5C991F)
-    emb.add_field(
-        "Подсказка",
-        (
-            "- Xp зависит от вида активности в голосовом канале.\n"
-            "- Опыт начисляется после завершения вашего звонка."
-        ),
-    )
-    await ctx.respond(emb)
-
-
-# Загрузчики и выгрузчики плагина
-# ===============================
-
-
-@plugin.listen(arc.StartedEvent)
-async def check_voice_state(event: arc.StartedEvent[ChioClient]) -> None:
-    """Записывает участников в голосовые каналы."""
-    timer = event.client.get_type_dependency(VoiceTimer)
-    states = event.client.cache.get_voice_states_view()
-    logger.debug(states)
-    for guild_states in states.values():
-        for user_id in guild_states.keys():
-            timer.start(user_id)
-
-
-@plugin.listen(arc.StoppingEvent)
-@plugin.inject_dependencies
-async def clear_voice_state(
-    event: arc.StoppingEvent[ChioClient],
-    active: ActiveTable = arc.inject(),
-    config: LevelsConfig = arc.inject(),
-    timer: VoiceTimer = arc.inject(),
-) -> None:
-    """Время отключаться от баз данных, вместе с отключением бота."""
-    logger.info("Save active time")
-    now = int(time())
-
-    for user_id, voice in timer.users.items():
-        logger.info("Remove {} from listener", user_id)
-        duration = round((now - voice.start) / 60)
-        await active.add_voice(user_id, duration, voice.xp)
-
-        user = event.client.cache.get_user(user_id)
-        if user is not None and duration > config.send_notify_after:
-            await plugin.client.rest.create_message(
-                config.channel_id,
-                _voice_stats(user, voice, await active.get_or_default(user_id)),
-            )
-
-
 @arc.loader
 def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
-    client.set_type_dependency(VoiceTimer, VoiceTimer())
     plugin.set_config(LevelsConfig)
     plugin.add_table(ActiveTable)
     client.add_plugin(plugin)
