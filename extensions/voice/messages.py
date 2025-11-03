@@ -4,7 +4,7 @@
 А потом, вы все будете знать что происходило в канале.
 Разве не весело.
 
-Version: v1.0 (1)
+Version: v1.1 (3)
 Author: Milinuri Nirvalen
 """
 
@@ -147,6 +147,20 @@ async def user_update_voice(event: voice_events.UserUpdateVoice) -> None:
             f"Мурчит уже `{format_duration(duration)}`\n"
         ),
         color=hikari.Color(0xCC99FF),
+    )
+    _set_author(emb, event.state.member)
+    await event.client.rest.create_message(event.channel_id, emb)
+
+
+@plugin.listen(voice_events.UserChangeVoice)
+async def user_change_voice(event: voice_events.UserChangeVoice) -> None:
+    """Когда пользователь прыгает в другой канал."""
+    emb = hikari.Embed(
+        title="☕ Приветик!",
+        description=(
+            f"Пробирается из другого канала. {_state_flags(event.state)}"
+        ),
+        color=hikari.Color(0x99FFCC),
     )
     _set_author(emb, event.state.member)
     await event.client.rest.create_message(event.channel_id, emb)
