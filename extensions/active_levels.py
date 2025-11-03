@@ -3,7 +3,7 @@
 Отслеживает активность участников на сервере.
 Сколько они написали сообщений, сколько провели в голосовом канале.
 
-Version: v1.9 (24)
+Version: v1.9.1 (25)
 Author: Milinuri Nirvalen
 """
 
@@ -421,9 +421,8 @@ async def clear_voice_state(
     logger.info("Save active time")
     now = int(time())
 
-    for user_id in timer.users.keys():
+    for user_id, voice in timer.users.items():
         logger.info("Remove {} from listener", user_id)
-        voice = timer.stop(user_id)
         duration = round((now - voice.start) / 60)
         await active.add_voice(user_id, duration, voice.xp)
 
@@ -438,6 +437,7 @@ async def clear_voice_state(
 @arc.loader
 def loader(client: ChioClient) -> None:
     """Действия при загрузке плагина."""
+    client.set_type_dependency(VoiceTimer, VoiceTimer())
     plugin.set_config(LevelsConfig)
     plugin.add_table(ActiveTable)
     client.add_plugin(plugin)
