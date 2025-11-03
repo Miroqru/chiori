@@ -8,13 +8,12 @@
 - GuildUpdateVoice
 - GuildStopVoice
 
-Version: v1.0 (1)
+Version: v1.1 (3)
 Author: Milinuri Nirvalen
 """
 
 import arc
 import hikari
-from loguru import logger
 
 from chioricord.client import ChioClient
 from chioricord.plugin import ChioPlugin
@@ -42,10 +41,11 @@ async def on_voice_update(
         return
 
     if after.channel_id is None:
-        logger.warning("stop")
         storage.stop(before)
     elif not storage.in_voice(after):
         storage.start(after)
+    elif after.channel_id != before.channel_id:
+        storage.move(before, after)
     else:
         storage.update(before, after)
 
