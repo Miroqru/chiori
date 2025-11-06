@@ -512,6 +512,25 @@ async def leave_player(
     await ctx.respond("Увидимся позже.")
 
 
+@plugin.include
+@arc.slash_command("connect", "Подключает плеер.")
+async def connect_player(
+    ctx: ChioContext,
+    client: ongaku.Client = arc.inject(),
+    config: MusicConfig = arc.inject(),
+) -> None:
+    """Останавливает воспроизведение в канале."""
+    client.create_session(
+        name=config.name,
+        ssl=config.ssl,
+        host=config.host,
+        port=config.port,
+        password=config.password,
+    )
+
+    await ctx.respond("Есть контакт!")
+
+
 # Информация о плеере
 # ===================
 
