@@ -1,23 +1,55 @@
 """Надстройка над GatewayPlugin для упрощения работы с Chio API."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Self
 
 import arc
 from hikari import Permissions, Snowflake, UndefinedType
 from hikari.applications import ApplicationContextType, ApplicationIntegrationType
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
+from loguru import logger
 
 from chiori.api import DBTable, PluginConfig
 from chiori.client import ChioClient
 
 
+@dataclass(slots=True, frozen=True)
+class PluginMeta:
+    """Метаданные плагина.
+
+    Используется для предоставления дополинтельной информации о плагине.
+    Помимо обязательного имени.
+    """
+
+    description: str | None = None
+    """Краткое описание для плагина."""
+
+    author: str = "Unknown"
+    """Главный автор плагина."""
+
+    maintainer: str | None = None
+    """Сопровождающий проекта."""
+
+    version: str = "0.0.1"
+    """Версия плагина в формате SemVer."""
+
+    build: int = 0
+    """Номер сборки расширения."""
+
+    tags: Sequence[str] | None = None
+    """К каким группам принадлежит плагина."""
+
+
+# TODO: Сделать метаданные обязаельными
 class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
     """Надстройка над GatewayPlugin с дополнительными методами."""
 
     def __init__(  # noqa: PLR0913
         self,
         name: str,
+        meta: PluginMeta | None = None,
         *,
         default_enabled_guilds: Sequence[Snowflake | int | PartialGuild]
         | UndefinedType = UNDEFINED,
@@ -39,6 +71,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
             is_nsfw=is_nsfw,
         )
 
+        self._meta = meta
         self._config: type[PluginConfig] | None = None
         self._tables: list[type[DBTable]] = []
 
@@ -57,8 +90,23 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         """
         self._tables.append(table)
 
+    @property
+    def meta(self) -> PluginMeta:
+        """Дополнительные сведения о плагине.
+
+        Если не указано, вернётся значение по умолчанию.
+        """
+        if self._meta is None:
+            logger.warning("{} don`t have metadata", self._name)
+            return PluginMeta()
+
+        return self._meta
+
     def _client_include_hook(self, client: ChioClient) -> None:
         super()._client_include_hook(client)
+
+        if self._meta is None:
+            logger.warning("Plugin {} not provided meta. ", self.name)
 
         for table in self._tables:
             client.db.register(table)
