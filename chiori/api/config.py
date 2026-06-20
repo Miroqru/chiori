@@ -78,7 +78,7 @@ class PluginConfigManager:
                 self._load_proto(config_path, proto)
             except Exception as e:
                 logger.warning(e)
-                self._failed_load.append(proto.__config_name__)  # type: ignore
+                self._failed_load.append(proto.__config_name__)  # pyright: ignore[reportArgumentType]
 
         if len(self._failed_load) > 0:
             logger.error("Failed to load some configs:")
@@ -108,4 +108,4 @@ class PluginConfigManager:
         key = self._config.get(proto)
         if key is None:
             raise ValueError(f"{proto} is not registered")
-        return key  # type: ignore
+        return key  # pyright: ignore[reportReturnType]
