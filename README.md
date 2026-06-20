@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-  <img alt="Last Commit" src="https://img.shields.io/gitea/last-commit/chi/core?gitea_url=https%3A%2F%2Fgit.miroq.ru&style=flat&labelColor=%23805959&color=%23F68121">
+  <img alt="Last Commit" src="https://img.shields.io/gitea/last-commit/chio/core?gitea_url=https%3A%2F%2Fgit.miroq.ru&style=flat&labelColor=%23805959&color=%23F68121">
   <img alt="Version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fgit.miroq.ru%2Fchio%2Fcore%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=project.version&prefix=v&style=flat&label=Chiori&labelColor=%23B38B74&color=%232185A6">
   <img alt="LICENSE" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fgit.miroq.ru%2Fchio%2Fcore%2Fraw%2Fbranch%2Fmain%2Fpyproject.toml&query=project.license&style=flat&label=License&labelColor=%23B38B74&color=%2317B34B">
   <img alt="Discord" src="https://img.shields.io/discord/1282356859595919463?style=flat&label=Salor%3B%20land&labelColor=%23B38B74&color=%2373FFAD">
