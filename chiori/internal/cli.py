@@ -50,6 +50,16 @@ def _check_folders(config: BotConfig) -> None:
     config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
+async def on_start(client: ChioClient) -> None:
+    """Запускает работа клиента.
+
+    Это финальные метод, запускайте его после предварительной подготовки.
+    """
+    logger.info("Connect to database")
+    await client.db.connect(str(client.bot_config.DB_DSN))
+    await client.db.create_tables()
+
+
 def run_bot() -> None:
     """Запуска бота.
 
@@ -78,12 +88,8 @@ def run_bot() -> None:
 
     logger.info("[4] Start chiori client")
 
-    try:
-        asyncio.run(client.start())
-    except Exception as e:
-        logger.error("Error start client")
-        logger.exception(e)
-        sys.exit(1)
+    client.config.load(client.bot_config.CONFIG_PATH)
+    client.add_startup_hook(on_start)
 
     activity = hikari.Activity(name="/chio v0.11", type=hikari.ActivityType.PLAYING)
     bot.run(activity=activity, asyncio_debug=config.HIKARI_DEBUG)

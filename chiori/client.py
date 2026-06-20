@@ -66,18 +66,6 @@ class ChioClient(arc.GatewayClient):
         """База данных Chiori."""
         return self._db
 
-    async def start(self) -> None:
-        """Запускает работа клиента.
-
-        Это финальные метод, запускайте его после предварительной подготовки.
-        """
-        if not isinstance(self.app, hikari.GatewayBot):
-            raise TypeError("Chio only support GatewayBot app instance")
-
-        self.config.load(self.bot_config.CONFIG_PATH)
-        await self.db.connect(str(self.bot_config.DB_DSN))
-        await self.db.create_tables()
-
 
 ChioContext = arc.Context[ChioClient]
 """A context using the default Chio client implementation."""
