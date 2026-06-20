@@ -4,9 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import hikari
-from typing_extensions import deprecated
-
-from chiori.api import ChioDB
 
 if TYPE_CHECKING:
     from chiori.client import ChioClient, ChioContext
@@ -26,14 +23,6 @@ class ChioEvent(hikari.Event):
     def app(self) -> hikari.RESTAware:
         """App instance for this application."""
         return self.client.app
-
-
-@deprecated("Use ChioEvent instead")
-@dataclass(frozen=True, slots=True)
-class DBEvent(ChioEvent):
-    """Событие базы данных."""
-
-    db: ChioDB
 
 
 @dataclass(slots=True, frozen=True)

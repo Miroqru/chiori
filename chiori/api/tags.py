@@ -13,18 +13,18 @@ import arc
 
 from chiori.api import DBModel, DBTable
 from chiori.client import ChioContext
-from chiori.events import DBEvent
+from chiori.events import ChioEvent
 
 
 @dataclass(frozen=True, slots=True)
-class TagUpdateEvent(DBEvent):
+class TagUpdateEvent(ChioEvent):
     """Изменение тега пользователя."""
 
     tag: "UserTag"
 
 
 @dataclass(frozen=True, slots=True)
-class TagRemoveEvent(DBEvent):
+class TagRemoveEvent(ChioEvent):
     """Удаление тега пользователя."""
 
     tag: "UserTag"
@@ -108,7 +108,7 @@ class TagsTable(DBTable, table="user_tags"):
             tag.expired_at,
             tag.reason,
         )
-        self._db.app.event_manager.dispatch(TagUpdateEvent(self._db, tag))
+        self._db.app.event_manager.dispatch(TagUpdateEvent(self._db.client, tag))
 
     async def remove(self, tag: UserTag, expired: bool = False) -> None:
         """Удаляет тег пользователя."""
@@ -117,7 +117,9 @@ class TagsTable(DBTable, table="user_tags"):
             tag.user_id,
             tag.tag,
         )
-        self._db.app.event_manager.dispatch(TagRemoveEvent(self._db, tag, expired))
+        self._db.app.event_manager.dispatch(
+            TagRemoveEvent(self._db.client, tag, expired)
+        )
 
     async def remove_from(self, tags: list[UserTag], expired: bool = False) -> None:
         """Удаляет тег для нескольких пользователей."""
@@ -128,7 +130,9 @@ class TagsTable(DBTable, table="user_tags"):
             *(tag.user_id for tag in tags),
         )
         for tag in tags:
-            self._db.app.event_manager.dispatch(TagRemoveEvent(self._db, tag, expired))
+            self._db.app.event_manager.dispatch(
+                TagRemoveEvent(self._db.client, tag, expired)
+            )
 
     async def user_tags(self, user_id: int) -> list[str]:
         """Возвращает список тегов пользователя."""
