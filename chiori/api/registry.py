@@ -45,7 +45,7 @@ class RegisterModel(BaseModel):
     def model_name(cls) -> str:
         """Возвращает имя модели."""
         # Может быть пустым, только если использовать базовый класс модели
-        assert cls.__model_name__ is str  # noqa: S101
+        assert cls.__model_name__  # noqa: S101
 
         return cls.__model_name__
 
