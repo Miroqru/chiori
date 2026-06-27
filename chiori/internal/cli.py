@@ -14,10 +14,9 @@ from loguru import logger
 
 from chiori import meta
 from chiori.api.custom import Custom
-from chiori.api.tags import TagsTable, not_tags
 from chiori.client import ChioClient
 from chiori.internal.config import ChioConfig, load_config
-from chiori.internal.errors import client_error_handler
+from chiori.internal.errors import client_error_handler, forbid_message
 
 # Настраиваем формат отображения логов loguru
 # Обратите внимание что в проекте помимо loguru используется logging
@@ -88,14 +87,12 @@ def run_bot() -> None:
 
     client = ChioClient(bot, config)
     client.set_error_handler(client_error_handler)
+    client.register_error(hikari.ForbiddenError, forbid_message)
 
     _setup_logger(config)
     _check_folders(config)
 
-    client.db.register(TagsTable)
     client.config.register(Custom)
-    client.add_hook(not_tags("chio/banned"))
-
     logger.info("[3] Load plugins from {}/", config.EXTENSIONS_PATH)
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
