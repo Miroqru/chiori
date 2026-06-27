@@ -10,9 +10,9 @@ from typing import Unpack
 
 import toml
 from loguru import logger
-from pydantic import ConfigDict
+from pydantic import ConfigDict, ValidationError
 
-from chiori.api.registry import RegisterModel, Registry
+from chiori.api.registry import RegisterModel, Registry, validation_error
 
 
 class PluginConfig(RegisterModel):
@@ -36,7 +36,6 @@ class ConfigRegistry(Registry[PluginConfig]):
     ) -> None:
         config_file = config_path / f"{name}.toml"
         if config_file.exists():
-            logger.debug("Load config {}", name)
             with config_file.open() as f:
                 model = proto.model_validate(toml.loads(f.read()))
         else:
@@ -51,7 +50,11 @@ class ConfigRegistry(Registry[PluginConfig]):
         for name, proto in self._protos.items():
             try:
                 self._load_proto(config_path, name, proto)
-            except Exception as e:
+            except ValidationError as e:
+                validation_error(e)
+                fail_load.append(name)
+
+            except FileNotFoundError as e:
                 logger.warning(e)
                 fail_load.append(name)
 

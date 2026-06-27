@@ -9,9 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Unpack
 
 from loguru import logger
+from pydantic import ValidationError
 
 from chiori.api.custom import Custom
-from chiori.api.registry import RegisterModel, Registry
+from chiori.api.registry import RegisterModel, Registry, validation_error
 
 if TYPE_CHECKING:
     from pydantic import ConfigDict
@@ -50,8 +51,8 @@ class EmojiRegistry(Registry[EmojiModel]):
         for name, proto in self._protos.items():
             try:
                 self._load_proto(name, proto, custom)
-            except Exception as e:
-                logger.warning(e)
+            except ValidationError as e:
+                validation_error(e)
                 fail_load.append(name)
 
         if len(fail_load) > 0:
