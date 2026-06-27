@@ -1,7 +1,12 @@
-"""Надстройка над GatewayPlugin для упрощения работы с Chio API."""
+"""Шиори плагин.
+
+Надстройка над GatewayPlugin для упрощения работы с Chiori API.
+Предоставляет метаданные для плагина, с дополнительными сведениями.
+"""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import arc
 from hikari import Permissions, Snowflake, UndefinedType
@@ -9,6 +14,7 @@ from hikari.applications import ApplicationContextType, ApplicationIntegrationTy
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
 from loguru import logger
+from typing_extensions import deprecated
 
 from chiori.api import DBTable, PluginConfig
 from chiori.client import ChioClient
@@ -41,15 +47,32 @@ class PluginMeta:
     """К каким группам принадлежит расширения."""
 
 
-# TODO: Сделать метаданные обязаельными
+PluginScope = Literal["all", "main", "admin"]
+"""Область действия расширения.
+
+- all: Для всех серверов.
+- main: Только для главного + разработчиков.
+- admin: Только для сервера разработчиков.
+"""
+
+
+# TODO: Сделать метаданные обязательными
 class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
-    """Надстройка над GatewayPlugin с дополнительными методами."""
+    """Надстройка над GatewayPlugin.
+
+    Args:
+        name: Имя расширениями. Должно быть уникальным. С большой буквы.
+        meta: Дополнительные сведения о расширении.
+        scope: Область действия расширения, на каких серверах.
+
+    """
 
     def __init__(  # noqa: PLR0913
         self,
         name: str,
         meta: PluginMeta | None = None,
         *,
+        scope: PluginScope | None = None,
         default_enabled_guilds: Sequence[Snowflake | int | PartialGuild]
         | UndefinedType = UNDEFINED,
         autodefer: bool | arc.AutodeferMode | UndefinedType = UNDEFINED,
@@ -71,9 +94,11 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         )
 
         self._meta = meta
+        self._scope = scope
         self._config: type[PluginConfig] | None = None
         self._tables: list[type[DBTable]] = []
 
+    @deprecated("Use ChioCLient.config.register instead")
     def set_config(self, config: type[PluginConfig]) -> None:
         """Устанавливает настройки для плагина.
 
@@ -82,6 +107,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         """
         self._config = config
 
+    @deprecated("Use ChioCLient.dn.register instead")
     def add_table(self, table: type[DBTable]) -> None:
         """Добавляет таблицу базы данных.
 
@@ -101,11 +127,26 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
         return self._meta
 
+    def _set_scope(self, client: ChioClient) -> None:
+        if self._scope is None or self._scope == "all":
+            return
+
+        if self._scope == "main":
+            self._default_enabled_guilds = [
+                client.bot_config.MAIN_GUILD,
+                client.bot_config.ADMIN_GUILD,
+            ]
+
+        if self._scope == "admin":
+            self._default_enabled_guilds = [client.bot_config.ADMIN_GUILD]
+
     def _client_include_hook(self, client: ChioClient) -> None:
         super()._client_include_hook(client)
 
         if self._meta is None:
             logger.warning("Plugin {} not provided meta. ", self.name)
+
+        self._set_scope(client)
 
         for table in self._tables:
             client.db.register(table)
@@ -114,6 +155,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
             client.config.register(self._config)
 
 
+@deprecated("Use ChioPlugin with 'admin' scope instead")
 class AdminPlugin(ChioPlugin):
     """Подкласс GatewayPlugin.
 
