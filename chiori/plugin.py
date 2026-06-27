@@ -14,7 +14,6 @@ from hikari.applications import ApplicationContextType, ApplicationIntegrationTy
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
 from loguru import logger
-from typing_extensions import deprecated
 
 from chiori.api import DBTable, PluginConfig
 from chiori.client import ChioClient
@@ -98,23 +97,6 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         self._config: type[PluginConfig] | None = None
         self._tables: list[type[DBTable]] = []
 
-    @deprecated("Use ChioCLient.config.register instead")
-    def set_config(self, config: type[PluginConfig]) -> None:
-        """Устанавливает настройки для плагина.
-
-        Настройки плагина можно использовать только после загрузки
-        плагина и завершения запуска бота.
-        """
-        self._config = config
-
-    @deprecated("Use ChioCLient.dn.register instead")
-    def add_table(self, table: type[DBTable]) -> None:
-        """Добавляет таблицу базы данных.
-
-        Во время подключения плагина таблица регистрируется в базе данных.
-        """
-        self._tables.append(table)
-
     @property
     def meta(self) -> PluginMeta:
         """Дополнительные сведения о плагине.
@@ -153,16 +135,3 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
         if self._config is not None:
             client.config.register(self._config)
-
-
-@deprecated("Use ChioPlugin with 'admin' scope instead")
-class AdminPlugin(ChioPlugin):
-    """Подкласс GatewayPlugin.
-
-    Автоматически предоставляет `default_enabled_guilds`
-    на основе настройки `ADMIN_GUILD`.
-    """
-
-    def _client_include_hook(self, client: ChioClient) -> None:
-        super()._client_include_hook(client)
-        self._default_enabled_guilds = [client.bot_config.ADMIN_GUILD]

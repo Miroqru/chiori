@@ -16,10 +16,9 @@ from arc import loader, unloader
 from chiori.client import ChioClient, ChioContext
 from chiori.events import ChioEvent, UnexpectedError
 from chiori.meta import __author__, __version__
-from chiori.plugin import AdminPlugin, ChioPlugin, PluginMeta
+from chiori.plugin import ChioPlugin, PluginMeta
 
 __all__ = (
-    "AdminPlugin",
     "ChioClient",
     "ChioContext",
     "ChioEvent",
