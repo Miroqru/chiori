@@ -4,10 +4,12 @@
 Предоставляет доступ к настройкам и хранилищам расширений.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import aiohttp
 import arc
+import hikari
 import miru
 from hikari import Permissions, Snowflake, UndefinedType
 from hikari.guilds import PartialGuild
@@ -18,6 +20,9 @@ from loguru import logger
 
 from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig
+
+_Formatter = Callable[[Any], hikari.Embed]
+_Errors = dict[type[Exception], _Formatter]
 
 
 # TODO: Provide miru client for views
@@ -56,6 +61,7 @@ class ChioClient(arc.GatewayClient):
         self._emoji = EmojiRegistry(self)
 
         self._session: aiohttp.ClientSession | None = None
+        self._errors: _Errors = {}
 
     @property
     def bot_config(self) -> ChioConfig:
@@ -148,6 +154,17 @@ class ChioClient(arc.GatewayClient):
         В остальном не рекомендуется к использованию без необходимости.
         """
         return self.config.preload(config, self._bot_config.CONFIG_PATH)
+
+    def register_error(self, exc: type[Exception], func: _Formatter) -> None:
+        """Регистрирует ошибку для обработчика клиента.
+
+        Позволяет обрабатывать ошибки на уровне клиента.
+        Регистрируется пара: ошибка - функция отправки Embed сообщения.
+        """
+        logger.info("Register error {}", exc)
+        if exc in self._errors:
+            raise ValueError(f"Erorr {exc} already registered")
+        self._errors[exc] = func
 
 
 ChioContext = arc.Context[ChioClient]

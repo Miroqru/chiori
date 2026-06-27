@@ -7,29 +7,11 @@
 import hikari
 from loguru import logger
 
-from chiori.api.tags import MissingTagsError
 from chiori.client import ChioContext
 from chiori.events import UnexpectedError
 
 
-def _tags_message(error: MissingTagsError) -> hikari.Embed:
-    if error.mode == "any":
-        mode = "нужен любой из указанных тегов."
-    elif error.mode == "all":
-        mode = "нужны все из указанные теги."
-    else:
-        mode = "нужно избавиться от указанных тегов."
-
-    emb = hikari.Embed(
-        title="🏷️ Необходимые теги",
-        description=f"Для выполнения команды {mode}",
-        color=hikari.Color(0xFF99CC),
-    )
-    emb.add_field("tags", ", ".join(error.missing))
-    return emb
-
-
-def _forbid_message(exc: hikari.ForbiddenError) -> hikari.Embed:
+def forbid_message(exc: hikari.ForbiddenError) -> hikari.Embed:
     logger.error(exc)
     emb = hikari.Embed(
         title="⚠️ Недостаточно прав",
@@ -68,16 +50,15 @@ async def client_error_handler(ctx: ChioContext, exc: Exception) -> None:
     Если обработчики сами не реализуют обработчики ошибок, то все
     исключения будут попадать сюда.
     """
-    if isinstance(exc, hikari.ForbiddenError):
-        await ctx.respond(_forbid_message(exc))
-        return
-
-    if isinstance(exc, MissingTagsError):
-        await ctx.respond(_tags_message(exc))
+    # Оставим это как есть.
+    # Потому что больше нигде не планируется использовать обработку ошибок.
+    # Так что нет смысла давать доступ к словарю ошибок.
+    if message := ctx.client._errors.get(type(exc)):  # noqa: SLF001
+        await ctx.respond(message(exc))
         return
 
     # Такой метод прямым текстом написан в документации
-    # Это нужно чтобы отловить и обработать ошибку.
+    # Это нужно чтобы отловить и обработать любую ошибку.
     try:
         raise exc  # noqa: TRY301
     except Exception as e:  # noqa: BLE001
