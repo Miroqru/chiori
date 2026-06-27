@@ -1,0 +1,42 @@
+services:
+  chio-db:
+    image: postgres:18
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-chio}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - ${POSTGRES_PORT:-5432}
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chio:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    env_file: ".env"
+    volumes:
+      - chio_data:/app
+    depends_on:
+      chio-db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - private
+
+networks:
+  private:
+    external: false
+
+volumes:
+  postgres_data:
+  chio_data:
