@@ -14,7 +14,7 @@ from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
 from loguru import logger
 
-from chiori.api import ChioDB, PluginConfigManager
+from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry
 from chiori.internal.config import ChioConfig
 
 
@@ -48,8 +48,9 @@ class ChioClient(arc.GatewayClient):
         self._bot_config = config
         self.set_type_dependency(ChioConfig, config)
 
-        self._config = PluginConfigManager(self)
+        self._config = ConfigRegistry(self)
         self._db = ChioDB(self)
+        self._emoji = EmojiRegistry(self)
 
     @property
     def bot_config(self) -> ChioConfig:
@@ -61,14 +62,19 @@ class ChioClient(arc.GatewayClient):
         return self._bot_config
 
     @property
-    def config(self) -> PluginConfigManager:
-        """Хранилище настроек расширений."""
+    def config(self) -> ConfigRegistry:
+        """Регистр настроек расширений."""
         return self._config
 
     @property
     def db(self) -> ChioDB:
         """Хранилище базы данных Chiori."""
         return self._db
+
+    @property
+    def emoji(self) -> EmojiRegistry:
+        """Регистр собственных наборов emoji."""
+        return self._emoji
 
 
 ChioContext = arc.Context[ChioClient]

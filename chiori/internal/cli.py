@@ -50,6 +50,7 @@ def _check_folders(config: ChioConfig) -> None:
     config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
+# TODO: Выделить в Core расширение
 async def on_start(client: ChioClient) -> None:
     """Запускает работа клиента.
 
@@ -93,6 +94,7 @@ def run_bot() -> None:
     logger.info("[4] Start chiori client")
 
     client.config.load(client.bot_config.CONFIG_PATH)
+    client.emoji.load()
     client.add_startup_hook(on_start)
 
     custom = client.get_type_dependency(Custom)
