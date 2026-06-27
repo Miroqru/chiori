@@ -31,9 +31,9 @@ class ConfigRegistry(Registry[PluginConfig]):
 
     __slots__ = ("_client", "_models", "_protos")
 
-    def _load_proto(
-        self, config_path: Path, name: str, proto: type[PluginConfig]
-    ) -> None:
+    def _load_proto[C: PluginConfig](
+        self, config_path: Path, name: str, proto: type[C]
+    ) -> C:
         config_file = config_path / f"{name}.toml"
         if config_file.exists():
             with config_file.open() as f:
@@ -43,6 +43,7 @@ class ConfigRegistry(Registry[PluginConfig]):
             model = proto()
 
         self.set(proto, model, name)
+        return model
 
     def load(self, config_path: Path) -> None:
         """Загружает настройки из прототипов."""
@@ -69,3 +70,24 @@ class ConfigRegistry(Registry[PluginConfig]):
 
             raise ValueError("Failed to load plugin config")
         self._protos = {}
+
+    def preload[C: PluginConfig](self, proto: type[C], config_path: Path) -> C:
+        """Предварительная загрузка настроек.
+
+        Выполняется СРАЗУ во время загрузки расширения.
+        Что позволяет заранее подготовить некоторые системы.
+        Использовать только при необходимости.
+        """
+        name = proto.model_name()
+        logger.info("Register: {} -> {}", name, proto)
+        try:
+            model = self._load_proto(config_path, name, proto)
+        except ValidationError as e:
+            validation_error(e)
+            raise
+
+        except FileNotFoundError as e:
+            logger.warning(e)
+            raise
+
+        return model

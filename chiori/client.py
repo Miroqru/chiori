@@ -15,7 +15,7 @@ from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
 from loguru import logger
 
-from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry
+from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig
 
 
@@ -102,6 +102,19 @@ class ChioClient(arc.GatewayClient):
 
         if self._session:
             await self._session.close()
+
+    def preload_config[C: PluginConfig](self, config: type[C]) -> C:
+        """Подгружает настройки расширения.
+
+        Такие настройки загружаются СРАЗУ во время запуска расширения, не
+        ожидая окончания загрузки всех расширений.
+        От чего требуют прямого указания до файла настроек.
+
+        Это может быть полезно чтобы сразу во время запуск расширения применить
+        настройки.
+        В остальном не рекомендуется к использованию без необходимости.
+        """
+        return self.config.preload(config, self._bot_config.CONFIG_PATH)
 
 
 ChioContext = arc.Context[ChioClient]
