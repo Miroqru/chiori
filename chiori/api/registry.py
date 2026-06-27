@@ -7,15 +7,20 @@
 
 from __future__ import annotations
 
+import re
+import sys
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from chiori.client import ChioClient
+
+
+_CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class RegisterModel(BaseModel):
@@ -94,3 +99,28 @@ class Registry[M: RegisterModel]:
         logger.debug("Set {} -> {}", name, proto)
         self._models[name] = model
         self._client.set_type_dependency(proto, model)
+
+
+def format_link(url: str, name: str) -> str:
+    safe_url = _CTRL_RE.sub("", url)
+    safe_name = _CTRL_RE.sub("", name)
+    return f"\033]8;;{safe_url}\033\\{safe_name}\033]8;;\033\\"
+
+
+def validation_error(e: ValidationError) -> None:
+    f = sys.stderr
+
+    f.write(f"\033[31mValidation error in: \033[91m{e.title}\033[31m {e.args}\033[0m:")
+    for i in e.errors():
+        f.write("\n\033[34m")
+        f.write(".".join(str(x) for x in i["loc"]))
+        f.write("\033[90m = \033[33m")
+        f.write(str(i["input"]))
+        f.write("\n\033[31m[\033[91m")
+        if url := i.get("url"):
+            f.write(format_link(url, i["type"]))
+        else:
+            f.write(i["type"])
+        f.write("\033[31m]:\033[0m ")
+        f.write(i["msg"])
+    sys.stderr.write("\n")

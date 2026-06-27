@@ -4,15 +4,16 @@
 Загружаются при запуске и больше не изменяются во время работы.
 """
 
+import sys
 from pathlib import Path
 
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from chiori.api.registry import validation_error
 
 
 # TODO: Работа только на сервере администраторов.
-# TODO: Красивый валидатор настроек.
-# TODO: Метод загрузки настроек.
 class ChioConfig(BaseSettings):
     """Общие настройки Шиори.
 
@@ -92,3 +93,17 @@ class ChioConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="forbid", frozen=True)
+
+
+def load_config() -> ChioConfig:
+    """Загружает настройки Chiori из .env фалйа.
+
+    Если не получится загрузить, прерывает работу бота.
+    """
+    try:
+        config = ChioConfig()  # pyright: ignore[reportCallIssue]
+    except ValidationError as e:
+        validation_error(e)
+        sys.exit(1)
+
+    return config

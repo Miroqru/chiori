@@ -16,7 +16,7 @@ from loguru import logger
 from chiori.api.custom import Custom
 from chiori.api.tags import TagsTable, not_tags
 from chiori.client import ChioClient
-from chiori.internal.config import ChioConfig
+from chiori.internal.config import ChioConfig, load_config
 from chiori.internal.errors import client_error_handler
 
 # Настраиваем формат отображения логов loguru
@@ -70,8 +70,8 @@ def run_bot() -> None:
     Запускает обработку событий.
     """
     logger.info("[1] Init client")
-    # TODO: Move to config loader func
-    config = ChioConfig()  # pyright: ignore[reportCallIssue]
+    config = load_config()
+
     # TODO: Customize settings
     # TODO: Set logger level directly
     bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
