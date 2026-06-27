@@ -6,81 +6,58 @@
 """
 
 from pathlib import Path
-from typing import TypeVar, Unpack
+from typing import Unpack
 
 import toml
-from arc import GatewayClient
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from chiori.api.registry import RegisterModel, Registry
 
 
-class PluginConfig(BaseModel):
-    """Базовый класс для настроек плагина."""
-
-    __config_name__: str | None = None
-    """Имя настроек.
-
-    Данное имя будет использоваться для пути к файлу настроек.
-    если имя `foo`, тогда путь к настройкам `config/foo.toml`.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class PluginConfig(RegisterModel):
+    """Базовый класс для настроек расширения."""
 
     def __init_subclass__(cls, config: str, **kwargs: Unpack[ConfigDict]) -> None:
-        """Позволяет передать имя настроек."""
+        """Позволяет указать имя настроек при определении модели."""
         super().__init_subclass__(**kwargs)
-        cls.__config_name__ = config
+        if not config:
+            raise ValueError("Model must have unique name")
+        cls.__model_name__ = config
 
 
-_C = TypeVar("_C", bound=PluginConfig)
-
-
-class PluginConfigManager:
+class ConfigRegistry(Registry[PluginConfig]):
     """Динамические настройки плагинов."""
 
-    __slots__ = ("_client", "_config", "_failed_load", "_name_lock", "_proto")
+    __slots__ = ("_client", "_models", "_protos")
 
-    def __init__(self, client: GatewayClient) -> None:
-        self._client = client
-        self._proto: list[type[PluginConfig]] = []
-        self._config: dict[type[PluginConfig], PluginConfig] = {}
-
-        self._name_lock: dict[str, type[PluginConfig]] = {}
-        self._failed_load: list[str] = []
-
-    def _load_proto(self, config_path: Path, proto: type[PluginConfig]) -> None:
-        logger.debug("Load config {}", proto.__config_name__)
-        if proto.__config_name__ is None:
-            raise ValueError(f"{proto} not provided config_name")
-
-        used_name = self._name_lock.get(proto.__config_name__)
-        if used_name is not None:
-            raise ValueError(f"{proto.__config_name__} already used by {used_name}")
-
-        config_file = config_path / f"{proto.__config_name__}.toml"
+    def _load_proto(
+        self, config_path: Path, name: str, proto: type[PluginConfig]
+    ) -> None:
+        config_file = config_path / f"{name}.toml"
         if config_file.exists():
+            logger.debug("Load config {}", name)
             with config_file.open() as f:
-                config = proto.model_validate(toml.loads(f.read()))
-                self._name_lock[proto.__config_name__] = proto
+                model = proto.model_validate(toml.loads(f.read()))
         else:
-            logger.warning("{} not found", config_file)
-            config = proto()
+            logger.warning("Config file {} not found", config_file)
+            model = proto()
 
-        self._config[proto] = config
-        self._client.set_type_dependency(proto, config)
+        self.set(proto, model, name)
 
     def load(self, config_path: Path) -> None:
         """Загружает настройки из прототипов."""
-        for proto in self._proto:
+        fail_load: list[str] = []
+        for name, proto in self._protos.items():
             try:
-                self._load_proto(config_path, proto)
+                self._load_proto(config_path, name, proto)
             except Exception as e:
                 logger.warning(e)
-                self._failed_load.append(proto.__config_name__)  # pyright: ignore[reportArgumentType]
+                fail_load.append(name)
 
-        if len(self._failed_load) > 0:
+        if len(fail_load) > 0:
             logger.error("Failed to load some configs:")
-            for name in self._failed_load:
+            for name in fail_load:
                 logger.error(
                     "- {name} => {config}/{name}.toml",
                     name=name,
@@ -88,22 +65,4 @@ class PluginConfigManager:
                 )
 
             raise ValueError("Failed to load plugin config")
-
-        # clear
-        self._proto = []
-        self._name_lock = {}
-        self._failed_load = []
-
-    def register(self, proto: type[PluginConfig]) -> None:
-        """Регистрирует новые настройки для плагина."""
-        logger.info("Register config {}", proto.__config_name__)
-        if proto in self._proto:
-            raise ValueError(f"{proto} already registered")
-        self._proto.append(proto)
-
-    def get(self, proto: type[_C]) -> _C:
-        """Получает настройки для плагина."""
-        key = self._config.get(proto)
-        if key is None:
-            raise ValueError(f"{proto} is not registered")
-        return key  # pyright: ignore[reportReturnType]
+        self._protos = {}
