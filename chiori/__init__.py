@@ -1,20 +1,33 @@
 """Шиори - Многофункциональный бот для нашего сервера.
 
 В проекте преимущественно применяется модульная архитектура.
-Вы можете сами включать и отключить необходимые функции бота.
+Потому весь дополнительный функционал реализуется в `libs` и `extensions`.
+А само ядро служит чтобы предоставлять общий функционал между всеми
+библиотеками и расширениями.
 
-Настройка различного функционала бота происходит путём добавления
-или удалением файлов из директорий `libs/` и `extensions/`.
-
-В ядре представлен корневой функционал, доступный между всеми расширениями
-и библиотеками.
-
-Version: v0.11.2 (63)
+Version: v0.11.2 (64)
 Author: Milinuri Nirvalen
 """
 
 # Re use components from arc
-from arc import loader
+from arc import loader, unloader
 
-__version__ = "0.10"
-__all__ = ("__version__", "loader")
+# Shortcuts for public Chio components
+from chiori.client import ChioClient, ChioContext
+from chiori.events import ChioEvent, UnexpectedError
+from chiori.meta import __author__, __version__
+from chiori.plugin import AdminPlugin, ChioPlugin, PluginMeta
+
+__all__ = (
+    "AdminPlugin",
+    "ChioClient",
+    "ChioContext",
+    "ChioEvent",
+    "ChioPlugin",
+    "PluginMeta",
+    "UnexpectedError",
+    "__author__",
+    "__version__",
+    "loader",
+    "unloader",
+)

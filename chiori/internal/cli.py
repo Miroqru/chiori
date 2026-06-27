@@ -2,11 +2,10 @@
 
 Отвечает за запуск клиента и подключение подсистем.
 Подгружает настройки из файла.
-настраивает все компоненты для работы.
-Динамически подгружает плагины из директории.
+настраивает все компоненты для запуска.
+Динамически подгружает расширений, настройки, базу данных.
 """
 
-import asyncio
 import logging
 import sys
 
@@ -16,8 +15,8 @@ from loguru import logger
 
 from chiori.api.tags import TagsTable, not_tags
 from chiori.client import ChioClient
+from chiori.internal.config import ChioConfig
 from chiori.internal.errors import client_error_handler
-from chiori.internal.settings import BotConfig
 
 # Настраиваем формат отображения логов loguru
 # Обратите внимание что в проекте помимо loguru используется logging
@@ -29,7 +28,7 @@ _LOG_FORMAT = (
 )
 
 
-def _setup_logger(config: BotConfig) -> None:
+def _setup_logger(config: ChioConfig) -> None:
     if config.HIKARI_DEBUG:
         root = logging.getLogger()
         root.setLevel(logging.DEBUG)
@@ -43,7 +42,7 @@ def _setup_logger(config: BotConfig) -> None:
     )
 
 
-def _check_folders(config: BotConfig) -> None:
+def _check_folders(config: ChioConfig) -> None:
     logger.info("Check needed chiori directories")
     config.EXTENSIONS_PATH.mkdir(exist_ok=True)
     config.DATA_PATH.mkdir(exist_ok=True)
@@ -69,7 +68,10 @@ def run_bot() -> None:
     Запускает обработку событий.
     """
     logger.info("[1] Init client")
-    config = BotConfig()  # pyright: ignore[reportCallIssue]
+    # TODO: Move to config loader func
+    config = ChioConfig()  # pyright: ignore[reportCallIssue]
+    # TODO: Customize settings
+    # TODO: Set logger level directly
     bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
 
     client = ChioClient(bot, config)

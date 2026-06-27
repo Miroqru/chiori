@@ -1,4 +1,7 @@
-"""События бота."""
+"""События Шиори.
+
+Предоставляет базовые события, которые после будут использоваться.
+"""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -9,15 +12,17 @@ if TYPE_CHECKING:
     from chiori.client import ChioClient, ChioContext
 
 
+# TODO: Перейти на использование attr для канона.
 @dataclass(frozen=True, slots=True)
 class ChioEvent(hikari.Event):
     """Базовое событие клиента.
 
     Основа для всех событий.
-    Предоставляет экземпляр клиента.
+    Предоставляет экземпляр клиента в события.
     """
 
     client: "ChioClient"
+    """Клиент, для которого вызвано событие."""
 
     @property
     def app(self) -> hikari.RESTAware:
@@ -34,7 +39,10 @@ class UnexpectedError(hikari.Event):
     """
 
     ctx: "ChioContext"
+    """Контекст команды, при которой произошло событие."""
+
     exc: Exception
+    """Исключение, которое было вызвано во время работы."""
 
     @property
     def app(self) -> hikari.RESTAware:
