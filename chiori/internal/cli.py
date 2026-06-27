@@ -13,6 +13,7 @@ import hikari
 import miru
 from loguru import logger
 
+from chiori import meta
 from chiori.api.custom import Custom
 from chiori.api.tags import TagsTable, not_tags
 from chiori.client import ChioClient
@@ -67,18 +68,29 @@ def run_bot() -> None:
     Производит подключение к базе данных.
     Запускает обработку событий.
     """
-    logger.info("[1] Init client")
     config = load_config()
 
-    # TODO: Customize settings
     # TODO: Set logger level directly
-    bot = hikari.GatewayBot(token=config.BOT_TOKEN, intents=hikari.Intents.ALL)
+    bot = hikari.GatewayBot(
+        banner=None, token=config.BOT_TOKEN, intents=hikari.Intents.ALL
+    )
+    bot.print_banner(
+        "chiori",
+        allow_color=True,
+        force_color=False,
+        extra_args={
+            "chio_version": meta.__version__,
+            "chio_copyright": meta.__copyright__,
+            "chio_license": meta.__license__,
+            "chio_discord": meta.__discord_invite__,
+            "chio_docementation": meta.__docs__,
+        },
+    )
 
     client = ChioClient(bot, config)
     miru.Client.from_arc(client)
     client.set_error_handler(client_error_handler)
 
-    logger.info("[2] Setup Chio")
     _setup_logger(config)
     _check_folders(config)
 
@@ -86,15 +98,15 @@ def run_bot() -> None:
     client.config.register(Custom)
     client.add_hook(not_tags("chio/banned"))
 
-    logger.info("[3] Load plugins from {}", config.EXTENSIONS_PATH)
+    logger.info("[3] Load plugins from {}/", config.EXTENSIONS_PATH)
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
     logger.info("[4] Start chiori client")
-
     client.config.load(client.bot_config.CONFIG_PATH)
     client.emoji.load()
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
 
+    logger.info("[5] Start client")
     custom = client.get_type_dependency(Custom)
     bot.run(activity=custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
