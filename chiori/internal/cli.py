@@ -10,7 +10,6 @@ import logging
 import sys
 
 import hikari
-import miru
 from loguru import logger
 
 from chiori import meta
@@ -88,7 +87,6 @@ def run_bot() -> None:
     )
 
     client = ChioClient(bot, config)
-    miru.Client.from_arc(client)
     client.set_error_handler(client_error_handler)
 
     _setup_logger(config)
