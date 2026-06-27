@@ -14,6 +14,7 @@ dependencies = [
     "hikari-arc>=2.1.1",
     "hikari-miru>=4.2.0",
     "loguru>=0.7.3",
+    "orjson>=3.11.9",
     "pydantic-settings>=2.9.1",
     "toml>=0.10.2",
 ]
