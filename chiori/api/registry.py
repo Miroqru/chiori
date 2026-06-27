@@ -45,7 +45,9 @@ class RegisterModel(BaseModel):
     def model_name(cls) -> str:
         """Возвращает имя модели."""
         # Может быть пустым, только если использовать базовый класс модели
-        return cls.__model_name__  # pyright: ignore[reportReturnType]
+        assert cls.__model_name__ is str  # noqa: S101
+
+        return cls.__model_name__
 
 
 class Registry[M: RegisterModel]:
