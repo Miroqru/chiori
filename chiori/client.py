@@ -6,6 +6,7 @@
 
 from collections.abc import Sequence
 
+import aiohttp
 import arc
 from hikari import Permissions, Snowflake, UndefinedType
 from hikari.guilds import PartialGuild
@@ -18,6 +19,7 @@ from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry
 from chiori.internal.config import ChioConfig
 
 
+# TODO: Provide miru client for views
 class ChioClient(arc.GatewayClient):
     """Надстройка над GatewayClient.
 
@@ -46,11 +48,12 @@ class ChioClient(arc.GatewayClient):
         )
 
         self._bot_config = config
-        self.set_type_dependency(ChioConfig, config)
 
         self._config = ConfigRegistry(self)
         self._db = ChioDB(self)
         self._emoji = EmojiRegistry(self)
+
+        self._session: aiohttp.ClientSession | None = None
 
     @property
     def bot_config(self) -> ChioConfig:
@@ -75,6 +78,30 @@ class ChioClient(arc.GatewayClient):
     def emoji(self) -> EmojiRegistry:
         """Регистр собственных наборов emoji."""
         return self._emoji
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        """Возвращает связанную с ботов сессию."""
+        if self._session is None:
+            raise ValueError("You need to start client first")
+        return self._session
+
+    async def start(self) -> None:
+        """Запускает работа клиента.
+
+        Это финальные метод, запускается после предварительной подготовки.
+        """
+        logger.info("Start Chiori!")
+        await self._db.connect(str(self._bot_config.DB_DSN))
+        await self._db.create_tables()
+
+    async def stop(self) -> None:
+        """Остановка работа клиента.."""
+        logger.info("Stop Chiori!")
+        await self._db.close()
+
+        if self._session:
+            await self._session.close()
 
 
 ChioContext = arc.Context[ChioClient]

@@ -50,15 +50,13 @@ def _check_folders(config: ChioConfig) -> None:
     config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
-# TODO: Выделить в Core расширение
-async def on_start(client: ChioClient) -> None:
-    """Запускает работа клиента.
+# TODO: Выглядит как костыль
+async def _on_start(client: ChioClient) -> None:
+    await client.start()
 
-    Это финальные метод, запускайте его после предварительной подготовки.
-    """
-    logger.info("Connect to database")
-    await client.db.connect(str(client.bot_config.DB_DSN))
-    await client.db.create_tables()
+
+async def _on_shutdown(client: ChioClient) -> None:
+    await client.stop()
 
 
 def run_bot() -> None:
@@ -95,7 +93,8 @@ def run_bot() -> None:
 
     client.config.load(client.bot_config.CONFIG_PATH)
     client.emoji.load()
-    client.add_startup_hook(on_start)
+    client.add_startup_hook(_on_start)
+    client.add_shutdown_hook(_on_shutdown)
 
     custom = client.get_type_dependency(Custom)
     bot.run(activity=custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
