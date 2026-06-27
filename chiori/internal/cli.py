@@ -13,6 +13,7 @@ import hikari
 import miru
 from loguru import logger
 
+from chiori.api.custom import Custom
 from chiori.api.tags import TagsTable, not_tags
 from chiori.client import ChioClient
 from chiori.internal.config import ChioConfig
@@ -83,6 +84,7 @@ def run_bot() -> None:
     _check_folders(config)
 
     client.db.register(TagsTable)
+    client.config.register(Custom)
     client.add_hook(not_tags("chio/banned"))
 
     logger.info("[3] Load plugins from {}", config.EXTENSIONS_PATH)
@@ -93,5 +95,5 @@ def run_bot() -> None:
     client.config.load(client.bot_config.CONFIG_PATH)
     client.add_startup_hook(on_start)
 
-    activity = hikari.Activity(name="/chio v0.11", type=hikari.ActivityType.PLAYING)
-    bot.run(activity=activity, asyncio_debug=config.HIKARI_DEBUG)
+    custom = client.get_type_dependency(Custom)
+    bot.run(activity=custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
