@@ -17,6 +17,7 @@ from hikari.guilds import PartialGuild
 from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
+from typing_extensions import deprecated
 
 from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig
@@ -65,6 +66,8 @@ class ChioClient(arc.GatewayClient):
         )
 
         self._bot_config = config
+        self._owner_ids = [hikari.Snowflake(u_id) for u_id in config.BOT_OWNERS]
+
         self._miru = miru.Client.from_arc(self)
 
         self._config = ConfigRegistry(self)
@@ -75,6 +78,7 @@ class ChioClient(arc.GatewayClient):
         self._errors: _Errors = {}
 
     @property
+    @deprecated("Chiori v0.13, use owners_id instead, or internal config")
     def bot_config(self) -> ChioConfig:
         """Корневые настройки бота.
 

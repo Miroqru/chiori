@@ -5,6 +5,7 @@
 """
 
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import PostgresDsn, ValidationError
@@ -27,8 +28,8 @@ class ChioConfig(BaseSettings):
     Обязательный параметр для запуска Шиори.
     """
 
-    BOT_OWNER: int
-    """ID владельца бота.
+    BOT_OWNERS: Sequence[int]
+    """ID владельцев бота.
 
     Используется для настройки ядра.
     На владельца не накладываются ограничения бота.
