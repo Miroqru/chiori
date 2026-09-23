@@ -45,10 +45,11 @@ class PluginMeta:
     """К каким группам принадлежит расширения."""
 
 
-PluginScope = Literal["all", "main", "admin"]
+PluginScope = Literal["all", "guild", "main", "admin"]
 """Область действия расширения.
 
-- all: Для всех серверов.
+- all: Для серверов и в личных сообщения с Шиори.
+- guild: Только для серверов, потому что использует участника.
 - main: Только для главного + разработчиков.
 - admin: Только для сервера разработчиков.
 """
@@ -61,7 +62,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
     Args:
         name: Имя расширениями. Должно быть уникальным. С большой буквы.
         meta: Дополнительные сведения о расширении.
-        scope: Область действия расширения, на каких серверах.
+        scope: Область действия расширения, где оно доступно.
 
     """
 
@@ -112,12 +113,18 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         if self._scope is None or self._scope == "all":
             return
 
+        # Требует выполнение команды на сервере
+        # Автоматически отправляет ошибку если команда выполнен в DM
+        if self._scope != "all":
+            self.add_hook(arc.guild_only)
+
         if self._scope == "main":
             self._default_enabled_guilds = [
                 client.bot_config.MAIN_GUILD,
                 client.bot_config.ADMIN_GUILD,
             ]
 
+        # TODO: Выполнение только администраторам бота
         if self._scope == "admin":
             self._default_enabled_guilds = [client.bot_config.ADMIN_GUILD]
 
