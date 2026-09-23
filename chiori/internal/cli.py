@@ -6,7 +6,6 @@
 Динамически подгружает расширений, настройки, базу данных.
 """
 
-import logging
 import sys
 
 import hikari
@@ -28,11 +27,8 @@ _LOG_FORMAT = (
 )
 
 
+# TODO: Использовать встроенный логгер, зачем придумывать
 def _setup_logger(config: ChioConfig) -> None:
-    if config.HIKARI_DEBUG:
-        root = logging.getLogger()
-        root.setLevel(logging.DEBUG)
-
     logger.remove()
     logger.add(
         sys.stdout,
@@ -67,10 +63,11 @@ def run_bot() -> None:
     Запускает обработку событий.
     """
     config = load_config()
-
-    # TODO: Set logger level directly
     bot = hikari.GatewayBot(
-        banner=None, token=config.BOT_TOKEN, intents=hikari.Intents.ALL
+        banner=None,
+        token=config.BOT_TOKEN,
+        intents=hikari.Intents.ALL,
+        logs="DEBUG" if config.HIKARI_DEBUG else "INFO",
     )
     bot.print_banner(
         "chiori",
@@ -85,12 +82,23 @@ def run_bot() -> None:
         },
     )
 
-    client = ChioClient(bot, config)
-    client.set_error_handler(client_error_handler)
-    client.register_error(hikari.ForbiddenError, forbid_message)
-
     _setup_logger(config)
     _check_folders(config)
+
+    if config.DEBUG:
+        logger.warning("Enabled debug mode")
+        logger.warning("- Auto sync disabled, use /ext sync instead")
+        logger.warning("- Default enabled guilds set to MAIN + ADMIN")
+        logger.warning("Please disable debug mode in production")
+        enabled_guilds = [config.MAIN_GUILD, config.ADMIN_GUILD]
+    else:
+        enabled_guilds = hikari.UNDEFINED
+
+    client = ChioClient(
+        bot, config, autosync=not config.DEBUG, default_enabled_guilds=enabled_guilds
+    )
+    client.set_error_handler(client_error_handler)
+    client.register_error(hikari.ForbiddenError, forbid_message)
 
     client.config.register(Custom)
     logger.info("[3] Load plugins from {}/", config.EXTENSIONS_PATH)
