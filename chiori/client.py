@@ -32,6 +32,16 @@ class ChioClient(arc.GatewayClient):
     Предоставляет доступ к настройкам и хранилищам расширений.
     """
 
+    __slots__ = (
+        "_bot_config",
+        "_config",
+        "_db",
+        "_emoji",
+        "_errors",
+        "_miru",
+        "_session",
+    )
+
     def __init__(  # noqa: PLR0913
         self,
         app: GatewayBotAware,

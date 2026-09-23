@@ -15,7 +15,6 @@ from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
 from loguru import logger
 
-from chiori.api import DBTable, PluginConfig
 from chiori.client import ChioClient
 
 
@@ -66,6 +65,8 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
     """
 
+    __slots__ = ("_meta", "_scope")
+
     def __init__(  # noqa: PLR0913
         self,
         name: str,
@@ -94,8 +95,6 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
         self._meta = meta
         self._scope = scope
-        self._config: type[PluginConfig] | None = None
-        self._tables: list[type[DBTable]] = []
 
     @property
     def meta(self) -> PluginMeta:
@@ -129,9 +128,3 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
             logger.warning("Plugin {} not provided meta. ", self.name)
 
         self._set_scope(client)
-
-        for table in self._tables:
-            client.db.register(table)
-
-        if self._config is not None:
-            client.config.register(self._config)
