@@ -4,19 +4,27 @@
 Настройки стиля используются между расширениями.
 """
 
+from typing import Annotated
+
 import hikari
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 from chiori.api.config import PluginConfig
+
+Color = Annotated[hikari.Color, BeforeValidator(hikari.Color)]
+ActivityType = Annotated[hikari.ActivityType, BeforeValidator(hikari.ActivityType)]
+
+
+# Модели
+# ======
 
 
 class CustomModel(BaseModel):
     """Модель для настроек."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
 
 
-# FIXME: Исправить тип цвета на hikari.Color
 class CustomColors(CustomModel):
     """Палитра цветов.
 
@@ -25,32 +33,31 @@ class CustomColors(CustomModel):
     Все цвета представлены как числа в hex формате.
     """
 
-    primary: int
+    primary: Color
     """Основной цвет. Используется по умолчанию."""
 
-    secondary: int
+    secondary: Color
     """Вторичный цвет. Чаще всего используется для подмен."""
 
-    disabled: int
+    disabled: Color
     """Приглушённый цвет."""
 
-    accent: int
+    accent: Color
     """Цвет акцентного сообщения."""
 
-    info: int
+    info: Color
     """Цвет информационного сообщений."""
 
-    success: int
+    success: Color
     """Цвет успешно выполненного сообщения."""
 
-    warning: int
+    warning: Color
     """Цвет предупреждающего сообщения."""
 
-    error: int
+    error: Color
     """Цвет сообщения с ошибкой."""
 
 
-# FIXME: Исправить тип на hikari.ActivityType
 class CustomActivity(CustomModel):
     """Активность Шиори.
 
@@ -72,7 +79,7 @@ class CustomActivity(CustomModel):
     Актуально только если активность streaming.
     """
 
-    type: int
+    type: ActivityType
     """Тип активности."""
 
     @property

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, PostgresDsn, ValidationError
 
+from chiori.api.custom import Custom
 from chiori.api.registry import validation_error
 
 
@@ -101,6 +102,12 @@ class ChioConfig(BaseModel):
 
     path: PathConfig = PathConfig()
     """Настройки путей для поиска файлов."""
+
+    custom: Custom
+    """Настройки оформления.
+
+    Позволяют более гибко настраивать оформление сборки Шиори.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

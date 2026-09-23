@@ -18,7 +18,7 @@ from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
 
-from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
+from chiori.api import ChioDB, ConfigRegistry, Custom, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig, PathConfig
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,15 @@ class ChioClient(arc.GatewayClient):
         Пришло на замену общим настройкам для повышения безопасности.
         """
         return self._bot_config.path
+
+    @property
+    def custom(self) -> Custom:
+        """Настройки оформления.
+
+        Позволяют более гибко настроить оформление Шиори.
+        Указать имя. краткое описание, палитру цветов, активность и emoji.
+        """
+        return self._bot_config.custom
 
     @property
     def main_guild(self) -> hikari.Snowflake:

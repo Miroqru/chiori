@@ -11,11 +11,12 @@ from typing import TYPE_CHECKING, Unpack
 
 from pydantic import ValidationError
 
-from chiori.api.custom import Custom
 from chiori.api.registry import RegisterModel, Registry, validation_error
 
 if TYPE_CHECKING:
     from pydantic import ConfigDict
+
+    from chiori.api.custom import Custom
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class EmojiRegistry(Registry[EmojiModel]):
 
     def load(self) -> None:
         """Загружает модели из их прототипов."""
-        custom = self._client.get_type_dependency(Custom)
+        custom = self._client.custom
         fail_load: list[str] = []
         for name, proto in self._protos.items():
             try:

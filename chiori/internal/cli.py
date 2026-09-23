@@ -12,7 +12,6 @@ from pathlib import Path
 import hikari
 
 from chiori import meta
-from chiori.api.custom import Custom
 from chiori.client import ChioClient
 from chiori.internal.config import load_config
 from chiori.internal.errors import client_error_handler, forbid_message
@@ -90,7 +89,6 @@ def run_bot() -> None:
     client.set_error_handler(client_error_handler)
     client.register_error(hikari.ForbiddenError, forbid_message)
 
-    client.config.register(Custom)
     logger.info("Load plugins from %s/", config.path.EXTENSIONS_PATH)
     client.load_extensions_from(config.path.EXTENSIONS_PATH)
 
@@ -100,5 +98,4 @@ def run_bot() -> None:
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
 
-    custom = client.get_type_dependency(Custom)
-    bot.run(activity=custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
+    bot.run(activity=config.custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
