@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import sys
 from typing import TYPE_CHECKING
 
-from loguru import logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
     from chiori.client import ChioClient
 
-
+logger = logging.getLogger(__name__)
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -75,7 +75,7 @@ class Registry[M: RegisterModel]:
         Если прототип с таким именем уже существует - выдаст ошибку.
         """
         name = proto.model_name()
-        logger.info("Register: {} -> {}", name, proto)
+        logger.info("Register: %s -> %s", name, proto)
         if name in self._protos:
             raise ValueError(f"{name} (proto {proto}) already registered")
         self._protos[name] = proto
@@ -98,7 +98,7 @@ class Registry[M: RegisterModel]:
     def set(self, proto: type[M], model: M, name: str | None = None) -> None:
         """Напрямую устанавливает значение регистра."""
         name = name or model.model_name()
-        logger.debug("Set {} -> {}", name, proto)
+        logger.debug("Set %s -> %s", name, proto)
         self._models[name] = model
         self._client.set_type_dependency(proto, model)
 

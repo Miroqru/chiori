@@ -4,6 +4,7 @@
 Предоставляет доступ к настройкам и хранилищам расширений.
 """
 
+import logging
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -16,11 +17,11 @@ from hikari.guilds import PartialGuild
 from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
-from loguru import logger
 
 from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig
 
+logger = logging.getLogger(__name__)
 _Formatter = Callable[[Any], hikari.Embed]
 _Errors = dict[type[Exception], _Formatter]
 
@@ -81,7 +82,8 @@ class ChioClient(arc.GatewayClient):
         Каждый доступ к настройкам журналируется.
         Может быть убрано в будущих версиях для безопасности.
         """
-        logger.debug("Access to bot config")
+        logger.warning("Access to bot config")
+        logger.debug("Please don`t use config outside client")
         return self._bot_config
 
     @property
@@ -171,7 +173,7 @@ class ChioClient(arc.GatewayClient):
         Позволяет обрабатывать ошибки на уровне клиента.
         Регистрируется пара: ошибка - функция отправки Embed сообщения.
         """
-        logger.info("Register error {}", exc)
+        logger.info("Register error %s", exc)
         if exc in self._errors:
             raise ValueError(f"Erorr {exc} already registered")
         self._errors[exc] = func

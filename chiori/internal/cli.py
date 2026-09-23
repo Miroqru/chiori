@@ -6,15 +6,14 @@
 Динамически подгружает расширений, настройки, базу данных.
 """
 
-import sys
+import logging
 
 import hikari
-from loguru import logger
 
 from chiori import meta
 from chiori.api.custom import Custom
 from chiori.client import ChioClient
-from chiori.internal.config import ChioConfig, load_config
+from chiori.internal.config import load_config
 from chiori.internal.errors import client_error_handler, forbid_message
 
 # Настраиваем формат отображения логов loguru
@@ -25,24 +24,6 @@ _LOG_FORMAT = (
     "{file}:{function} "
     "<lvl>{message}</>"
 )
-
-
-# TODO: Использовать встроенный логгер, зачем придумывать
-def _setup_logger(config: ChioConfig) -> None:
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        format=_LOG_FORMAT,
-        enqueue=True,
-        level="DEBUG" if config.DEBUG else "INFO",
-    )
-
-
-def _check_folders(config: ChioConfig) -> None:
-    logger.info("Check needed chiori directories")
-    config.EXTENSIONS_PATH.mkdir(exist_ok=True)
-    config.DATA_PATH.mkdir(exist_ok=True)
-    config.CONFIG_PATH.mkdir(exist_ok=True)
 
 
 # TODO: Выглядит как костыль
@@ -82,8 +63,13 @@ def run_bot() -> None:
         },
     )
 
-    _setup_logger(config)
-    _check_folders(config)
+    config.EXTENSIONS_PATH.mkdir(exist_ok=True)
+    config.DATA_PATH.mkdir(exist_ok=True)
+    config.CONFIG_PATH.mkdir(exist_ok=True)
+
+    # Это от части костыль
+    logger = logging.getLogger("chiori")
+    logger.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
 
     if config.DEBUG:
         logger.warning("Enabled debug mode")
@@ -101,15 +87,14 @@ def run_bot() -> None:
     client.register_error(hikari.ForbiddenError, forbid_message)
 
     client.config.register(Custom)
-    logger.info("[3] Load plugins from {}/", config.EXTENSIONS_PATH)
+    logger.info("Load plugins from %s/", config.EXTENSIONS_PATH)
     client.load_extensions_from(config.EXTENSIONS_PATH)
 
-    logger.info("[4] Start chiori client")
+    logger.info("Start Chiori client")
     client.config.load(client.bot_config.CONFIG_PATH)
     client.emoji.load()
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
 
-    logger.info("[5] Start client")
     custom = client.get_type_dependency(Custom)
     bot.run(activity=custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)

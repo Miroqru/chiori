@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Unpack
 
-from loguru import logger
 from pydantic import ValidationError
 
 from chiori.api.custom import Custom
@@ -16,6 +16,8 @@ from chiori.api.registry import RegisterModel, Registry, validation_error
 
 if TYPE_CHECKING:
     from pydantic import ConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class EmojiModel(RegisterModel, extra="allow"):
@@ -38,7 +40,7 @@ class EmojiRegistry(Registry[EmojiModel]):
     """
 
     def _load_proto(self, name: str, proto: type[EmojiModel], custom: Custom) -> None:
-        logger.debug("Load emoji set {}", name)
+        logger.debug("Load emoji set %s", name)
         model = proto.model_validate(custom.emoji)
         self._models[name] = model
         self._client.set_type_dependency(proto, model)
@@ -47,7 +49,6 @@ class EmojiRegistry(Registry[EmojiModel]):
         """Загружает модели из их прототипов."""
         custom = self._client.get_type_dependency(Custom)
         fail_load: list[str] = []
-
         for name, proto in self._protos.items():
             try:
                 self._load_proto(name, proto, custom)
@@ -58,6 +59,6 @@ class EmojiRegistry(Registry[EmojiModel]):
         if len(fail_load) > 0:
             logger.error("Failed to load some emoji sets:")
             for name in fail_load:
-                logger.error("- {}", name)
+                logger.error("- %s", name)
 
         self._protos = {}

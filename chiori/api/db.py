@@ -9,15 +9,17 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self
 
 import asyncpg
-from loguru import logger
 
 if TYPE_CHECKING:
     from chiori.client import ChioClient
+
+logger = logging.getLogger(__name__)
 
 
 class DBModel:
@@ -96,7 +98,7 @@ class ChioDB:
 
     def register(self, table: type[DBTable]) -> None:
         """Регистрирует таблицу в базу данных."""
-        logger.info("Register table {}", table.__tablename__)
+        logger.info("Register table %s", table.__tablename__)
         if table.__tablename__ in self._tables:
             raise ValueError(f"Table {table.__tablename__} already registered")
 
@@ -108,5 +110,5 @@ class ChioDB:
         """Создаёт таблицы для базы данных."""
         logger.info("Create tables")
         for name, model in self._tables.items():
-            logger.debug("Create table {}", name)
+            logger.debug("Create table %s", name)
             await model.create_table()

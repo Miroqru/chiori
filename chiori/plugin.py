@@ -4,6 +4,7 @@
 Предоставляет метаданные для плагина, с дополнительными сведениями.
 """
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -13,9 +14,10 @@ from hikari import Permissions, Snowflake, UndefinedType
 from hikari.applications import ApplicationContextType, ApplicationIntegrationType
 from hikari.guilds import PartialGuild
 from hikari.undefined import UNDEFINED
-from loguru import logger
 
 from chiori.client import ChioClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -103,7 +105,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         Если не указано, вернётся значение по умолчанию.
         """
         if self._meta is None:
-            logger.warning("{} don`t have metadata", self._name)
+            logger.warning("%s don`t have metadata", self._name)
             return PluginMeta()
 
         return self._meta
@@ -125,6 +127,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         super()._client_include_hook(client)
 
         if self._meta is None:
-            logger.warning("Plugin {} not provided meta. ", self.name)
+            logger.error("Plugin %s not provided metadata. ", self._name)
+            logger.debug("PluginMeta will become required for Chiori v0.13.0.")
 
         self._set_scope(client)

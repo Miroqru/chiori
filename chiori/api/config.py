@@ -5,14 +5,16 @@
 Настройки как статичное хранилище за пределами кода.
 """
 
+import logging
 from pathlib import Path
 from typing import Unpack
 
 import toml
-from loguru import logger
 from pydantic import ConfigDict, ValidationError
 
 from chiori.api.registry import RegisterModel, Registry, validation_error
+
+logger = logging.getLogger(__name__)
 
 
 class PluginConfig(RegisterModel):
@@ -29,17 +31,16 @@ class PluginConfig(RegisterModel):
 class ConfigRegistry(Registry[PluginConfig]):
     """Динамические настройки плагинов."""
 
-    __slots__ = ("_client", "_models", "_protos")
-
     def _load_proto[C: PluginConfig](
         self, config_path: Path, name: str, proto: type[C]
     ) -> C:
         config_file = config_path / f"{name}.toml"
         if config_file.exists():
+            logger.debug("Load config from %s", config_file)
             with config_file.open() as f:
                 model = proto.model_validate(toml.loads(f.read()))
         else:
-            logger.warning("Config file {} not found", config_file)
+            logger.warning("Config file %s not found", config_file)
             model = proto()
 
         self.set(proto, model, name)
@@ -60,13 +61,9 @@ class ConfigRegistry(Registry[PluginConfig]):
                 fail_load.append(name)
 
         if len(fail_load) > 0:
-            logger.error("Failed to load some configs:")
+            logger.error("Failed to load some config models:")
             for name in fail_load:
-                logger.error(
-                    "- {name} => {config}/{name}.toml",
-                    name=name,
-                    config=config_path,
-                )
+                logger.error("- %s => %s.toml", name, config_path)
 
             raise ValueError("Failed to load plugin config")
         self._protos = {}
@@ -79,7 +76,7 @@ class ConfigRegistry(Registry[PluginConfig]):
         Использовать только при необходимости.
         """
         name = proto.model_name()
-        logger.info("Register: {} -> {}", name, proto)
+        logger.info("Register: %s -> %s", name, proto)
         try:
             model = self._load_proto(config_path, name, proto)
         except ValidationError as e:

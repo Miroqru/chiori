@@ -4,11 +4,14 @@
 Всякую неожиданную ошибку он отправляет в событии UnexpectedError.
 """
 
+import logging
+
 import hikari
-from loguru import logger
 
 from chiori.client import ChioContext
 from chiori.events import UnexpectedError
+
+logger = logging.getLogger(__name__)
 
 
 def forbid_message(exc: hikari.ForbiddenError) -> hikari.Embed:
@@ -27,7 +30,7 @@ def forbid_message(exc: hikari.ForbiddenError) -> hikari.Embed:
 
 
 def _error_message(ctx: ChioContext, exc: Exception) -> hikari.Embed:
-    logger.exception(exc)
+    logger.error(exc)
     emb = hikari.Embed(
         title="⚡ Ой, прошу-прощения",
         description=(
