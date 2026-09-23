@@ -5,10 +5,10 @@
 Настройки как статичное хранилище за пределами кода.
 """
 
+import tomllib
 from pathlib import Path
 from typing import Unpack
 
-import toml
 from loguru import logger
 from pydantic import ConfigDict, ValidationError
 
@@ -37,7 +37,7 @@ class ConfigRegistry(Registry[PluginConfig]):
         config_file = config_path / f"{name}.toml"
         if config_file.exists():
             with config_file.open() as f:
-                model = proto.model_validate(toml.loads(f.read()))
+                model = proto.model_validate(tomllib.loads(f.read()))
         else:
             logger.warning("Config file {} not found", config_file)
             model = proto()
