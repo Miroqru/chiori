@@ -5,11 +5,11 @@
 """
 
 import sys
+import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, PostgresDsn, ValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, ConfigDict, PostgresDsn, ValidationError
 
 from chiori.api.registry import validation_error
 
@@ -41,10 +41,11 @@ class PathConfig(BaseModel):
 
 
 # TODO: Работа только на сервере администраторов.
-class ChioConfig(BaseSettings):
+class ChioConfig(BaseModel):
     """Общие настройки Шиори.
 
     Загружаются один раз во время запуска и после не изменяются.
+    Отвечают за запуск и настройку бота.
     """
 
     BOT_TOKEN: str
@@ -101,16 +102,19 @@ class ChioConfig(BaseSettings):
     path: PathConfig = PathConfig()
     """Настройки путей для поиска файлов."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-def load_config() -> ChioConfig:
-    """Загружает настройки Chiori из .env фалйа.
+def load_config(path: Path) -> ChioConfig:
+    """Загружает настройки Chiori из .env файла.
 
     Если не получится загрузить, прерывает работу бота.
     """
+    with path.open() as f:
+        config = tomllib.loads(f.read())
+
     try:
-        config = ChioConfig()  # pyright: ignore[reportCallIssue]
+        config = ChioConfig.model_validate(config)
     except ValidationError as e:
         validation_error(e)
         sys.exit(1)
