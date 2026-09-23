@@ -26,7 +26,7 @@ class DBModel:
     @classmethod
     def from_row(cls, row: asyncpg.Record) -> Self:
         """Собирает значение зи строки базы данных."""
-        return cls(**{k: v for k, v in row.items()})
+        return cls(**dict(row.items()))
 
 
 class DBTable(ABC):
