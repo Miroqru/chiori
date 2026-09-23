@@ -8,10 +8,36 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import PostgresDsn, ValidationError
+from pydantic import BaseModel, PostgresDsn, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chiori.api.registry import validation_error
+
+
+class PathConfig(BaseModel):
+    """Настройки путей для хранения файлов."""
+
+    EXTENSIONS_PATH: Path = Path("extensions/")
+    """Путь до расширений.
+
+    Шиори будет искать файлы расширений в указанной директории.
+    Можно использовать несколько разных путей для разных сборок.
+    """
+
+    DATA_PATH: Path = Path("bot_data/")
+    """Путь до хранилища данных плагинов.
+
+    Здесь расширения могут сохранять свои данные для работы.
+    К примеру текстовые данные, фотографии или прочее.
+    Обратите внимание что расширения могут свободно читать и изменять файлы.
+    """
+
+    CONFIG_PATH: Path = Path("config/")
+    """Путь до настроек плагинов.
+
+    Отсюда расширения загружают свои настройки.
+    Настройки представляют собой TOML файлы.
+    """
 
 
 # TODO: Работа только на сервере администраторов.
@@ -72,26 +98,8 @@ class ChioConfig(BaseSettings):
     Также поддерживается указание unix-сокета.
     """
 
-    EXTENSIONS_PATH: Path = Path("extensions/")
-    """Путь до расширений.
-
-    Шиори будет искать файлы расширений в указанной директории.
-    """
-
-    DATA_PATH: Path = Path("bot_data/")
-    """Путь до хранилища данных плагинов.
-
-    Здесь расширения могут сохранять свои данные для работы.
-    К примеру текстовые данные, фотографии или прочее.
-    Обратите внимание что расширения могут свободно читать и изменять файлы.
-    """
-
-    CONFIG_PATH: Path = Path("config/")
-    """Путь до настроек плагинов.
-
-    Отсюда расширения загружают свои настройки.
-    Настройки представляют собой TOML файлы.
-    """
+    path: PathConfig = PathConfig()
+    """Настройки путей для поиска файлов."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="forbid", frozen=True)
 

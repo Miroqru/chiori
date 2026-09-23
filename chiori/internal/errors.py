@@ -13,6 +13,9 @@ from chiori.events import UnexpectedError
 
 logger = logging.getLogger(__name__)
 
+# TODO: Обработка ошибок для владельца
+# TODO: Обработка ошибки только для сервера
+
 
 def forbid_message(exc: hikari.ForbiddenError) -> hikari.Embed:
     logger.error(exc)

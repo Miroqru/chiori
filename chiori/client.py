@@ -17,17 +17,15 @@ from hikari.guilds import PartialGuild
 from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
-from typing_extensions import deprecated
 
 from chiori.api import ChioDB, ConfigRegistry, EmojiRegistry, PluginConfig
-from chiori.internal.config import ChioConfig
+from chiori.internal.config import ChioConfig, PathConfig
 
 logger = logging.getLogger(__name__)
 _Formatter = Callable[[Any], hikari.Embed]
 _Errors = dict[type[Exception], _Formatter]
 
 
-# TODO: Provide miru client for views
 class ChioClient(arc.GatewayClient):
     """Надстройка над GatewayClient.
 
@@ -35,11 +33,13 @@ class ChioClient(arc.GatewayClient):
     """
 
     __slots__ = (
+        "_admin_guild",
         "_bot_config",
         "_config",
         "_db",
         "_emoji",
         "_errors",
+        "_main_guild",
         "_miru",
         "_session",
     )
@@ -67,6 +67,8 @@ class ChioClient(arc.GatewayClient):
 
         self._bot_config = config
         self._owner_ids = [hikari.Snowflake(u_id) for u_id in config.BOT_OWNERS]
+        self._main_guild = hikari.Snowflake(config.MAIN_GUILD)
+        self._admin_guild = hikari.Snowflake(config.ADMIN_GUILD)
 
         self._miru = miru.Client.from_arc(self)
 
@@ -78,17 +80,32 @@ class ChioClient(arc.GatewayClient):
         self._errors: _Errors = {}
 
     @property
-    @deprecated("Chiori v0.13, use owners_id instead, or internal config")
-    def bot_config(self) -> ChioConfig:
-        """Корневые настройки бота.
+    def path_config(self) -> PathConfig:
+        """Настройки путей к файлам.
 
-        Хранит в себе конфиденциальные данные и в будущем будет переработан.
-        Каждый доступ к настройкам журналируется.
-        Может быть убрано в будущих версиях для безопасности.
+        Можно использовать чтобы получить используемые пути.
+        Где лежат расширения, настройки и общие данные.
+        Пришло на замену общим настройкам для повышения безопасности.
         """
-        logger.warning("Access to bot config")
-        logger.debug("Please don`t use config outside client")
-        return self._bot_config
+        return self._bot_config.path
+
+    @property
+    def main_guild(self) -> hikari.Snowflake:
+        """Главный сервер Шиори.
+
+        Домашний сервер где происходит общение между участниками.
+        Там же работают специальные расширения.
+        """
+        return self._main_guild
+
+    @property
+    def admin_guild(self) -> hikari.Snowflake:
+        """Сервер для администраторов.
+
+        Особый сервер где можно проводить настройку ядра.
+        Здесь же работают особенные расширения.
+        """
+        return self._admin_guild
 
     @property
     def miru(self) -> miru.Client:
@@ -169,7 +186,7 @@ class ChioClient(arc.GatewayClient):
         настройки.
         В остальном не рекомендуется к использованию без необходимости.
         """
-        return self.config.preload(config, self._bot_config.CONFIG_PATH)
+        return self.config.preload(config, self._bot_config.path.CONFIG_PATH)
 
     def register_error(self, exc: type[Exception], func: _Formatter) -> None:
         """Регистрирует ошибку для обработчика клиента.

@@ -122,13 +122,13 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
         if self._scope == "main":
             self._default_enabled_guilds = [
-                client.bot_config.MAIN_GUILD,
-                client.bot_config.ADMIN_GUILD,
+                client._main_guild,  # noqa: SLF001
+                client._admin_guild,  # noqa: SLF001
             ]
 
-        # TODO: Выполнение только администраторам бота
         if self._scope == "admin":
-            self._default_enabled_guilds = [client.bot_config.ADMIN_GUILD]
+            self.add_hook(arc.owner_only)
+            self._default_enabled_guilds = [client._admin_guild]  # noqa: SLF001
 
     def _client_include_hook(self, client: ChioClient) -> None:
         super()._client_include_hook(client)

@@ -7,6 +7,7 @@
 """
 
 import logging
+from pathlib import Path
 
 import hikari
 
@@ -24,6 +25,9 @@ _LOG_FORMAT = (
     "{file}:{function} "
     "<lvl>{message}</>"
 )
+
+_CONFIG_PATH = Path("chio.toml")
+"""Путь к основным настройкам Chiori."""
 
 
 # TODO: Выглядит как костыль
@@ -43,7 +47,7 @@ def run_bot() -> None:
     Производит подключение к базе данных.
     Запускает обработку событий.
     """
-    config = load_config()
+    config = load_config(_CONFIG_PATH)
     bot = hikari.GatewayBot(
         banner=None,
         token=config.BOT_TOKEN,
@@ -63,9 +67,9 @@ def run_bot() -> None:
         },
     )
 
-    config.EXTENSIONS_PATH.mkdir(exist_ok=True)
-    config.DATA_PATH.mkdir(exist_ok=True)
-    config.CONFIG_PATH.mkdir(exist_ok=True)
+    config.path.EXTENSIONS_PATH.mkdir(exist_ok=True)
+    config.path.DATA_PATH.mkdir(exist_ok=True)
+    config.path.CONFIG_PATH.mkdir(exist_ok=True)
 
     # Это от части костыль
     logger = logging.getLogger("chiori")
@@ -87,11 +91,11 @@ def run_bot() -> None:
     client.register_error(hikari.ForbiddenError, forbid_message)
 
     client.config.register(Custom)
-    logger.info("Load plugins from %s/", config.EXTENSIONS_PATH)
-    client.load_extensions_from(config.EXTENSIONS_PATH)
+    logger.info("Load plugins from %s/", config.path.EXTENSIONS_PATH)
+    client.load_extensions_from(config.path.EXTENSIONS_PATH)
 
     logger.info("Start Chiori client")
-    client.config.load(client.bot_config.CONFIG_PATH)
+    client.config.load(config.path.CONFIG_PATH)
     client.emoji.load()
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
