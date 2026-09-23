@@ -6,10 +6,10 @@
 """
 
 import logging
+import tomllib
 from pathlib import Path
 from typing import Unpack
 
-import toml
 from pydantic import ConfigDict, ValidationError
 
 from chiori.api.registry import RegisterModel, Registry, validation_error
@@ -38,7 +38,7 @@ class ConfigRegistry(Registry[PluginConfig]):
         if config_file.exists():
             logger.debug("Load config from %s", config_file)
             with config_file.open() as f:
-                model = proto.model_validate(toml.loads(f.read()))
+                model = proto.model_validate(tomllib.loads(f.read()))
         else:
             logger.warning("Config file %s not found", config_file)
             model = proto()
