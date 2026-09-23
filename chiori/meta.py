@@ -9,7 +9,7 @@ from typing import Final
 __author__: Final[str] = "Milinuri Nirvalen"
 """Автор и сопровождающий разработчик Шиори."""
 
-__version__: Final[str] = "0.12.0"
+__version__: Final[str] = "0.12.1"
 """Текущая версия Шиори в формате SemVer."""
 
 __copyright__: Final[str] = "2024-present, Milinuri Nirvalen"
