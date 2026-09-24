@@ -6,6 +6,7 @@
 Динамически подгружает расширений, настройки, базу данных.
 """
 
+import argparse
 import logging
 from pathlib import Path
 
@@ -13,7 +14,7 @@ import hikari
 
 from chiori import meta
 from chiori.client import ChioClient
-from chiori.internal.config import load_config
+from chiori.internal.config import ChioConfig, load_config
 from chiori.internal.errors import client_error_handler, forbid_message
 
 # Настраиваем формат отображения логов loguru
@@ -38,7 +39,7 @@ async def _on_shutdown(client: ChioClient) -> None:
     await client.stop()
 
 
-def run_bot() -> None:
+def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     """Запуска бота.
 
     Создаёт новый клиент и запускает его подсистемы.
@@ -46,25 +47,26 @@ def run_bot() -> None:
     Производит подключение к базе данных.
     Запускает обработку событий.
     """
-    config = load_config(_CONFIG_PATH)
     bot = hikari.GatewayBot(
         banner=None,
         token=config.BOT_TOKEN,
         intents=hikari.Intents.ALL,
         logs="DEBUG" if config.HIKARI_DEBUG else "INFO",
     )
-    bot.print_banner(
-        "chiori",
-        allow_color=True,
-        force_color=False,
-        extra_args={
-            "chio_version": meta.__version__,
-            "chio_copyright": meta.__copyright__,
-            "chio_license": meta.__license__,
-            "chio_discord": meta.__discord_invite__,
-            "chio_docementation": meta.__docs__,
-        },
-    )
+
+    if not args.no_banner:
+        bot.print_banner(
+            "chiori",
+            allow_color=True,
+            force_color=False,
+            extra_args={
+                "chio_version": meta.__version__,
+                "chio_copyright": meta.__copyright__,
+                "chio_license": meta.__license__,
+                "chio_discord": meta.__discord_invite__,
+                "chio_docementation": meta.__docs__,
+            },
+        )
 
     config.path.EXTENSIONS_PATH.mkdir(exist_ok=True)
     config.path.DATA_PATH.mkdir(exist_ok=True)
@@ -84,7 +86,10 @@ def run_bot() -> None:
         enabled_guilds = hikari.UNDEFINED
 
     client = ChioClient(
-        bot, config, autosync=not config.DEBUG, default_enabled_guilds=enabled_guilds
+        bot,
+        config,
+        autosync=args.sync_commands or not config.DEBUG,
+        default_enabled_guilds=enabled_guilds,
     )
     client.set_error_handler(client_error_handler)
     client.register_error(hikari.ForbiddenError, forbid_message)
@@ -98,4 +103,77 @@ def run_bot() -> None:
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
 
-    bot.run(activity=config.custom.activity.activity, asyncio_debug=config.HIKARI_DEBUG)
+    bot.run(
+        activity=config.custom.activity.activity,
+        asyncio_debug=config.HIKARI_DEBUG,
+        check_for_updates=False,
+    )
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="chiori", description="Chiori is modular discord bot core."
+    )
+
+    parser.add_argument(
+        "--config",
+        "-c",
+        help="Path to chiori config file (chio.toml)",
+        type=Path,
+        default=_CONFIG_PATH,
+        metavar="path",
+    )
+    parser.add_argument(
+        "--no-banner",
+        action="store_true",
+        help="Don`t print banner on start",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable Chiori debug mode",
+    )
+    parser.add_argument(
+        "--hikari-debug",
+        action="store_true",
+        help="Enable hikari and asyncio debug mode",
+    )
+    parser.add_argument(
+        "--sync-commands",
+        action="store_true",
+        help="Sync slash commands on start client",
+    )
+    parser.add_argument(
+        "--ext-path",
+        "-e",
+        help="Path to load extensions",
+        type=Path,
+        default=None,
+        metavar="path",
+    )
+    return parser
+
+
+def _config_overrides(config: ChioConfig, args: argparse.Namespace) -> None:
+    if args.debug:
+        config.DEBUG = True
+
+    if args.hikari_debug:
+        config.HIKARI_DEBUG = True
+
+    if e := args.ext_path:
+        config.path.EXTENSIONS_PATH = e
+
+
+def cli() -> None:
+    """Интерфейс командной строки для управления Шиори.
+
+    Предоставляет гибкие параметры для запуска.
+    """
+    parser = _parser()
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    _config_overrides(config, args)
+
+    run_bot(args, config)

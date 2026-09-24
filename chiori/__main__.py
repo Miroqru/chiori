@@ -1,6 +1,6 @@
 """Точка входа для запуска Шиори."""
 
-from chiori.internal.cli import run_bot
+from chiori.internal.cli import cli
 
 if __name__ == "__main__":
-    run_bot()
+    cli()

@@ -8,6 +8,7 @@ import sys
 import tomllib
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, PostgresDsn, ValidationError
 
@@ -41,7 +42,6 @@ class PathConfig(BaseModel):
     """
 
 
-# TODO: Работа только на сервере администраторов.
 class ChioConfig(BaseModel):
     """Общие настройки Шиори.
 
@@ -109,10 +109,10 @@ class ChioConfig(BaseModel):
     Позволяют более гибко настраивать оформление сборки Шиори.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid")
 
 
-def load_config(path: Path) -> ChioConfig:
+def load_config(path: Path, overrides: dict[str, Any] | None = None) -> ChioConfig:
     """Загружает настройки Chiori из .env файла.
 
     Если не получится загрузить, прерывает работу бота.
