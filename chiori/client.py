@@ -212,7 +212,7 @@ class ChioClient(arc.GatewayClient):
         for hook in self._shutdown_hooks:
             try:
                 await hook(self)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(f"Error in shutdown hook '{hook.__name__}': {e}")
                 traceback.print_exc()
 
