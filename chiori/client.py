@@ -203,7 +203,7 @@ class ChioClient(arc.GatewayClient):
         Позволяет обрабатывать ошибки на уровне клиента.
         Регистрируется пара: ошибка - функция отправки Embed сообщения.
         """
-        logger.info("Register error %s", exc)
+        logger.debug("Register handler for %s", exc.__name__)
         if exc in self._errors:
             raise ValueError(f"Erorr {exc} already registered")
         self._errors[exc] = func

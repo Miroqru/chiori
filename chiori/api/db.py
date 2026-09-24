@@ -90,7 +90,7 @@ class ChioDB:
 
     async def close(self) -> None:
         """Закрывает подключение к базе данных."""
-        logger.info("Shutdown Chio database")
+        logger.info("Close Chio database connection")
         if self._pool is None:
             logger.warning("No active connection to close")
             return
@@ -98,7 +98,7 @@ class ChioDB:
 
     def register(self, table: type[DBTable]) -> None:
         """Регистрирует таблицу в базу данных."""
-        logger.info("Register table %s", table.__tablename__)
+        logger.debug("Register table %s", table.__tablename__)
         if table.__tablename__ in self._tables:
             raise ValueError(f"Table {table.__tablename__} already registered")
 
@@ -108,7 +108,7 @@ class ChioDB:
 
     async def create_tables(self) -> None:
         """Создаёт таблицы для базы данных."""
-        logger.info("Create tables")
+        logger.info("Create tables from models")
         for name, model in self._tables.items():
             logger.debug("Create table %s", name)
             await model.create_table()

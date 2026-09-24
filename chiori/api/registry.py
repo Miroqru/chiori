@@ -75,7 +75,7 @@ class Registry[M: RegisterModel]:
         Если прототип с таким именем уже существует - выдаст ошибку.
         """
         name = proto.model_name()
-        logger.info("Register: %s -> %s", name, proto)
+        logger.debug("Register: %s -> %s", name, proto)
         if name in self._protos:
             raise ValueError(f"{name} (proto {proto}) already registered")
         self._protos[name] = proto

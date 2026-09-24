@@ -76,7 +76,7 @@ class ConfigRegistry(Registry[PluginConfig]):
         Использовать только при необходимости.
         """
         name = proto.model_name()
-        logger.info("Register: %s -> %s", name, proto)
+        logger.debug("Register: %s -> %s", name, proto)
         try:
             model = self._load_proto(config_path, name, proto)
         except ValidationError as e:
