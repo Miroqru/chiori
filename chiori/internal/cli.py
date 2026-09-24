@@ -11,12 +11,12 @@ import logging
 from pathlib import Path
 
 import hikari
-from chiori.log import logger
 
 from chiori import meta
 from chiori.client import ChioClient
 from chiori.internal.config import ChioConfig, load_config
 from chiori.internal.errors import setup_errors
+from chiori.log import logger
 
 _CONFIG_PATH = Path("chio.toml")
 """Путь к основным настройкам Chiori."""

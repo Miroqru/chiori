@@ -7,10 +7,9 @@ arc.CommandErrorEvent.
 
 import arc
 import hikari
-from chiori.log import logger
 
-from chiori import ChioClient
-from chiori.client import ChioContext
+from chiori.client import ChioClient, ChioContext
+from chiori.log import logger
 
 
 def _guild_only(exc: arc.GuildOnlyError) -> hikari.Embed:
