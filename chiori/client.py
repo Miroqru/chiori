@@ -4,7 +4,6 @@
 Предоставляет доступ к настройкам и хранилищам расширений.
 """
 
-import logging
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -26,11 +25,11 @@ from chiori.api import (
     PluginConfig,
 )
 from chiori.internal.config import ChioConfig, PathConfig
+from chiori.log import logger
 
 if TYPE_CHECKING:
     from chiori.plugin import ChioPlugin
 
-logger = logging.getLogger(__name__)
 _Formatter = Callable[[Any], hikari.Embed]
 _Errors = dict[type[Exception], _Formatter]
 

@@ -17,8 +17,6 @@ from hikari.undefined import UNDEFINED
 
 from chiori.client import ChioClient
 
-logger = logging.getLogger(__name__)
-
 
 @dataclass(slots=True, frozen=True)
 class PluginMeta:
@@ -68,7 +66,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
 
     """
 
-    __slots__ = ("_meta", "_scope")
+    __slots__ = ("_meta", "_scope", "logger")
 
     def __init__(  # noqa: PLR0913
         self,
@@ -99,6 +97,8 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         self._meta = meta
         self._scope = scope
 
+        self.logger = logging.getLogger(name)
+
     @property
     def meta(self) -> PluginMeta:
         """Дополнительные сведения о плагине.
@@ -106,7 +106,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         Если не указано, вернётся значение по умолчанию.
         """
         if self._meta is None:
-            logger.warning("%s don`t have metadata", self._name)
+            self.logger.warning("Plugin don`t have metadata")
             return PluginMeta()
 
         return self._meta
@@ -134,7 +134,7 @@ class ChioPlugin(arc.GatewayPluginBase[ChioClient]):
         super()._client_include_hook(client)
 
         if self._meta is None:
-            logger.error("Plugin %s not provided metadata. ", self._name)
-            logger.debug("PluginMeta will become required for Chiori v0.13.0.")
+            self.logger.error("Plugin not provided metadata.")
+            self.logger.debug("PluginMeta will become required for Chiori v0.13.0.")
 
         self._set_scope(client)

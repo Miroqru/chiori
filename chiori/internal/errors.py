@@ -5,15 +5,12 @@
 arc.CommandErrorEvent.
 """
 
-import logging
-
 import arc
 import hikari
+from chiori.log import logger
 
 from chiori import ChioClient
 from chiori.client import ChioContext
-
-logger = logging.getLogger(__name__)
 
 
 def _guild_only(exc: arc.GuildOnlyError) -> hikari.Embed:
@@ -57,7 +54,7 @@ def _owner_only(exc: arc.NotOwnerError) -> hikari.Embed:
 
 
 def _error_message(ctx: ChioContext, exc: Exception) -> hikari.Embed:
-    logger.error(exc)
+    logger.exception(exc)
     emb = hikari.Embed(
         title="⚡ Ой, прошу-прощения",
         description=(

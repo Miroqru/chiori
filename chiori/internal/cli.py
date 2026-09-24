@@ -11,20 +11,12 @@ import logging
 from pathlib import Path
 
 import hikari
+from chiori.log import logger
 
 from chiori import meta
 from chiori.client import ChioClient
 from chiori.internal.config import ChioConfig, load_config
 from chiori.internal.errors import setup_errors
-
-# Настраиваем формат отображения логов loguru
-# Обратите внимание что в проекте помимо loguru используется logging
-_LOG_FORMAT = (
-    "<lvl>{level.icon}</> "
-    "<light-black>{time:YYYY-MM-DD HH:mm:ss.SSS}</> "
-    "{file}:{function} "
-    "<lvl>{message}</>"
-)
 
 _CONFIG_PATH = Path("chio.toml")
 """Путь к основным настройкам Chiori."""
@@ -72,15 +64,7 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     config.path.DATA_PATH.mkdir(exist_ok=True)
     config.path.CONFIG_PATH.mkdir(exist_ok=True)
 
-    # Это от части костыль
-    logger = logging.getLogger("chiori")
-    logger.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
-
     if config.DEBUG:
-        logger.warning("Enabled debug mode")
-        logger.warning("- Auto sync disabled, use /ext sync instead")
-        logger.warning("- Default enabled guilds set to MAIN + ADMIN")
-        logger.warning("Please disable debug mode in production")
         enabled_guilds = [config.MAIN_GUILD, config.ADMIN_GUILD]
     else:
         enabled_guilds = hikari.UNDEFINED
@@ -96,9 +80,10 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     logger.info("Load plugins from %s/", config.path.EXTENSIONS_PATH)
     client.load_extensions_from(config.path.EXTENSIONS_PATH)
 
-    logger.info("Start Chiori client")
+    logger.info("Prepare Chiori client")
     client.config.load(config.path.CONFIG_PATH)
     client.emoji.load()
+    client.service.load()
     client.add_startup_hook(_on_start)
     client.add_shutdown_hook(_on_shutdown)
 
@@ -186,5 +171,21 @@ def cli() -> None:
 
     config = load_config(args.config)
     _config_overrides(config, args)
+
+    logger.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
+
+    if config.DEBUG:
+        logger.warning("Enabled debug mode")
+        logger.warning("- Logger level set to DEBUG")
+        logger.warning("- Default enabled guilds set to MAIN + ADMIN")
+        logger.info("Please disable debug mode in production")
+
+    if not config.SYNC_COMMANDS:
+        logger.warning("Sync commands disabled")
+        logger.info("Use /ext sync to manually sync commands with discord")
+
+    if not config.CREATE_MODELS:
+        logger.warning("Create models disabled")
+        logger.info("Please create models again if you change/update extensions")
 
     run_bot(args, config)
