@@ -15,6 +15,9 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self
 
 import asyncpg
+import pypika
+
+from chiori.api.registry import RegistryError
 
 if TYPE_CHECKING:
     from chiori.client import ChioClient
@@ -22,6 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# TODO: Перейти на использование pydantic
 class DBModel:
     """Базовый класс модели.
 
@@ -47,6 +51,16 @@ class ModelTable(ABC):
     def __init__(self, db: ModelRegistry) -> None:
         self._db = db
 
+    @property
+    def table(self) -> pypika.Table:
+        """Возвращает таблицу для создания запросов."""
+        return pypika.Table(self.__table_name__)
+
+    @property
+    def table_name(self) -> str:
+        """Возвращает уникальное имя таблицы."""
+        return self.__table_name__
+
     @abstractmethod
     async def create_table(self) -> None:
         """Создаёт таблицу в базе данных, если ещё не была создана.
@@ -69,8 +83,10 @@ class ModelTable(ABC):
         В будущем может быть удалено.
         """
         super().__init_subclass__()
-        if table is not None:
-            cls.__table_name__ = table
+        if not table:
+            raise RegistryError(f"You need to specify table name for {cls.__name__!r}")
+
+        cls.__table_name__ = table
 
 
 class ModelRegistry:
@@ -121,7 +137,7 @@ class ModelRegistry:
 
         Принимает параметры для подключения к базе.
         """
-        logger.info("Open Chio database connection")
+        logger.info("Connect to Chio database")
         self._pool = await asyncpg.create_pool(dsn)
 
     async def close(self) -> None:
