@@ -1,5 +1,5 @@
 ${yellow}               __      _                    _  ${reset}${bold_white}Version ${chio_version}${reset}
 ${yellow}      _____   / /_    (_)  ____    _____   (_) ${reset}${bold_white}© ${chio_copyright}${thin_white} - ${chio_license} license${reset}
 ${yellow}     / ___/  / __ \  / /  / __ \  / ___/  / /  ${reset}${bold_white}interpreter:   ${thin_white}${python_implementation} ${python_version} on ${system_description}${reset}
-${yellow}    / /__   / / / / / /  / /_/ / / /     / /   ${reset}${bold_white}documentation: ${thin_white}${chio_documentation}${reset}${reset}
+${yellow}    / /__   / / / / / /  / /_/ / / /     / /   ${reset}${bold_white}documentation: ${thin_white}${chio_docs}${reset}${reset}
 ${yellow}    \___/  /_/ /_/ /_/   \____/ /_/     /_/    ${reset}${bold_white}support:       ${thin_white}${chio_discord}${reset}

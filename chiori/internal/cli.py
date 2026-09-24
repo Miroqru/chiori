@@ -56,7 +56,7 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
                 "chio_copyright": meta.__copyright__,
                 "chio_license": meta.__license__,
                 "chio_discord": meta.__discord_invite__,
-                "chio_docementation": meta.__docs__,
+                "chio_docs": meta.__docs__,
             },
         )
 
