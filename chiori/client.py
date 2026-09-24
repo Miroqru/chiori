@@ -18,7 +18,13 @@ from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
 
-from chiori.api import ChioDB, ConfigRegistry, Custom, EmojiRegistry, PluginConfig
+from chiori.api import (
+    ConfigRegistry,
+    Custom,
+    EmojiRegistry,
+    ModelRegistry,
+    PluginConfig,
+)
 from chiori.internal.config import ChioConfig, PathConfig
 
 if TYPE_CHECKING:
@@ -79,7 +85,7 @@ class ChioClient(arc.GatewayClient):
         self._miru = miru.Client.from_arc(self)
 
         self._config = ConfigRegistry(self)
-        self._db = ChioDB(self)
+        self._db = ModelRegistry(self)
         self._emoji = EmojiRegistry(self)
 
         self._session: aiohttp.ClientSession | None = None
@@ -138,7 +144,7 @@ class ChioClient(arc.GatewayClient):
         return self._config
 
     @property
-    def db(self) -> ChioDB:
+    def db(self) -> ModelRegistry:
         """Хранилище базы данных Chiori.
 
         Здесь хранятся используемые таблицы для базы данных.

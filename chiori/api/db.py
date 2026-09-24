@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class DBModel:
-    """Базовая модель для элементов."""
+    """Базовый класс модели.
+
+    В этот класс после будут превращаться строки базы данных.
+    """
 
     @classmethod
     def from_row(cls, row: asyncpg.Record) -> Self:
@@ -31,84 +34,125 @@ class DBModel:
         return cls(**dict(row.items()))
 
 
-class DBTable(ABC):
+class ModelTable(ABC):
     """Базовый класс для всех таблиц базы данных."""
 
-    __tablename__: str
+    __table_name__: str
+    """Имя таблицы.
 
-    def __init__(self, db: ChioDB) -> None:
+    Используется для идентификации таблиц в базе данных.
+    Должно быть уникальным.
+    """
+
+    def __init__(self, db: ModelRegistry) -> None:
         self._db = db
 
     @abstractmethod
     async def create_table(self) -> None:
-        """Создаёт таблицу в базе данных, если ещё не была создана."""
+        """Создаёт таблицу в базе данных, если ещё не была создана.
+
+        Обязательный метод для определения.
+        """
 
     @property
     def pool(self) -> asyncpg.Pool:
-        """Возвращает подключение к базе данных."""
+        """Возвращает пул подключений к базе данных.
+
+        Его можно использовать только когда база данных активна.
+        Позволяет выполнять запросы к базе данных.
+        """
         return self._db.pool
 
     def __init_subclass__(cls, table: str | None = None) -> None:
-        """Предоставляет имя таблицы для подкласса."""
+        """Предоставляет имя таблицы для подкласса.
+
+        В будущем может быть удалено.
+        """
         super().__init_subclass__()
         if table is not None:
-            cls.__tablename__ = table
+            cls.__table_name__ = table
 
 
-class ChioDB:
-    """База данных Chiori.
+class ModelRegistry:
+    """Регистр моделей.
 
-    Глобальное хранилище для хранение данных бота.
-    Работает поверх Postgres пула подключений.
+    Она же база данных Шиори.
+    Работает поверх Postgres пула подключений и взаимодействует со всеми таблицами
+    базы данных и их моделями.
     """
 
-    __slots__ = ("_pool", "_tables", "app", "client")
+    __slots__ = ("_client", "_models", "_pool", "app")
 
     def __init__(self, client: ChioClient) -> None:
-        self.client = client
+        self._client = client
         self.app = client.app
 
         self._pool: asyncpg.Pool | None = None
-        self._tables: dict[str, DBTable] = {}
+        self._models: dict[str, ModelTable] = {}
+
+    @property
+    def client(self) -> ChioClient:
+        """Клиент, к которому привязана база данных."""
+        return self._client
 
     async def ping(self) -> float:
-        """просчитывает пинг до базы данных."""
+        """Просчитывает пинг до базы данных.
+
+        Выполняет простой запрос к базе данных.
+        Время рассчитывается при помощи `monotonic`.
+        """
         start = time.monotonic()
         await self.pool.execute("SELECT 1")
         return (time.monotonic() - start) * 1000
 
     @property
     def pool(self) -> asyncpg.Pool:
-        """Возвращает подключение к базе данных."""
+        """Возвращает пул подключений к базе данных.
+
+        Его можно использовать только когда база данных активна.
+        Иначе вернёт исключение с ошибкой подключения.
+        """
         if self._pool is None:
             raise ValueError("You need to connect to database pool before")
         return self._pool
 
     async def connect(self, dsn: str) -> None:
-        """Подключение к базе данных."""
+        """Подключается к базе данных.
+
+        Принимает параметры для подключения к базе.
+        """
+        logger.info("Open Chio database connection")
         self._pool = await asyncpg.create_pool(dsn)
 
     async def close(self) -> None:
-        """Закрывает подключение к базе данных."""
+        """Закрывает соединение с базой данных, если активно."""
         logger.info("Close Chio database connection")
         if self._pool is None:
             logger.warning("No active connection to close")
             return
         await self._pool.close()
 
-    def register(self, table: type[DBTable]) -> None:
-        """Регистрирует таблицу в базу данных."""
-        logger.debug("Register table %s", table.__tablename__)
-        if table.__tablename__ in self._tables:
-            raise ValueError(f"Table {table.__tablename__} already registered")
+    def register(self, table: type[ModelTable]) -> None:
+        """Регистрирует модель в базу данных.
+
+        Действие выполняется до подключения к базе данных.
+        Создаёт экземпляр модели и помещает его в хранилище.
+        Также добавляет модель в DI клиента.
+        """
+        logger.debug("Register table %s", table.__table_name__)
+        if table.__table_name__ in self._models:
+            raise ValueError(f"Table {table.__table_name__} already registered")
 
         table_i = table(self)
-        self._tables[table.__tablename__] = table_i
-        self.client.set_type_dependency(table, table_i)
+        self._models[table.__table_name__] = table_i
+        self._client.set_type_dependency(table, table_i)
 
-    async def create_tables(self) -> None:
-        """Создаёт таблицы для базы данных."""
+    async def create_models(self) -> None:
+        """Создаёт таблицы для базы данных на основе моделей.
+
+        Должно выполнять после подключения к базе данных.
+        """
         logger.info("Create tables from models")
-        for name, model in self._tables.items():
+        for name, model in self._models.items():
             logger.debug("Create table %s", name)
             await model.create_table()
