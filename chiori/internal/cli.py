@@ -106,6 +106,7 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
         activity=config.custom.activity.activity,
         asyncio_debug=config.HIKARI_DEBUG,
         check_for_updates=False,
+        status=config.custom.status,
     )
 
 

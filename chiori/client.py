@@ -5,8 +5,8 @@
 """
 
 import logging
-from collections.abc import Callable, Sequence
-from typing import Any
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import arc
@@ -21,6 +21,9 @@ from hikari.undefined import UNDEFINED
 from chiori.api import ChioDB, ConfigRegistry, Custom, EmojiRegistry, PluginConfig
 from chiori.internal.config import ChioConfig, PathConfig
 
+if TYPE_CHECKING:
+    from chiori.plugin import ChioPlugin
+
 logger = logging.getLogger(__name__)
 _Formatter = Callable[[Any], hikari.Embed]
 _Errors = dict[type[Exception], _Formatter]
@@ -31,6 +34,9 @@ class ChioClient(arc.GatewayClient):
 
     Предоставляет доступ к настройкам и хранилищам расширений.
     """
+
+    # Расширения отдают только расширения Шиори
+    plugins: Mapping[str, "ChioPlugin"]  # pyright: ignore[reportIncompatibleMethodOverride]
 
     __slots__ = (
         "_admin_guild",

@@ -11,9 +11,18 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 from chiori.api.config import PluginConfig
 
+# Специальные типы для проверки
 Color = Annotated[hikari.Color, BeforeValidator(hikari.Color)]
-ActivityType = Annotated[hikari.ActivityType, BeforeValidator(hikari.ActivityType)]
+"""Представление цвета.
 
+Записывается в формате 0xFFFFFF.
+"""
+
+ActivityType = Annotated[hikari.ActivityType, BeforeValidator(hikari.ActivityType)]
+"""Тип активности в Rich presence."""
+
+Status = Annotated[hikari.Status, BeforeValidator(hikari.Status)]
+"""Статус участник."""
 
 # Модели
 # ======
@@ -108,6 +117,9 @@ class Custom(PluginConfig, config="custom"):
     activity: CustomActivity
     """Активность Шиори в статусе и профиле."""
 
+    status: Status
+    """Статус бота при запуске."""
+
     color: CustomColors
     """Палитра цветов.
 
@@ -116,3 +128,5 @@ class Custom(PluginConfig, config="custom"):
 
     emoji: dict[str, EmojiID | dict[str, EmojiID]]
     """Индекс custom emoji для использования."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
