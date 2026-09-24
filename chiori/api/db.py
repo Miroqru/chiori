@@ -32,13 +32,14 @@ class DBModel:
     В этот класс после будут превращаться строки базы данных.
     """
 
+    # TODO: Это устаревший метод и скоро он будет удалён
     @classmethod
     def from_row(cls, row: asyncpg.Record) -> Self:
         """Собирает значение зи строки базы данных."""
         return cls(**dict(row.items()))
 
 
-class ModelTable(ABC):
+class Table(ABC):
     """Базовый класс для всех таблиц базы данных."""
 
     __table_name__: str
@@ -76,6 +77,10 @@ class ModelTable(ABC):
         Позволяет выполнять запросы к базе данных.
         """
         return self._db.pool
+
+
+class ModelTable(Table):
+    """Таблица базы данных, привязанная к модели."""
 
     def __init_subclass__(cls, table: str | None = None) -> None:
         """Предоставляет имя таблицы для подкласса.

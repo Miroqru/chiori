@@ -23,6 +23,8 @@ class Service(RegisterModel):
     Сервис привязывается к клиенту.
     """
 
+    __slots__ = ("_client",)
+
     def __init__(self, client: "ChioClient") -> None:
         self._client = client
 
