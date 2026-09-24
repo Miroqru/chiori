@@ -14,7 +14,7 @@ from arc import loader, unloader
 
 # Shortcuts for public Chio components
 from chiori.client import ChioClient, ChioContext
-from chiori.events import ChioEvent, UnexpectedError
+from chiori.events import ChioEvent
 from chiori.meta import __author__, __version__
 from chiori.plugin import ChioPlugin, PluginMeta
 
@@ -24,7 +24,6 @@ __all__ = (
     "ChioEvent",
     "ChioPlugin",
     "PluginMeta",
-    "UnexpectedError",
     "__author__",
     "__version__",
     "loader",

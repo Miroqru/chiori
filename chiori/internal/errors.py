@@ -1,7 +1,8 @@
 """Общий обработчик ошибок.
 
 Обрабатывает корневые ошибки, если они не были перехвачены на уровне расширений.
-Всякую неожиданную ошибку он отправляет в событии UnexpectedError.
+Для обработки ошибок во время выполнения команды лучше использовать:
+arc.CommandErrorEvent.
 """
 
 import logging
@@ -11,7 +12,6 @@ import hikari
 
 from chiori import ChioClient
 from chiori.client import ChioContext
-from chiori.events import UnexpectedError
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,6 @@ async def client_error_handler(ctx: ChioContext, exc: Exception) -> None:
         raise exc  # noqa: TRY301
     except Exception as e:  # noqa: BLE001
         await ctx.respond(_error_message(ctx, e))
-        ctx.client.app.event_manager.dispatch(UnexpectedError(ctx, exc))
 
 
 def setup_errors(client: ChioClient) -> None:
