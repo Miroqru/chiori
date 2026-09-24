@@ -22,15 +22,6 @@ _CONFIG_PATH = Path("chio.toml")
 """Путь к основным настройкам Chiori."""
 
 
-# TODO: Выглядит как костыль
-async def _on_start(client: ChioClient) -> None:
-    await client.start()
-
-
-async def _on_shutdown(client: ChioClient) -> None:
-    await client.stop()
-
-
 def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     """Запуска бота.
 
@@ -84,8 +75,6 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     client.config.load(config.path.CONFIG_PATH)
     client.emoji.load()
     client.service.load()
-    client.add_startup_hook(_on_start)
-    client.add_shutdown_hook(_on_shutdown)
 
     bot.run(
         activity=config.custom.activity.activity,

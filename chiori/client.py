@@ -4,6 +4,7 @@
 Предоставляет доступ к настройкам и хранилищам расширений.
 """
 
+import traceback
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,7 @@ from hikari.guilds import PartialGuild
 from hikari.locales import Locale
 from hikari.traits import GatewayBotAware
 from hikari.undefined import UNDEFINED
+from typing_extensions import deprecated
 
 from chiori.api import (
     ConfigRegistry,
@@ -185,30 +187,45 @@ class ChioClient(arc.GatewayClient):
         """
         return self._service
 
-    async def start(self) -> None:
+    async def _on_startup(self) -> None:
         """Запускает работа клиента.
 
         Запускается последним перед запуском обработки событий.
         Запускает сессию, подключается к базе данных и создаёт таблицы.
         """
-        logger.info("Start Chiori!")
+        logger.info("Start Chiori client!")
         self._session = aiohttp.ClientSession()
-        await self._db.connect(str(self._bot_config.DB_DSN))
 
+        await self._db.connect(str(self._bot_config.DB_DSN))
         if self._bot_config.CREATE_MODELS:
             await self._db.create_models()
 
-    async def stop(self) -> None:
+        # И конечно же продолжаем стандартный запуск
+        await super()._on_startup()
+
+    async def _on_shutdown(self) -> None:
         """Остановка работа клиента.
 
         Закрывает соединение с http сессией и базой данных.
+        Завершает
         """
-        logger.info("Stop Chiori!")
-        await self._db.close()
+        for hook in self._shutdown_hooks:
+            try:
+                await hook(self)
+            except Exception as e:
+                logger.error(f"Error in shutdown hook '{hook.__name__}': {e}")
+                traceback.print_exc()
 
-        if self._session:
+        logger.info("Stop Chiori client!")
+        if self._session is not None:
             await self._session.close()
 
+        await self._db.close()
+
+        for task in self._tasks:
+            task.cancel()
+
+    @deprecated("Remove in Chiori 0.13, please use Start event instead")
     def preload_config[C: PluginConfig](self, config: type[C]) -> C:
         """Подгружает настройки расширения.
 
