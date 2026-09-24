@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Unpack
 
 from pydantic import ValidationError
 
-from chiori.api.registry import RegisterModel, Registry, validation_error
+from chiori.api.registry import RegisterModel, Registry, RegistryError, validation_error
 
 if TYPE_CHECKING:
     from pydantic import ConfigDict
@@ -28,7 +28,7 @@ class EmojiModel(RegisterModel, extra="allow"):
         """Позволяет определить имя модели."""
         super().__init_subclass__(**kwargs)
         if not name:
-            raise ValueError("Model must have unique name")
+            raise RegistryError(f"Model {cls.__name__!r} must have unique name")
 
         cls.__model_name__ = name
 

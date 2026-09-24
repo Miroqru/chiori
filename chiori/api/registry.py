@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
+class RegistryError(Exception):
+    """Ошибка, возникающая при работе с регистрами."""
+
+
 class RegisterModel(BaseModel):
     """Базовая модель для регистра.
 
@@ -75,9 +79,12 @@ class Registry[M: RegisterModel]:
         Если прототип с таким именем уже существует - выдаст ошибку.
         """
         name = proto.model_name()
-        logger.debug("Register: %s -> %s", name, proto)
+        logger.debug("Register: %s -> %s", name, proto.__name__)
         if name in self._protos:
-            raise ValueError(f"{name} (proto {proto}) already registered")
+            raise RegistryError(
+                f"{name!r} (proto {proto.__name__!r}) already registered"
+            )
+
         self._protos[name] = proto
 
     def get(self, proto: type[M]) -> M:
@@ -88,10 +95,10 @@ class Registry[M: RegisterModel]:
         key = proto.model_name()
         model = self._models.get(key)
         if model is None:
-            raise ValueError(f"Model with {key} is not registered")
+            raise RegistryError(f"Model with {key!r} is not registered")
 
         if not isinstance(model, proto):
-            raise TypeError(f"Model is not instance of {proto}")
+            raise RegistryError(f"Model is not instance of {proto.__name__!r}")
 
         return model
 
