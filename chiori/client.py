@@ -183,7 +183,9 @@ class ChioClient(arc.GatewayClient):
         logger.info("Start Chiori!")
         self._session = aiohttp.ClientSession()
         await self._db.connect(str(self._bot_config.DB_DSN))
-        await self._db.create_tables()
+
+        if self._bot_config.CREATE_MODELS:
+            await self._db.create_models()
 
     async def stop(self) -> None:
         """Остановка работа клиента.

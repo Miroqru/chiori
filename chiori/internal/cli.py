@@ -88,7 +88,7 @@ def run_bot(args: argparse.Namespace, config: ChioConfig) -> None:
     client = ChioClient(
         bot,
         config,
-        autosync=args.sync_commands or not config.DEBUG,
+        autosync=config.SYNC_COMMANDS,
         default_enabled_guilds=enabled_guilds,
     )
     setup_errors(client)
@@ -144,6 +144,11 @@ def _parser() -> argparse.ArgumentParser:
         help="Sync slash commands on start client",
     )
     parser.add_argument(
+        "--create-models",
+        action="store_true",
+        help="Create models after connect to Chiori DB",
+    )
+    parser.add_argument(
         "--ext-path",
         "-e",
         help="Path to load extensions",
@@ -160,6 +165,12 @@ def _config_overrides(config: ChioConfig, args: argparse.Namespace) -> None:
 
     if args.hikari_debug:
         config.HIKARI_DEBUG = True
+
+    if args.create_models:
+        config.CREATE_MODELS = True
+
+    if args.sync_commands:
+        config.SYNC_COMMANDS = True
 
     if e := args.ext_path:
         config.path.EXTENSIONS_PATH = e
