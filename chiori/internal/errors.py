@@ -8,7 +8,8 @@ arc.CommandErrorEvent.
 import arc
 import hikari
 
-from chiori.client import ChioClient, ChioContext
+from chiori import ChioClient
+from chiori.client import ChioContext
 from chiori.log import logger
 
 

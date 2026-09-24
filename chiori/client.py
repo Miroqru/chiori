@@ -24,6 +24,7 @@ from chiori.api import (
     ModelRegistry,
     PluginConfig,
 )
+from chiori.api.service import ServiceRegistry
 from chiori.internal.config import ChioConfig, PathConfig
 from chiori.log import logger
 
@@ -52,6 +53,7 @@ class ChioClient(arc.GatewayClient):
         "_errors",
         "_main_guild",
         "_miru",
+        "_service",
         "_session",
     )
 
@@ -86,6 +88,7 @@ class ChioClient(arc.GatewayClient):
         self._config = ConfigRegistry(self)
         self._db = ModelRegistry(self)
         self._emoji = EmojiRegistry(self)
+        self._service = ServiceRegistry(self)
 
         self._session: aiohttp.ClientSession | None = None
         self._errors: _Errors = {}
@@ -163,7 +166,7 @@ class ChioClient(arc.GatewayClient):
 
     @property
     def session(self) -> aiohttp.ClientSession:
-        """Возвращает связанную с ботов aiohttp сессию.
+        """Возвращает связанную с клиентом aiohttp сессию.
 
         Сессия становится доступна только после запуска клиента.
         И остаётся активной до его остановки.
@@ -172,6 +175,15 @@ class ChioClient(arc.GatewayClient):
         if self._session is None:
             raise ValueError("You need to start client first")
         return self._session
+
+    @property
+    def service(self) -> ServiceRegistry:
+        """Возвращает связанный с клиентом регистр сервисов.
+
+        Сервисы предоставляют более высоко уровневый интерфейс для работы
+        с данными.
+        """
+        return self._service
 
     async def start(self) -> None:
         """Запускает работа клиента.
